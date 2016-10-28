@@ -137,14 +137,7 @@ public class MainVerticle extends AbstractVerticle {
       }
 
       String tenant = ctx.request().headers().get("X-Okapi-Tenant");
-      /*
-      claims.put("tenant", tenant);
-      String token = Jwts.builder()
-              .signWith(JWTAlgorithm, JWTSigningKey)
-              .setClaims(claims)
-              .setSubject(payload.getString("sub"))
-              .compact();
-      */
+
       payload.put("tenant", tenant);
       String token = createToken(payload);
       
@@ -166,11 +159,34 @@ public class MainVerticle extends AbstractVerticle {
     updateOkapiUrl(ctx);
     String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
-    String candidateToken = extractToken(authHeader);
+    String okapiTokenHeader = ctx.request().headers().get(OKAPI_TOKEN_HEADER);
+    String candidateToken = null;
+    if(okapiTokenHeader != null && authHeader != null) {
+      String authToken = extractToken(authHeader);
+      if(authToken.equals(okapiTokenHeader)) {
+        candidateToken = authToken;
+      }
+    } else if(okapiTokenHeader != null) {
+      candidateToken = okapiTokenHeader;
+    } else if(authHeader != null) {
+      candidateToken = extractToken(authHeader);
+    } else {
+      candidateToken = null;
+    }
+    
     String tenant = ctx.request().headers().get("X-Okapi-Tenant");
     logger.debug("AuthZ> Setting tenant for permissions source");
     permissionsSource.setTenant(tenant);
     
+    /* 
+      In order to make our request to the permissions module
+      we generate a custom token (since we have that power) that
+      has the necessary permissions in it. This prevents an
+      ugly 'lookup loop'
+    
+    TODO: Make the permissions read permission configurable,
+    rather than hardcoded
+    */
     JsonObject permissionRequestPayload = new JsonObject()
                 .put("sub", "_AUTHZ_MODULE_")
                 .put("tenant", tenant)
