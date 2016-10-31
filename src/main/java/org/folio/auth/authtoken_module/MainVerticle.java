@@ -53,7 +53,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final String MODULE_PERMISSIONS_HEADER = "X-Okapi-Module-Permissions";
   private static final String CALLING_MODULE_HEADER = "X-Okapi-Calling-Module";
   private static final String MODULE_TOKENS_HEADER = "X-Okapi-Module-Tokens";
-  private static final String OKAPI_URL_HEADER = "X-Okapi-URL";
+  private static final String OKAPI_URL_HEADER = "X-Okapi-Url";
   private static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
   private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   
