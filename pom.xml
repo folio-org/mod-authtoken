@@ -3,6 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.indexdata</groupId>
     <artifactId>authtoken_module</artifactId>
+    <name>authtoken_module</name>
     <version>0.1-SNAPSHOT</version>
     <licenses>
         <license>
@@ -133,5 +134,4 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
-    <name>authtoken_module</name>
 </project>
