@@ -55,6 +55,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final String MODULE_TOKENS_HEADER = "X-Okapi-Module-Tokens";
   private static final String OKAPI_URL_HEADER = "X-Okapi-Url";
   private static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
+  private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
   private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   
   private Key JWTSigningKey = MacProvider.generateKey(JWTAlgorithm);
@@ -110,6 +111,13 @@ public class MainVerticle extends AbstractVerticle {
 
   private void handleToken(RoutingContext ctx) {
     
+    String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+    if(tenant == null) {
+      ctx.response().setStatusCode(400);
+      ctx.response().end("Missing header: " + OKAPI_TENANT_HEADER);
+      return;
+    }
+
     updateOkapiUrl(ctx);
     if(ctx.request().method() == HttpMethod.POST) {
       final String postContent = ctx.getBodyAsString();
@@ -136,8 +144,6 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
 
-      String tenant = ctx.request().headers().get("X-Okapi-Tenant");
-
       payload.put("tenant", tenant);
       String token = createToken(payload);
       
@@ -155,7 +161,13 @@ public class MainVerticle extends AbstractVerticle {
   
   private void handleAuthorize(RoutingContext ctx) {
     logger.debug("Calling handleAuthorize");
-        
+    
+    String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+    if(tenant == null) {
+      ctx.response().setStatusCode(400);
+      ctx.response().end("Missing header: " + OKAPI_TENANT_HEADER);
+      return;
+    }
     updateOkapiUrl(ctx);
     String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
@@ -174,7 +186,6 @@ public class MainVerticle extends AbstractVerticle {
       candidateToken = null;
     }
     
-    String tenant = ctx.request().headers().get("X-Okapi-Tenant");
     logger.debug("AuthZ> Setting tenant for permissions source");
     permissionsSource.setTenant(tenant);
     

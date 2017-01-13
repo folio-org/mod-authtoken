@@ -4,7 +4,7 @@
     <groupId>com.indexdata</groupId>
     <artifactId>authtoken_module</artifactId>
     <name>authtoken_module</name>
-    <version>0.1.1-SNAPSHOT</version>
+    <version>0.1.2-SNAPSHOT</version>
     <licenses>
         <license>
             <name>Apache License 2.0</name>
