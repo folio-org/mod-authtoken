@@ -255,7 +255,7 @@ public class MainVerticle extends AbstractVerticle {
    
     String username = tokenClaims.getString("sub");
     String jwtTenant = tokenClaims.getString("tenant");
-    if(!jwtTenant.equals(tenant)) {
+    if(jwtTenant == null || !jwtTenant.equals(tenant)) {
       logger.debug("AuthZ> Expected tenant: " + tenant + ", got tenant: " + jwtTenant);
       ctx.response()
               .setStatusCode(403)
