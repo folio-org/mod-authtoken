@@ -149,6 +149,7 @@ public class MainVerticle extends AbstractVerticle {
       
       ctx.response().setStatusCode(200)
               .putHeader("Authorization", "Bearer " + token)
+              .putHeader(OKAPI_TOKEN_HEADER, token)
               //.putHeader(OKAPI_TOKEN_HEADER, token)
               .end(postContent);
       return;
