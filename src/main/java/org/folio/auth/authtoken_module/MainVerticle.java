@@ -401,6 +401,7 @@ public class MainVerticle extends AbstractVerticle {
               .putHeader(PERMISSIONS_HEADER, permissions.encode())
               .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
               .putHeader("Authorization", "Bearer " + token)
+              .putHeader(OKAPI_TOKEN_HEADER, token)
               .end(ctx.getBodyAsString());
               //.end();
       return;
