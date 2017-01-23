@@ -161,7 +161,7 @@ public class MainVerticle extends AbstractVerticle {
   }  
   
   private void handleAuthorize(RoutingContext ctx) {
-    logger.debug("Calling handleAuthorize");
+    logger.debug("Calling handleAuthorize for " + ctx.request().absoluteURI());
     
     String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
     if(tenant == null) {
@@ -187,7 +187,7 @@ public class MainVerticle extends AbstractVerticle {
       candidateToken = null;
     }
     
-    logger.debug("AuthZ> Setting tenant for permissions source");
+    logger.debug("AuthZ> Setting tenant for permissions source to " + tenant);
     permissionsSource.setTenant(tenant);
     
     /* 
