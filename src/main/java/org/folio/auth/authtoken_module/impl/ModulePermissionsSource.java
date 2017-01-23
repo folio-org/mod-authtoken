@@ -88,6 +88,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     });
     req.headers().add("Authorization", "Bearer " + requestToken);
     req.headers().add("X-Okapi-Tenant", tenant);
+    req.headers().add("Content-Type", "application/json");
     req.end();
     return future;
   }
