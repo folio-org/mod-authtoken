@@ -71,14 +71,16 @@ public class ModulePermissionsSource implements PermissionsSource {
       if(res.statusCode() == 200) {
         res.bodyHandler(res2 -> {
           JsonObject permissionsObject = new JsonObject(res2.toString());
+          logger.debug("Got permissions: " + permissionsObject.getJsonArray("permissionNames").encodePrettily());
           future.complete(permissionsObject.getJsonArray("permissionNames"));
         });
       } else {
         //future.fail("Unable to retrieve permissions");
         res.bodyHandler(res2 -> {
-          System.out.println("Unable to retrieve permissions (code " + res.statusCode() + "): " + res2.toString());
+          logger.debug("Unable to retrieve permissions (code " + res.statusCode() + "): " + res2.toString());
         });
-        future.complete(new JsonArray());
+        //future.complete(new JsonArray());
+        future.fail("Unable to retrieve permissions (Status code" + res.statusCode() + ")");
       }
     });
     req.exceptionHandler(exception -> {
