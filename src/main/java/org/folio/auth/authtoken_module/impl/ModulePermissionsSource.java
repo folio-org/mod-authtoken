@@ -65,7 +65,7 @@ public class ModulePermissionsSource implements PermissionsSource {
       okapiUrlFinal = okapiUrl;
     }
     //String requestUrl = okapiUrlFinal + "perms/privileged/users/" + username + "/permissions";
-    String requestUrl = okapiUrlFinal + "perms/users/" + username + "/permissions?expand=true";
+    String requestUrl = okapiUrlFinal + "perms/users/" + username + "/permissions?expanded=true";
     logger.debug("Requesting permissions from URL at " + requestUrl);
     HttpClientRequest req = client.getAbs(requestUrl, res-> {
       if(res.statusCode() == 200) {
@@ -89,6 +89,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     req.headers().add("Authorization", "Bearer " + requestToken);
     req.headers().add("X-Okapi-Tenant", tenant);
     req.headers().add("Content-Type", "application/json");
+    req.headers().add("Accept", "application/json");
     req.end();
     return future;
   }
