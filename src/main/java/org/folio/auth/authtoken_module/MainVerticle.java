@@ -57,6 +57,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
   private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
   private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
+  private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   
   private Key JWTSigningKey = MacProvider.generateKey(JWTAlgorithm);
   private static final SignatureAlgorithm JWTAlgorithm = SignatureAlgorithm.HS512;
@@ -219,7 +220,7 @@ public class MainVerticle extends AbstractVerticle {
         DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         Date now = Calendar.getInstance().getTime();
         dummyPayload
-                .put("sub", "UNDEFINED_USER__" + ctx.request().remoteAddress().toString() +
+                .put("sub", UNDEFINED_USER_NAME + ctx.request().remoteAddress().toString() +
                         "__" + df.format(now))
                 .put("tenant", tenant)
                 .put("dummy", true);
@@ -326,7 +327,7 @@ public class MainVerticle extends AbstractVerticle {
     }
     
     PermissionsSource usePermissionsSource;
-    if(tokenClaims.getBoolean("dummy") != null) {
+    if(tokenClaims.getBoolean("dummy") != null || username.startsWith(UNDEFINED_USER_NAME)) {
       logger.debug("AuthZ> Using dummy permissions source");
       usePermissionsSource = new DummyPermissionsSource();
     } else {
