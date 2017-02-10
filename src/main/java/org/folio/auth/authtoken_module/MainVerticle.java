@@ -111,7 +111,8 @@ public class MainVerticle extends AbstractVerticle {
   
 
   private void handleToken(RoutingContext ctx) {
-    
+   
+    logger.debug("Token signing request from " +  ctx.request().absoluteURI());
     String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
     if(tenant == null) {
       ctx.response().setStatusCode(400);
@@ -139,6 +140,8 @@ public class MainVerticle extends AbstractVerticle {
                 .end("Valid 'payload' field is required");
         return;
       }
+      logger.debug("Payload to create token from is " + payload.encode());
+
       if(!payload.containsKey("sub")) {
         ctx.response().setStatusCode(400)
                 .end("Payload must contain a 'sub' field");
