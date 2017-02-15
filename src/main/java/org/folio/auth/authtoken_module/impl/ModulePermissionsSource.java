@@ -86,7 +86,8 @@ public class ModulePermissionsSource implements PermissionsSource {
     req.exceptionHandler(exception -> {
       future.fail(exception);
     });
-    req.headers().add("Authorization", "Bearer " + requestToken);
+    //req.headers().add("Authorization", "Bearer " + requestToken);
+    req.headers().add("X-Okapi-Token", requestToken);
     req.headers().add("X-Okapi-Tenant", tenant);
     req.headers().add("Content-Type", "application/json");
     req.headers().add("Accept", "application/json");
