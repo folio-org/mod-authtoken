@@ -423,8 +423,8 @@ public class MainVerticle extends AbstractVerticle {
   private void updateOkapiUrl(RoutingContext ctx) {
     if(ctx.request().getHeader(OKAPI_URL_HEADER) != null) {
       this.okapiUrl = ctx.request().getHeader(OKAPI_URL_HEADER);
+      permissionsSource.setOkapiUrl(okapiUrl);
     }
-    permissionsSource.setOkapiUrl(okapiUrl);
   }
 
 

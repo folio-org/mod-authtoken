@@ -82,6 +82,7 @@ public class AuthTokenTest {
     Response r;
 
     // Simple request, mostly to see we can talk to the module
+    // Not even a X-Okapi-Tenant header
     given()
       .get("/foo") // any path should work
       .then()
@@ -89,14 +90,16 @@ public class AuthTokenTest {
       .body(containsString("Missing header: X-Okapi-Tenant"));
 
     // A request without X-Okapi-Url header.
-    // Should return 400, returns 500 because the module crashes
-    // in ModulePermissionsSource.setOkapiUrl(ModulePermissionsSource.java:39)
-    // See Folio-476
-     given()
+    // This succeeds (after fixing Folio-476).
+    // Not quite sure if it should - without the ability to call back to
+    // Okapi, we can not do much. Then again, Okapi always sets this header
+    // before calling auth, so the whole thing is a bit theoretical. And the
+    // module falls back to localhost:9130, which is not a bad guess...
+    given()
       .header("X-Okapi-Tenant", tenant)
       .get("/foo")
       .then()
-      .statusCode(500);
+      .statusCode(202);
 
     // A request that should succeed
     // Even without any credentials in the request, we get back the whole lot,
