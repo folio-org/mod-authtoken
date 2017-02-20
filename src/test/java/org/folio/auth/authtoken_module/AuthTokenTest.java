@@ -33,9 +33,7 @@ public class AuthTokenTest {
   Vertx vertx;
   Async async;
 
-  private final int port = Integer.parseInt(System.getProperty("port", "8081"));
-  // TODO - Something wrong with passing the port around
-  // The module defaults to 8081, so that's what we use here.
+  private final String port = System.getProperty("port", "9129");
 
   @Before
   public void setUp(TestContext context) {
@@ -48,7 +46,7 @@ public class AuthTokenTest {
     vertx.deployVerticle(MainVerticle.class.getName(),
       opt, context.asyncAssertSuccess());
     httpClient = vertx.createHttpClient();
-    RestAssured.port = port;
+    RestAssured.port = Integer.parseInt(port);
   }
 
   @After

@@ -1,6 +1,5 @@
 package org.folio.auth.authtoken_module;
 
-import org.folio.auth.authtoken_module.PermissionsSource;
 import org.folio.auth.authtoken_module.impl.DummyPermissionsSource;
 import org.folio.auth.authtoken_module.impl.ModulePermissionsSource;
 import com.sun.xml.internal.messaging.saaj.util.Base64;
@@ -28,13 +27,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.bind.DatatypeConverter;
 
 /**
  *
@@ -88,7 +84,10 @@ public class MainVerticle extends AbstractVerticle {
     //permissionsSource = new DummyPermissionsSource();
     permissionsSource.setAuthApiKey(authApiKey);
 
-    final int port = Integer.parseInt(System.getProperty("port", "8081"));
+    // Get the port from context too, the unit test needs to set it there.
+    final String defaultPort = context.config().getString("port", "8081");
+    final String portStr = System.getProperty("port", defaultPort);
+    final int port = Integer.parseInt(portStr);
 
     //router.route("/token").handler(BodyHandler.create());
     //router.route("/token").handler(this::handleToken);
