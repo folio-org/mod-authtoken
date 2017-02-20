@@ -34,7 +34,7 @@ public class DummyPermissionsSource implements PermissionsSource {
 
   @Override
   public void setAuthApiKey(String key) {
-    return; 
+    return;
   }
 
   @Override
@@ -42,5 +42,5 @@ public class DummyPermissionsSource implements PermissionsSource {
     return;
   }
 
-  
+
 }

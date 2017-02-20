@@ -28,31 +28,31 @@ public class ModulePermissionsSource implements PermissionsSource {
   private String authApiKey = "";
   private String tenant;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
-  
+
   public ModulePermissionsSource(Vertx vertx) {
     //permissionsModuleUrl = url;
     this.vertx = vertx;
   }
-  
+
   public void setOkapiUrl(String url) {
     okapiUrl = url;
     if(!okapiUrl.endsWith("/")) {
       okapiUrl = okapiUrl + "/";
     }
   }
-  
+
   public void setRequestToken(String token) {
     requestToken = token;
   }
-  
+
   public void setAuthApiKey(String key) {
     authApiKey = key;
   }
-  
+
   public void setTenant(String tenant) {
     this.tenant = tenant;
   }
-  
+
   @Override
   public Future<JsonArray> getPermissionsForUser(String username) {
     Future<JsonArray> future = Future.future();
@@ -95,5 +95,5 @@ public class ModulePermissionsSource implements PermissionsSource {
     return future;
   }
 
-  
+
 }
