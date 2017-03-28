@@ -345,10 +345,13 @@ public class MainVerticle extends AbstractVerticle {
 
     //Retrieve the user permissions and populate the permissions header
     logger.debug("AuthZ> Getting user permissions for " + username);
+    long startTime = System.currentTimeMillis();
     usePermissionsSource.getPermissionsForUser(username).setHandler((AsyncResult<JsonArray> res) -> {
 
       if(res.failed()) {
-        logger.error("AuthZ> Unable to retrieve permissions for " + username + ": " + res.cause().getMessage());
+        long stopTime = System.currentTimeMillis();
+        logger.error("AuthZ> Unable to retrieve permissions for " + username + ": " + res.cause().getMessage() +
+                " request took " + (stopTime - startTime) + " ms");
         ctx.response()
                 .setStatusCode(500)
                 //.end("Unable to retrieve permissions for user");
