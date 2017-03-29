@@ -59,15 +59,25 @@ public class ModulePermissionsSource implements PermissionsSource {
     if(okapiUrl != null) {
       okapiUrlFinal = okapiUrl;
     }
-    //String requestUrl = okapiUrlFinal + "perms/privileged/users/" + username + "/permissions";
     String requestUrl = okapiUrlFinal + "perms/users/" + username + "/permissions?expanded=true";
     logger.debug("Requesting permissions from URL at " + requestUrl);
     HttpClientRequest req = client.getAbs(requestUrl, res-> {
       if(res.statusCode() == 200) {
         res.bodyHandler(res2 -> {
-          JsonObject permissionsObject = new JsonObject(res2.toString());
-          logger.debug("Got permissions: " + permissionsObject.getJsonArray("permissionNames").encodePrettily());
-          future.complete(permissionsObject.getJsonArray("permissionNames"));
+          JsonObject permissionsObject;
+          try {
+            permissionsObject = new JsonObject(res2.toString());
+          } catch(Exception e) {
+            logger.debug("Error parsing permissions object: " + e.getLocalizedMessage());
+            permissionsObject = null;
+          }
+          if(permissionsObject != null && permissionsObject.getJsonArray("permissionsNames") != null) {
+            logger.debug("Got permissions: " + permissionsObject.getJsonArray("permissionNames").encodePrettily());
+            future.complete(permissionsObject.getJsonArray("permissionNames"));
+          } else {
+            logger.debug("Got malformed/empty permissions object");
+            future.fail("Got malformed/empty permissions object");
+          }
         });
       } else {
         //future.fail("Unable to retrieve permissions");
