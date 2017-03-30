@@ -71,7 +71,7 @@ public class ModulePermissionsSource implements PermissionsSource {
             logger.debug("Error parsing permissions object: " + e.getLocalizedMessage());
             permissionsObject = null;
           }
-          if(permissionsObject != null && permissionsObject.getJsonArray("permissionsNames") != null) {
+          if(permissionsObject != null && permissionsObject.getJsonArray("permissionNames") != null) {
             logger.debug("Got permissions: " + permissionsObject.getJsonArray("permissionNames").encodePrettily());
             future.complete(permissionsObject.getJsonArray("permissionNames"));
           } else {
