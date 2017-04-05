@@ -58,6 +58,7 @@ public class MainVerticle extends AbstractVerticle {
   private String authApiKey;
   private String okapiUrl;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+  private static final String PERMISSIONS_READ_BIT = "perms.users.get";
 
   public void start(Future<Void> future) {
     Router router = Router.router(vertx);
@@ -203,7 +204,7 @@ public class MainVerticle extends AbstractVerticle {
                 .put("sub", "_AUTHZ_MODULE_")
                 .put("tenant", tenant)
                 .put("dummy", true)
-                .put("extra_permissions", new JsonArray().add("perms.users.read"));
+                .put("extra_permissions", new JsonArray().add(PERMISSIONS_READ_BIT));
 
     String permissionsRequestToken = Jwts.builder()
               .signWith(JWTAlgorithm, JWTSigningKey)
