@@ -13,6 +13,7 @@ public interface PermissionsSource {
   public void setRequestToken(String token);
   public void setAuthApiKey(String key);
   public void setTenant(String tenant);
+  public void setRequestTimeout(int seconds);
 
   Future<JsonArray> getPermissionsForUser(String username);
 

@@ -37,5 +37,10 @@ public class DummyPermissionsSource implements PermissionsSource {
     return;
   }
 
+  @Override
+  public void setRequestTimeout(int seconds) {
+    return;
+  }
+
 
 }

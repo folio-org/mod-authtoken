@@ -59,16 +59,23 @@ public class MainVerticle extends AbstractVerticle {
   private String okapiUrl;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private static final String PERMISSIONS_READ_BIT = "perms.users.get";
+  private int permLookupTimeout;
+  private boolean suppressErrorResponse = false;
 
   public void start(Future<Void> future) {
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
     authApiKey = System.getProperty("auth.api.key", "VERY_WEAK_KEY");
-
+    permLookupTimeout =Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     String keySetting = System.getProperty("jwt.signing.key");
     if(keySetting != null) {
       //JWTSigningKey = new SecretKeySpec(DatatypeConverter.parseHexBinary(keySetting), JWTAlgorithm.getJcaName());
       JWTSigningKey = new SecretKeySpec(keySetting.getBytes(), JWTAlgorithm.getJcaName());
+    }
+
+    String suppressString = System.getProperty("suppress.error.response", "false");
+    if(suppressString.equals("true")) {
+      suppressErrorResponse = true;
     }
 
     String logLevel = System.getProperty("log.level", null);
@@ -212,6 +219,7 @@ public class MainVerticle extends AbstractVerticle {
               .compact();
 
     permissionsSource.setRequestToken(permissionsRequestToken);
+    permissionsSource.setRequestTimeout(permLookupTimeout);
     if(candidateToken == null) {
       JsonObject dummyPayload = new JsonObject();
       try {
@@ -354,9 +362,12 @@ public class MainVerticle extends AbstractVerticle {
         logger.error("AuthZ> Unable to retrieve permissions for " + username + ": " + res.cause().getMessage() +
                 " request took " + (stopTime - startTime) + " ms");
         ctx.response()
-                .setStatusCode(500)
-                //.end("Unable to retrieve permissions for user");
-                .end();
+                .setStatusCode(500);
+        if(suppressErrorResponse) {
+          ctx.response().end();
+        } else {
+          ctx.response().end("Unable to retrieve permissions for user '" + username + "': " +  res.cause().getLocalizedMessage());
+        }
         return;
       }
       JsonArray permissions = res.result();

@@ -22,6 +22,7 @@ public class ModulePermissionsSource implements PermissionsSource {
   private String requestToken;
   private String authApiKey = "";
   private String tenant;
+  private int timeout = 10;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
 
   public ModulePermissionsSource(Vertx vertx) {
@@ -48,12 +49,16 @@ public class ModulePermissionsSource implements PermissionsSource {
     this.tenant = tenant;
   }
 
+  public void setRequestTimeout(int seconds) {
+    this.timeout = seconds;
+  }
+
   @Override
   public Future<JsonArray> getPermissionsForUser(String username) {
     Future<JsonArray> future = Future.future();
     HttpClientOptions options = new HttpClientOptions();
-    options.setConnectTimeout(10);
-    options.setIdleTimeout(10);
+    options.setConnectTimeout(timeout);
+    options.setIdleTimeout(timeout);
     HttpClient client = vertx.createHttpClient(options);
     String okapiUrlFinal = "http://localhost:9130/";
     if(okapiUrl != null) {
