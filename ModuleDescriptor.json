@@ -7,17 +7,19 @@
       "version": "0.0.1",
       "handlers" : [
         {
-          "methods" : [ "*" ],
-          "pathPattern" : "/*",
-          "phase" : "auth",
-          "type" : "request-only",
-          "modulePermissions" : [ "perms.users.get" ]
-        },
-        {
           "methods" : [ "POST" ],
           "pathPattern" : "/token"
         }
       ]
+    }
+  ],
+  "filters" : [
+    {
+      "methods" : [ "*" ],
+      "pathPattern" : "/*",
+      "phase" : "auth",
+      "type" : "request-only",
+      "modulePermissions" : [ "perms.users.get" ]
     }
   ]
 }
