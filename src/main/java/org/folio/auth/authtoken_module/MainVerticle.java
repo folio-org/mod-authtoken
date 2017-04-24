@@ -387,8 +387,8 @@ public class MainVerticle extends AbstractVerticle {
           ctx.response()
                   //.putHeader("Content-Type", "text/plain")
                   .setStatusCode(403)
-                  //.end("Access requires permission: " + (String)o);
-                  .end();
+                  .end("Access requires permission: " + (String)o);
+                  //.end();
           return;
         }
       }
