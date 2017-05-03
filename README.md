@@ -17,6 +17,9 @@ that privileged modules (such as Authentication) may make use of.
 
 The [raml-module-builder](https://github.com/folio-org/raml-module-builder) framework.
 
+See project [MODAT](https://issues.folio.org/browse/MODAT)
+at the [FOLIO issue tracker](http://dev.folio.org/community/guide-issues).
+
 Other [modules](http://dev.folio.org/source-code/#server-side).
 
 Other FOLIO Developer documentation is at [dev.folio.org](http://dev.folio.org/)
