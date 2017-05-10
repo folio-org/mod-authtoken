@@ -4,7 +4,7 @@
   <groupId>com.indexdata</groupId>
   <artifactId>authtoken_module</artifactId>
   <name>authtoken_module</name>
-  <version>0.4.0-SNAPSHOT</version>
+  <version>0.4.0</version>
   <licenses>
     <license>
       <name>Apache License 2.0</name>
@@ -31,7 +31,7 @@
 		<url>https://github.com/folio-org/mod-authtoken</url>
 		<connection>scm:git:git://github.com/folio-org/mod-authtoken.git</connection>
 		<developerConnection>scm:git:git@github.com:folio-org/mod-authtoken.git</developerConnection>
-		<tag>HEAD</tag>
+		<tag>v0.4.0</tag>
 		</scm>
   <dependencies>
     <dependency>
@@ -157,7 +157,7 @@
                   </manifestEntries>
                 </transformer>
               </transformers>
-              <artifactSet/>
+              <artifactSet />
               <outputFile>${project.build.directory}/${project.artifactId}-fat.jar</outputFile>
             </configuration>
           </execution>
