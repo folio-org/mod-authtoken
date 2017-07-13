@@ -58,7 +58,6 @@ public class ModulePermissionsSource implements PermissionsSource {
     Future<JsonArray> future = Future.future();
     HttpClientOptions options = new HttpClientOptions();
     options.setConnectTimeout(timeout);
-    options.setIdleTimeout(timeout);
     HttpClient client = vertx.createHttpClient(options);
     String okapiUrlFinal = "http://localhost:9130/";
     if(okapiUrl != null) {
