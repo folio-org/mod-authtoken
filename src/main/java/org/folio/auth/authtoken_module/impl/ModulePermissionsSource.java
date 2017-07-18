@@ -83,6 +83,10 @@ public class ModulePermissionsSource implements PermissionsSource {
             future.fail("Got malformed/empty permissions object");
           }
         });
+      } else if(res.statusCode() == 404) {
+        //In the event of a 404, that means that the permissions user 
+        //doesn't exist, so we'll return an empty list to indicate no permissions
+        future.complete(new JsonArray());
       } else {
         //future.fail("Unable to retrieve permissions");
         res.bodyHandler(res2 -> {
@@ -92,15 +96,17 @@ public class ModulePermissionsSource implements PermissionsSource {
         });
       }
     });
+    
     req.exceptionHandler(exception -> {
       future.fail(exception);
     });
-    //req.headers().add("Authorization", "Bearer " + requestToken);
+    
     req.headers().add("X-Okapi-Token", requestToken);
     req.headers().add("X-Okapi-Tenant", tenant);
     req.headers().add("Content-Type", "application/json");
     req.headers().add("Accept", "application/json");
     req.end();
+
     return future;
   }
 
