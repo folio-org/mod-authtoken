@@ -2,7 +2,7 @@ package org.folio.auth.authtoken_module;
 
 import org.folio.auth.authtoken_module.impl.DummyPermissionsSource;
 import org.folio.auth.authtoken_module.impl.ModulePermissionsSource;
-import com.sun.xml.internal.messaging.saaj.util.Base64;
+import java.util.Base64;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -457,7 +457,7 @@ public class MainVerticle extends AbstractVerticle {
 
   public JsonObject getClaims(String jwt) {
     String encodedJson = jwt.split("\\.")[1];
-    String decodedJson = Base64.base64Decode(encodedJson);
+    String decodedJson = new String(Base64.getDecoder().decode(encodedJson));
     return new JsonObject(decodedJson);
   }
 

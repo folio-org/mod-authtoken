@@ -4,14 +4,15 @@
   <groupId>com.indexdata</groupId>
   <artifactId>authtoken_module</artifactId>
   <name>authtoken_module</name>
-  <version>0.4.0</version>
+  <version>0.4.1-SNAPSHOT</version>
   <licenses>
     <license>
       <name>Apache License 2.0</name>
       <url>http://spdx.org/licenses/Apache-2.0</url>
     </license>
   </licenses>
-	<distributionManagement>
+
+  <distributionManagement>
     <repository>
       <id>folio-nexus</id>
       <name>FOLIO Release Repository</name>
@@ -27,12 +28,12 @@
       <layout>default</layout>
     </snapshotRepository>
   </distributionManagement>
-	<scm>
-		<url>https://github.com/folio-org/mod-authtoken</url>
-		<connection>scm:git:git://github.com/folio-org/mod-authtoken.git</connection>
-		<developerConnection>scm:git:git@github.com:folio-org/mod-authtoken.git</developerConnection>
-		<tag>v0.4.0</tag>
-		</scm>
+  <scm>
+    <url>https://github.com/folio-org/mod-authtoken</url>
+    <connection>scm:git:git://github.com/folio-org/mod-authtoken.git</connection>
+    <developerConnection>scm:git:git@github.com:folio-org/mod-authtoken.git</developerConnection>
+    <tag>HEAD</tag>
+  </scm>
   <dependencies>
     <dependency>
       <groupId>io.vertx</groupId>
@@ -106,17 +107,17 @@
   </dependencies>
   <build>
     <plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-release-plugin</artifactId>
-				<version>2.5.3</version>
-				<configuration>
-					<preparationGoals>clean verify</preparationGoals>
-					<tagNameFormat>v@{project.version}</tagNameFormat>
-					<pushChanges>false</pushChanges>
-					<localCheckout>true</localCheckout>
-				</configuration>
-			</plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-release-plugin</artifactId>
+        <version>2.5.3</version>
+        <configuration>
+          <preparationGoals>clean verify</preparationGoals>
+          <tagNameFormat>v@{project.version}</tagNameFormat>
+          <pushChanges>false</pushChanges>
+          <localCheckout>true</localCheckout>
+        </configuration>
+      </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.3</version>
