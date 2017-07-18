@@ -114,6 +114,10 @@ public class MainVerticle extends AbstractVerticle {
   }
 
 
+	/*
+	 * Handle a request to sign a new token
+	 * (Typically used by login module)
+	 */
   private void handleToken(RoutingContext ctx) {
 
     logger.debug("Token signing request from " +  ctx.request().absoluteURI());
@@ -186,7 +190,13 @@ public class MainVerticle extends AbstractVerticle {
       String authToken = extractToken(authHeader);
       if(authToken.equals(okapiTokenHeader)) {
         candidateToken = authToken;
-      }
+      } else {
+      	ctx.response().setStatusCode(400);
+      	ctx.response().end("Conflicting token information in Authorization and " +
+      			OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header " +
+      			" and use " + OKAPI_TOKEN_HEADER + " in the future");
+      	return;
+			}
     } else if(okapiTokenHeader != null) {
       candidateToken = okapiTokenHeader;
     } else if(authHeader != null) {
@@ -244,14 +254,19 @@ public class MainVerticle extends AbstractVerticle {
     try {
       parser = Jwts.parser().setSigningKey(JWTSigningKey);
       parser.parseClaimsJws(authToken);
-    } catch (io.jsonwebtoken.MalformedJwtException|SignatureException s) {
-        //logger.debug("JWT auth did not succeed");
-        ctx.response().setStatusCode(400)
+    } catch (io.jsonwebtoken.MalformedJwtException m) {
+        logger.error("Malformed token", m);
+        ctx.response().setStatusCode(401)
                 //.end("Invalid token");
-                .end();
+                .end("Invalid token format");
        //System.out.println(authToken + " is not valid");
         return;
-    }
+    } catch(SignatureException s) {
+    	logger.error("Invalid signature on token " + authToken, s);
+    	ctx.response().setStatusCode(401)
+    		.end("Invalid token signature");
+    	return;
+		}
 
     //System.out.println("Authz received token " + authToken);
     logger.debug("AuthZ> Token claims are " + getClaims(authToken).encode());
