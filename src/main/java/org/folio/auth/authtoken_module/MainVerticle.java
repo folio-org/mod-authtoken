@@ -58,7 +58,8 @@ public class MainVerticle extends AbstractVerticle {
   private String authApiKey;
   private String okapiUrl;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
-  private static final String PERMISSIONS_READ_BIT = "perms.users.get";
+  private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
+  private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
   private int permLookupTimeout;
   private boolean suppressErrorResponse = false;
 
@@ -221,7 +222,9 @@ public class MainVerticle extends AbstractVerticle {
                 .put("sub", "_AUTHZ_MODULE_")
                 .put("tenant", tenant)
                 .put("dummy", true)
-                .put("extra_permissions", new JsonArray().add(PERMISSIONS_READ_BIT));
+                .put("extra_permissions", new JsonArray()
+                		.add(PERMISSIONS_PERMISSION_READ_BIT)
+                		.add(PERMISSIONS_USER_READ_BIT));
 
     String permissionsRequestToken = Jwts.builder()
               .signWith(JWTAlgorithm, JWTSigningKey)
@@ -371,7 +374,6 @@ public class MainVerticle extends AbstractVerticle {
     logger.debug("AuthZ> Getting user permissions for " + username);
     long startTime = System.currentTimeMillis();
     usePermissionsSource.getPermissionsForUser(username).setHandler((AsyncResult<JsonArray> res) -> {
-
       if(res.failed()) {
         long stopTime = System.currentTimeMillis();
         logger.error("AuthZ> Unable to retrieve permissions for " + username + ": " + res.cause().getMessage() +
@@ -387,65 +389,78 @@ public class MainVerticle extends AbstractVerticle {
       }
       JsonArray permissions = res.result();
       logger.debug("AuthZ> Permissions for " + username + ": " + permissions.encode());
-      if(extraPermissions != null) {
-        for(Object o : extraPermissions)
-        {
-          permissions.add((String)o);
-        }
-      }
+      logger.debug("AuthZ> Extra permissions for request: " + extraPermissions.encode());
+      usePermissionsSource.expandPermissions(extraPermissions).setHandler( res2 -> {
+      	if(res2.failed()) {
+      		String message = "Error getting expanded permissions for " +
+      			extraPermissions.encode() + " : " + res2.cause().getLocalizedMessage();
+      		ctx.response().setStatusCode(500)
+      			.end(message);
+      		logger.error(message, res2.cause());
+				} else {
+					JsonArray expandedExtraPermissions = res2.result();
+					if(expandedExtraPermissions != null) {
+						logger.debug("AuthZ> expandedExtraPermissions are: " + expandedExtraPermissions.encode());
+						for(Object o : expandedExtraPermissions)
+						{
+							permissions.add((String)o);
+						}
+					}
 
-      //Check that for all required permissions, we have them
-      for(Object o : permissionsRequired) {
-        if(!permissions.contains((String)o) && !extraPermissions.contains((String)o)) {
-          logger.debug("Authz> " + permissions.encode() + "(user permissions) nor " +
-                  extraPermissions.encode() + "(module permissions) do not contain " + (String)o);
-          ctx.response()
-                  //.putHeader("Content-Type", "text/plain")
-                  .setStatusCode(403)
-                  .end("Access requires permission: " + (String)o);
-                  //.end();
-          return;
-        }
-      }
+					//Check that for all required permissions, we have them
+					for(Object o : permissionsRequired) {
+						if(!permissions.contains((String)o) && !extraPermissions.contains((String)o)) {
+							logger.debug("Authz> " + permissions.encode() + "(user permissions) nor " +
+											extraPermissions.encode() + "(module permissions) do not contain " + (String)o);
+							ctx.response()
+											//.putHeader("Content-Type", "text/plain")
+											.setStatusCode(403)
+											.end("Access requires permission: " + (String)o);
+											//.end();
+							return;
+						}
+					}
 
-      //Remove all permissions not listed in permissionsRequired or permissionsDesired
-      List<Object> deleteList = new ArrayList<>();
-      for(Object o : permissions) {
-        if(!permissionsRequired.contains(o) && !permissionsDesired.contains(o)) {
-          deleteList.add(o);
-        }
-      }
+					//Remove all permissions not listed in permissionsRequired or permissionsDesired
+					List<Object> deleteList = new ArrayList<>();
+					for(Object o : permissions) {
+						if(!permissionsRequired.contains(o) && !permissionsDesired.contains(o)) {
+							deleteList.add(o);
+						}
+					}
 
-      for(Object o : deleteList) {
-        permissions.remove(o);
-      }
+					for(Object o : deleteList) {
+						permissions.remove(o);
+					}
 
-      //Create new JWT to pass back with request, include calling module field
-      JsonObject claims = getClaims(authToken);
+					//Create new JWT to pass back with request, include calling module field
+					JsonObject claims = getClaims(authToken);
 
-      if(ctx.request().headers().contains(CALLING_MODULE_HEADER)) {
-        claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
-      }
+					if(ctx.request().headers().contains(CALLING_MODULE_HEADER)) {
+						claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
+					}
 
-      String token = Jwts.builder()
-              .signWith(JWTAlgorithm, JWTSigningKey)
-              .setPayload(claims.encode())
-              .compact();
+					String token = Jwts.builder()
+									.signWith(JWTAlgorithm, JWTSigningKey)
+									.setPayload(claims.encode())
+									.compact();
 
-      logger.debug("AuthZ> Returning header " + PERMISSIONS_HEADER + " with content " + permissions.encode());
-      logger.debug("AuthZ> Returning header " + MODULE_TOKENS_HEADER + " with content " + moduleTokens.encode());
-      logger.debug("AuthZ> Returning Authorization Bearer token with content " + claims.encode());
-      //Return header containing relevant permissions
-      ctx.response()
-              .setChunked(true)
-              .setStatusCode(202)
-              .putHeader(PERMISSIONS_HEADER, permissions.encode())
-              .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
-              .putHeader("Authorization", "Bearer " + token)
-              .putHeader(OKAPI_TOKEN_HEADER, token)
-              .end(ctx.getBodyAsString());
-              //.end();
-      return;
+					logger.debug("AuthZ> Returning header " + PERMISSIONS_HEADER + " with content " + permissions.encode());
+					logger.debug("AuthZ> Returning header " + MODULE_TOKENS_HEADER + " with content " + moduleTokens.encode());
+					logger.debug("AuthZ> Returning Authorization Bearer token with content " + claims.encode());
+					//Return header containing relevant permissions
+					ctx.response()
+									.setChunked(true)
+									.setStatusCode(202)
+									.putHeader(PERMISSIONS_HEADER, permissions.encode())
+									.putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
+									.putHeader("Authorization", "Bearer " + token)
+									.putHeader(OKAPI_TOKEN_HEADER, token)
+									.end(ctx.getBodyAsString());
+									//.end();
+					return;
+				}
+			});
     });
   }
 
