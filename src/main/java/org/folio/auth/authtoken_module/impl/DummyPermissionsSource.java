@@ -42,5 +42,12 @@ public class DummyPermissionsSource implements PermissionsSource {
     return;
   }
 
+	@Override
+	public Future<JsonArray> expandPermissions(JsonArray permissions) {
+		Future<JsonArray> future = Future.future();
+		future.complete(permissions);
+		return future;
+	}
+
 
 }

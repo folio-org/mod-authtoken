@@ -1,10 +1,10 @@
 {
-  "id": "authtoken-module",
+  "id": "authtoken-module-0.5.0",
   "name": "authtoken",
   "provides": [
     {
       "id": "authtoken",
-      "version": "0.0.1",
+      "version": "1.0",
       "handlers" : [
         {
           "methods" : [ "POST" ],

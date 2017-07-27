@@ -4,7 +4,7 @@
   <groupId>com.indexdata</groupId>
   <artifactId>authtoken_module</artifactId>
   <name>authtoken_module</name>
-  <version>0.4.1-SNAPSHOT</version>
+  <version>0.5.1-SNAPSHOT</version>
   <licenses>
     <license>
       <name>Apache License 2.0</name>
@@ -28,14 +28,12 @@
       <layout>default</layout>
     </snapshotRepository>
   </distributionManagement>
-
   <scm>
     <url>https://github.com/folio-org/mod-authtoken</url>
     <connection>scm:git:git://github.com/folio-org/mod-authtoken.git</connection>
     <developerConnection>scm:git:git@github.com:folio-org/mod-authtoken.git</developerConnection>
     <tag>HEAD</tag>
   </scm>
-
   <dependencies>
     <dependency>
       <groupId>io.vertx</groupId>
