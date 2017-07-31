@@ -1,5 +1,5 @@
 {
-  "id": "authtoken-module-0.5.0",
+  "id": "authtoken-module-0.6.0",
   "name": "authtoken",
   "provides": [
     {
