@@ -1,3 +1,6 @@
+## 0.6.1 2016-7-31
+ * Fix bug with missing source file
+
 ## 0.6.0 2017-7-31
  * Add support for X-Okapi-User-Id header
  * Add support for X-Okapi-Request-Id header
