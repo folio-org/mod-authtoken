@@ -30,6 +30,10 @@ public class AuthTokenTest {
   private static final String LS = System.lineSeparator();
   private static final String tenant = "Roskilde";
   private HttpClient httpClient;
+  private TokenCreator tokenCreator;
+  private JsonObject payload;
+  private String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
+  private String basicToken;
   Vertx vertx;
   Async async;
 
@@ -43,6 +47,14 @@ public class AuthTokenTest {
       .put("port", port);
     DeploymentOptions opt = new DeploymentOptions()
       .setConfig(conf);
+    payload = new JsonObject()
+      .put("user_id", userUUID)
+      .put("tenant", tenant)
+      .put("dummy", true)
+      .put("sub", "jones");
+    tokenCreator = new TokenCreator("CorrectBatteryHorseStaple");
+    basicToken = tokenCreator.createToken(payload.encode());
+    System.setProperty("jwt.signing.key", "CorrectBatteryHorseStaple");
     vertx.deployVerticle(MainVerticle.class.getName(),
       opt, context.asyncAssertSuccess());
     httpClient = vertx.createHttpClient();
@@ -183,7 +195,26 @@ public class AuthTokenTest {
       .statusCode(202)
       .header("X-Okapi-Permissions", "[\"extra.first\",\"extra.second\"]");
 
-    async.complete();
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("X-Okapi-User-Id", userUUID)
+      .get("/bar")
+      .then()
+      .statusCode(202);
+
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("X-Okapi-User-Id", "1234567")
+      .get("/bar")
+      .then()
+      .statusCode(403);
+
+
+      async.complete();
     logger.debug("AuthToken test1 done");
 
   }
