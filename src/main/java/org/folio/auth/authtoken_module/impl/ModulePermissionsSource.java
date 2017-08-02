@@ -55,61 +55,79 @@ public class ModulePermissionsSource implements PermissionsSource {
   }
 
   @Override
-  public Future<JsonArray> getPermissionsForUser(String username) {
+  public Future<JsonArray> getPermissionsForUser(String userid) {
     Future<JsonArray> future = Future.future();
     HttpClientOptions options = new HttpClientOptions();
     options.setConnectTimeout(timeout);
     HttpClient client = vertx.createHttpClient(options);
-    String okapiUrlFinal = "http://localhost:9130/";
+    String okapiUrlCandidate = "http://localhost:9130/";
     if(okapiUrl != null) {
-      okapiUrlFinal = okapiUrl;
+      okapiUrlCandidate = okapiUrl;
     }
-    String requestUrl = okapiUrlFinal + "perms/users/" + username + "/permissions?expanded=true";
-    logger.debug("Requesting permissions from URL at " + requestUrl);
-    HttpClientRequest req = client.getAbs(requestUrl, res-> {
-      if(res.statusCode() == 200) {
-        res.bodyHandler(res2 -> {
-          JsonObject permissionsObject;
-          try {
-            permissionsObject = new JsonObject(res2.toString());
-          } catch(Exception e) {
-            logger.debug("Error parsing permissions object: " + e.getLocalizedMessage());
-            permissionsObject = null;
-          }
-          if(permissionsObject != null && permissionsObject.getJsonArray("permissionNames") != null) {
-            logger.debug("Got permissions: " + permissionsObject.getJsonArray("permissionNames").encodePrettily());
-            future.complete(permissionsObject.getJsonArray("permissionNames"));
-          } else {
-            logger.debug("Got malformed/empty permissions object");
-            future.fail("Got malformed/empty permissions object");
-          }
-        });
-      } else if(res.statusCode() == 404) {
-        //In the event of a 404, that means that the permissions user 
-        //doesn't exist, so we'll return an empty list to indicate no permissions
-        future.complete(new JsonArray());
-      } else {
-        //future.fail("Unable to retrieve permissions");
-        res.bodyHandler(res2 -> {
-          String failMessage = "Unable to retrieve permissions (code " + res.statusCode() + "): " + res2.toString();
-          logger.debug(failMessage);
-          future.fail(failMessage);
-        });
-      }
-    });
-    
-    req.exceptionHandler(exception -> {
-      future.fail(exception);
-    });
-    
-    req.headers().add("X-Okapi-Token", requestToken);
-    req.headers().add("X-Okapi-Tenant", tenant);
-    req.headers().add("Content-Type", "application/json");
-    req.headers().add("Accept", "application/json");
-    req.end();
+    final String okapiUrlFinal = okapiUrlCandidate;
+    String permUserRequestUrl = okapiUrlFinal + "perms/users?query=userid=="+userid;
+    logger.debug("Requesting permissions user object from URL at " + permUserRequestUrl);
+    HttpClientRequest permUserReq = client.getAbs(permUserRequestUrl, permUserRes -> {
+    	permUserRes.bodyHandler(permUserBody -> {
+				if(permUserRes.statusCode() != 200) {
+					future.fail("Expected return code 200, got " + permUserRes.statusCode() +
+						" : " + permUserBody.toString());
+				} else {
+					JsonObject permUser = new JsonObject(permUserBody.toString());
+					final String requestUrl = okapiUrlFinal + "perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
+					logger.debug("Requesting permissions from URL at " + requestUrl);
+					HttpClientRequest req = client.getAbs(requestUrl, res-> {
+						if(res.statusCode() == 200) {
+							res.bodyHandler(res2 -> {
+								JsonObject permissionsObject;
+								try {
+									permissionsObject = new JsonObject(res2.toString());
+								} catch(Exception e) {
+									logger.debug("Error parsing permissions object: " + e.getLocalizedMessage());
+									permissionsObject = null;
+								}
+								if(permissionsObject != null && permissionsObject.getJsonArray("permissionNames") != null) {
+									logger.debug("Got permissions: " + permissionsObject.getJsonArray("permissionNames").encodePrettily());
+									future.complete(permissionsObject.getJsonArray("permissionNames"));
+								} else {
+									logger.debug("Got malformed/empty permissions object");
+									future.fail("Got malformed/empty permissions object");
+								}
+							});
+						} else if(res.statusCode() == 404) {
+							//In the event of a 404, that means that the permissions user 
+							//doesn't exist, so we'll return an empty list to indicate no permissions
+							future.complete(new JsonArray());
+						} else {
+							//future.fail("Unable to retrieve permissions");
+							res.bodyHandler(res2 -> {
+								String failMessage = "Unable to retrieve permissions (code " + res.statusCode() + "): " + res2.toString();
+								logger.debug(failMessage);
+								future.fail(failMessage);
+							});
+						}
+					});
 
-    return future;
-  }
+					req.exceptionHandler(exception -> {
+						future.fail(exception);
+					});
+    
+					req.headers().add("X-Okapi-Token", requestToken);
+					req.headers().add("X-Okapi-Tenant", tenant);
+					req.headers().add("Content-Type", "application/json");
+					req.headers().add("Accept", "application/json");
+					req.end();
+				}
+			});
+		});
+		permUserReq.headers()
+				.add("X-Okapi-Token", requestToken)
+				.add("X-Okapi-Tenant", tenant)
+				.add("Content-Type", "application/json")
+				.add("Accept", "application/json");
+		permUserReq.end();
+		return future;
+	}
 
 	@Override
 	public Future<JsonArray> expandPermissions(JsonArray permissions) {
