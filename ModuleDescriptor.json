@@ -1,0 +1,25 @@
+{
+  "id": "authtoken-module-0.6.0",
+  "name": "authtoken",
+  "provides": [
+    {
+      "id": "authtoken",
+      "version": "1.0",
+      "handlers" : [
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/token"
+        }
+      ]
+    }
+  ],
+  "filters" : [
+    {
+      "methods" : [ "*" ],
+      "pathPattern" : "/*",
+      "phase" : "auth",
+      "type" : "request-only",
+      "modulePermissions" : [ "perms.users.get" ]
+    }
+  ]
+}
