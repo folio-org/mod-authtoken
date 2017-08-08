@@ -26,6 +26,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
 
 
 /**
@@ -49,6 +50,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
   private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
+  private static final String TOKEN_USER_ID_FIELD = "user_id";
 
   PermissionsSource permissionsSource;
   private String okapiUrl;
@@ -109,56 +111,67 @@ public class MainVerticle extends AbstractVerticle {
 	 * Handle a request to sign a new token
 	 * (Typically used by login module)
 	 */
-  private void handleToken(RoutingContext ctx) {
-
-    logger.debug("Token signing request from " +  ctx.request().absoluteURI());
-    String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
-    if(tenant == null) {
-      ctx.response().setStatusCode(400);
-      ctx.response().end("Missing header: " + OKAPI_TENANT_HEADER);
-      return;
-    }
-
-    updateOkapiUrl(ctx);
-    if(ctx.request().method() == HttpMethod.POST) {
-      final String postContent = ctx.getBodyAsString();
-      JsonObject json = null;
-      JsonObject payload = null;
-      try {
-        json = new JsonObject(postContent);
-      } catch(DecodeException dex) {
+  private void handleSignToken(RoutingContext ctx) {
+    try {
+      logger.debug("Token signing request from " +  ctx.request().absoluteURI());
+      String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+      if(tenant == null) {
         ctx.response().setStatusCode(400);
-        ctx.response().end("Unable to decode '" + postContent + "' as valid JSON");
+        ctx.response().end("Missing header: " + OKAPI_TENANT_HEADER);
         return;
       }
-      try {
-        payload = json.getJsonObject("payload");
-      } catch(Exception e) { }
-      if(payload == null) {
+
+      updateOkapiUrl(ctx);
+      if(ctx.request().method() == HttpMethod.POST) {
+        final String postContent = ctx.getBodyAsString();
+        JsonObject json = null;
+        JsonObject payload = null;
+        try {
+          json = new JsonObject(postContent);
+        } catch(DecodeException dex) {
+          ctx.response().setStatusCode(400);
+          ctx.response().end("Unable to decode '" + postContent + "' as valid JSON");
+          return;
+        }
+        try {
+          payload = json.getJsonObject("payload");
+        } catch(Exception e) {
+          ctx.response().setStatusCode(400);
+          ctx.response().end("Unable to find valid 'payload' field in: " + json.encode());
+          return;
+        }
+        if(payload == null) {
+          ctx.response().setStatusCode(400)
+                  .end("Valid 'payload' field is required");
+          return;
+        }
+        logger.debug("Payload to create token from is " + payload.encode());
+
+        if(!payload.containsKey("sub")) {
+          ctx.response().setStatusCode(400)
+                  .end("Payload must contain a 'sub' field");
+          return;
+        }
+
+        payload.put("tenant", tenant);
+        String token = tokenCreator.createToken(payload.encode());
+
+        ctx.response().setStatusCode(200)
+                .putHeader("Authorization", "Bearer " + token)
+                .putHeader(OKAPI_TOKEN_HEADER, token)
+                .end(postContent);
+        return;
+
+      } else {
         ctx.response().setStatusCode(400)
-                .end("Valid 'payload' field is required");
+                .end("Unsupported operation: " + ctx.request().method().toString());
         return;
       }
-      logger.debug("Payload to create token from is " + payload.encode());
-
-      if(!payload.containsKey("sub")) {
-        ctx.response().setStatusCode(400)
-                .end("Payload must contain a 'sub' field");
-        return;
-      }
-
-      payload.put("tenant", tenant);
-      String token = tokenCreator.createToken(payload.encode());
-
-      ctx.response().setStatusCode(200)
-              .putHeader("Authorization", "Bearer " + token)
-              .putHeader(OKAPI_TOKEN_HEADER, token)
-              .end(postContent);
-      return;
-    } else {
-      ctx.response().setStatusCode(400)
-              .end("Unsupported operation: " + ctx.request().method().toString());
-      return;
+    } catch(Exception e) {
+      String message = e.getLocalizedMessage();
+      logger.error(message, e);
+      ctx.response().setStatusCode(500)
+              .end(message);
     }
   }
 
@@ -173,7 +186,7 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
     updateOkapiUrl(ctx);
-    String requestToken = getRequestToken(ctx);
+    //String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
     String okapiTokenHeader = ctx.request().headers().get(OKAPI_TOKEN_HEADER);
     String candidateToken = null;
@@ -182,12 +195,13 @@ public class MainVerticle extends AbstractVerticle {
       if(authToken.equals(okapiTokenHeader)) {
         candidateToken = authToken;
       } else {
+        logger.error("Conflict between different auth headers");
       	ctx.response().setStatusCode(400);
       	ctx.response().end("Conflicting token information in Authorization and " +
       			OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header " +
       			" and use " + OKAPI_TOKEN_HEADER + " in the future");
       	return;
-			}
+      }
     } else if(okapiTokenHeader != null) {
       candidateToken = okapiTokenHeader;
     } else if(authHeader != null) {
@@ -222,6 +236,7 @@ public class MainVerticle extends AbstractVerticle {
     permissionsSource.setRequestToken(permissionsRequestToken);
     permissionsSource.setRequestTimeout(permLookupTimeout);
     if(candidateToken == null) {
+      logger.info("AuthZ> Generating dummy authtoken");
       JsonObject dummyPayload = new JsonObject();
       try {
         logger.debug("AuthZ> Generating a dummy token");
@@ -235,7 +250,7 @@ public class MainVerticle extends AbstractVerticle {
                 .put("request_id", requestId)
                 .put("dummy", true);
       } catch(Exception e) {
-        logger.debug("AuthZ> Error creating dummy token: " + e.getMessage());
+        logger.error("AuthZ> Error creating dummy token: " + e.getMessage());
         throw new RuntimeException(e);
       }
       candidateToken = tokenCreator.createToken(dummyPayload.encode());
@@ -254,8 +269,12 @@ public class MainVerticle extends AbstractVerticle {
     	ctx.response().setStatusCode(401)
     		.end("Invalid token signature");
     	return;
-		}
-
+    } catch(UnsupportedJwtException u) {
+      logger.error("Unsupported JWT format", u);
+      ctx.response().setStatusCode(401)
+              .end("Invalid token format");
+      return;
+    }
 
     logger.debug("AuthZ> Token claims are " + getClaims(authToken).encode());
 
@@ -272,37 +291,39 @@ public class MainVerticle extends AbstractVerticle {
       if(extraPermissions == null || !extraPermissions.contains(SIGN_TOKEN_PERMISSION)) {
         //do nothing
       } else {
-        handleToken(ctx);
+        handleSignToken(ctx);
         return;
       }
     }
 
     String username = tokenClaims.getString("sub");
     String jwtTenant = tokenClaims.getString("tenant");
-    if(jwtTenant == null || !jwtTenant.equals(tenant)) {
-      logger.debug("AuthZ> Expected tenant: " + tenant + ", got tenant: " + jwtTenant);
+    if (jwtTenant == null || !jwtTenant.equals(tenant)) {
+      logger.error("AuthZ> Expected tenant: " + tenant + ", got tenant: " + jwtTenant);
       ctx.response()
               .setStatusCode(403)
               .end("Invalid token for access");
       return;
     }
 
-		String tokenUserId = tokenClaims.getString("user_id");
+    String tokenUserId = tokenClaims.getString(TOKEN_USER_ID_FIELD);
     if(tokenUserId != null) {
-			if(userId != null) {
-				if(!userId.equals(tokenUserId)) {
-					ctx.response().setStatusCode(403)
-						.end("Payload user id of '" + tokenUserId +
-								" does not match expected value.");
-					return;
-				}
-			} else {
-				//Assign the userId to be whatever's in the token
-				userId = tokenUserId;
-			}
-		}
-	
-		final String finalUserId = userId;
+      if (userId != null) {
+        if (!userId.equals(tokenUserId)) {
+          ctx.response().setStatusCode(403)
+                  .end("Payload user id of '" + tokenUserId
+                          + " does not match expected value.");
+          return;
+        }
+      } else {
+        //Assign the userId to be whatever's in the token
+        userId = tokenUserId;
+      }
+    } else {
+      logger.info("No '" + TOKEN_USER_ID_FIELD + "' field found in token");
+    }
+
+    final String finalUserId = userId;
 
     //Check and see if we have any module permissions defined
     JsonArray extraPermissionsCandidate = getClaims(authToken).getJsonArray("extra_permissions");
@@ -337,7 +358,7 @@ public class MainVerticle extends AbstractVerticle {
         tokenPayload.put("module", moduleName);
         tokenPayload.put("extra_permissions", permissionList);
         tokenPayload.put("request_id", requestId);
-        tokenPayload.put("user_id", userId);
+        tokenPayload.put("user_id", finalUserId);
         String moduleToken = tokenCreator.createToken(tokenPayload.encode());
         moduleTokens.put(moduleName, moduleToken);
      }
@@ -372,9 +393,10 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     //Retrieve the user permissions and populate the permissions header
-    logger.debug("AuthZ> Getting user permissions for " + username);
+    logger.debug("AuthZ> Getting user permissions for " + username + " (userId " +
+            userId + ")");
     long startTime = System.currentTimeMillis();
-    usePermissionsSource.getPermissionsForUser(username).setHandler((AsyncResult<JsonArray> res) -> {
+    usePermissionsSource.getPermissionsForUser(userId).setHandler((AsyncResult<JsonArray> res) -> {
       if(res.failed()) {
         long stopTime = System.currentTimeMillis();
         logger.error("AuthZ> Unable to retrieve permissions for " + username + ": " + res.cause().getMessage() +
@@ -384,7 +406,7 @@ public class MainVerticle extends AbstractVerticle {
         if(suppressErrorResponse) {
           ctx.response().end();
         } else {
-          ctx.response().end("Unable to retrieve permissions for user '" + username + "': " +  res.cause().getLocalizedMessage());
+          ctx.response().end("Unable to retrieve permissions for user with id'" + finalUserId + "': " +  res.cause().getLocalizedMessage());
         }
         return;
       }
@@ -393,75 +415,72 @@ public class MainVerticle extends AbstractVerticle {
       logger.debug("AuthZ> Extra permissions for request: " + extraPermissions.encode());
       usePermissionsSource.expandPermissions(extraPermissions).setHandler( res2 -> {
       	if(res2.failed()) {
-      		String message = "Error getting expanded permissions for " +
-      			extraPermissions.encode() + " : " + res2.cause().getLocalizedMessage();
-      		ctx.response().setStatusCode(500)
-      			.end(message);
-      		logger.error(message, res2.cause());
-				} else {
-					JsonArray expandedExtraPermissions = res2.result();
-					if(expandedExtraPermissions != null) {
-						logger.debug("AuthZ> expandedExtraPermissions are: " + expandedExtraPermissions.encode());
-						for(Object o : expandedExtraPermissions)
-						{
-							permissions.add((String)o);
-						}
-					}
+          String message = "Error getting expanded permissions for " +
+                  extraPermissions.encode() + " : " + res2.cause().getLocalizedMessage();
+          ctx.response().setStatusCode(500)
+                  .end(message);
+          logger.error(message, res2.cause());
+        } else {
+          JsonArray expandedExtraPermissions = res2.result();
+          if(expandedExtraPermissions != null) {
+            logger.debug("AuthZ> expandedExtraPermissions are: " + expandedExtraPermissions.encode());
+            for (Object o : expandedExtraPermissions) {
+              permissions.add((String) o);
+            }
+          }
 
-					//Check that for all required permissions, we have them
-					for(Object o : permissionsRequired) {
-						if(!permissions.contains((String)o) && !extraPermissions.contains((String)o)) {
-							logger.debug("Authz> " + permissions.encode() + "(user permissions) nor " +
-											extraPermissions.encode() + "(module permissions) do not contain " + (String)o);
-							ctx.response()
-											//.putHeader("Content-Type", "text/plain")
-											.setStatusCode(403)
-											.end("Access requires permission: " + (String)o);
-											//.end();
-							return;
-						}
-					}
+          //Check that for all required permissions, we have them
+          for (Object o : permissionsRequired) {
+            if (!permissions.contains((String) o) && !extraPermissions.contains((String) o)) {
+              logger.error("Authz> " + permissions.encode() + "(user permissions) nor "
+                      + extraPermissions.encode() + "(module permissions) do not contain " + (String) o);
+              ctx.response()
+                      .setStatusCode(403)
+                      .end("Access requires permission: " + (String) o);
+              return;
+            }
+          }
 
-					//Remove all permissions not listed in permissionsRequired or permissionsDesired
-					List<Object> deleteList = new ArrayList<>();
-					for(Object o : permissions) {
-						if(!permissionsRequired.contains(o) && !permissionsDesired.contains(o)) {
-							deleteList.add(o);
-						}
-					}
+          //Remove all permissions not listed in permissionsRequired or permissionsDesired
+          List<Object> deleteList = new ArrayList<>();
+          for (Object o : permissions) {
+            if (!permissionsRequired.contains(o) && !permissionsDesired.contains(o)) {
+              deleteList.add(o);
+            }
+          }
 
-					for(Object o : deleteList) {
-						permissions.remove(o);
-					}
+          for (Object o : deleteList) {
+            permissions.remove(o);
+          }
 
-					//Create new JWT to pass back with request, include calling module field
-					JsonObject claims = getClaims(authToken);
+          //Create new JWT to pass back with request, include calling module field
+          JsonObject claims = getClaims(authToken);
 
-					if(ctx.request().headers().contains(CALLING_MODULE_HEADER)) {
-						claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
-					}
+          if (ctx.request().headers().contains(CALLING_MODULE_HEADER)) {
+            claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
+          }
 
-					String token = tokenCreator.createToken(claims.encode());
+          String token = tokenCreator.createToken(claims.encode());
 
-					logger.debug("AuthZ> Returning header " + PERMISSIONS_HEADER + " with content " + permissions.encode());
-					logger.debug("AuthZ> Returning header " + MODULE_TOKENS_HEADER + " with content " + moduleTokens.encode());
-					logger.debug("AuthZ> Returning Authorization Bearer token with content " + claims.encode());
-					//Return header containing relevant permissions
-					ctx.response()
-									.setChunked(true)
-									.setStatusCode(202)
-									.putHeader(PERMISSIONS_HEADER, permissions.encode())
-									.putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
-									.putHeader("Authorization", "Bearer " + token)
-									.putHeader(OKAPI_TOKEN_HEADER, token);
-					if(finalUserId != null) {
-						ctx.response().putHeader(USERID_HEADER, finalUserId);
-					}
-					
-					ctx.response().end(ctx.getBodyAsString());
-					return;
-				}
-			});
+          logger.debug("AuthZ> Returning header " + PERMISSIONS_HEADER + " with content " + permissions.encode());
+          logger.debug("AuthZ> Returning header " + MODULE_TOKENS_HEADER + " with content " + moduleTokens.encode());
+          logger.debug("AuthZ> Returning Authorization Bearer token with content " + claims.encode());
+          //Return header containing relevant permissions
+          ctx.response()
+                  .setChunked(true)
+                  .setStatusCode(202)
+                  .putHeader(PERMISSIONS_HEADER, permissions.encode())
+                  .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
+                  .putHeader("Authorization", "Bearer " + token)
+                  .putHeader(OKAPI_TOKEN_HEADER, token);
+          if (finalUserId != null) {
+            ctx.response().putHeader(USERID_HEADER, finalUserId);
+          }
+
+          ctx.response().end(ctx.getBodyAsString());
+          return;
+        }
+      });
     });
   }
 
