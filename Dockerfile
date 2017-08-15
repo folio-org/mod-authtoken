@@ -1,6 +1,6 @@
 FROM openjdk:8-jre-alpine
 
-ENV VERTICLE_FILE authtoken_module-fat.jar
+ENV VERTICLE_FILE mod-authtoken-fat.jar
 
 # Set the location of the verticles
 ENV VERTICLE_HOME /usr/verticles
