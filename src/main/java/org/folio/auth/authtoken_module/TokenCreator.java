@@ -9,6 +9,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.security.Key;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
 
 
 public class TokenCreator {
@@ -36,7 +37,7 @@ public class TokenCreator {
     return token;
   }
 
-  public void checkToken(String token) throws SignatureException,MalformedJwtException {
+  public void checkToken(String token) throws SignatureException, MalformedJwtException, UnsupportedJwtException {
     parser.parseClaimsJws(token);
   }
 }

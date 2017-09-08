@@ -212,6 +212,16 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(403);
+    
+    //fail with a bad token
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", "THIS_IS_A_BAD_TOKEN")
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("X-Okapi-User-Id", "1234567")
+      .get("/bar")
+      .then()
+      .statusCode(401);
 
 
       async.complete();
