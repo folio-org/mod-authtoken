@@ -212,7 +212,7 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(403);
-    
+
     //fail with a bad token
     given()
       .header("X-Okapi-Tenant", tenant)

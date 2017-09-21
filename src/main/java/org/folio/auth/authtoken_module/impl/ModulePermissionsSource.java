@@ -97,7 +97,7 @@ public class ModulePermissionsSource implements PermissionsSource {
                 }
               });
             } else if (res.statusCode() == 404) {
-              //In the event of a 404, that means that the permissions user 
+              //In the event of a 404, that means that the permissions user
               //doesn't exist, so we'll return an empty list to indicate no permissions
               future.complete(new JsonArray());
             } else {

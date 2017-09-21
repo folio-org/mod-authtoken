@@ -16,7 +16,7 @@ public class TokenCreator {
   private Key JWTSigningKey;
   private JwtParser parser;
   private static final SignatureAlgorithm JWTAlgorithm = SignatureAlgorithm.HS512;
-  
+
   public TokenCreator(String key) {
     if(key != null) {
       JWTSigningKey = new SecretKeySpec(key.getBytes(), JWTAlgorithm.getJcaName());
