@@ -107,10 +107,10 @@ public class MainVerticle extends AbstractVerticle {
   }
 
 
-	/*
-	 * Handle a request to sign a new token
-	 * (Typically used by login module)
-	 */
+  /*
+   * Handle a request to sign a new token
+   * (Typically used by login module)
+   */
   private void handleSignToken(RoutingContext ctx) {
     try {
       logger.debug("Token signing request from " +  ctx.request().absoluteURI());
@@ -196,11 +196,11 @@ public class MainVerticle extends AbstractVerticle {
         candidateToken = authToken;
       } else {
         logger.error("Conflict between different auth headers");
-      	ctx.response().setStatusCode(400);
-      	ctx.response().end("Conflicting token information in Authorization and " +
-      			OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header " +
-      			" and use " + OKAPI_TOKEN_HEADER + " in the future");
-      	return;
+        ctx.response().setStatusCode(400);
+        ctx.response().end("Conflicting token information in Authorization and " +
+                OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header " +
+                " and use " + OKAPI_TOKEN_HEADER + " in the future");
+        return;
       }
     } else if(okapiTokenHeader != null) {
       candidateToken = okapiTokenHeader;
@@ -228,8 +228,8 @@ public class MainVerticle extends AbstractVerticle {
                 .put("dummy", true)
                 .put("request_id", requestId)
                 .put("extra_permissions", new JsonArray()
-                		.add(PERMISSIONS_PERMISSION_READ_BIT)
-                		.add(PERMISSIONS_USER_READ_BIT));
+                        .add(PERMISSIONS_PERMISSION_READ_BIT)
+                        .add(PERMISSIONS_USER_READ_BIT));
 
     String permissionsRequestToken = tokenCreator.createToken(permissionRequestPayload.encode());
 
@@ -265,15 +265,15 @@ public class MainVerticle extends AbstractVerticle {
                 .end("Invalid token format");
         return;
     } catch(SignatureException s) {
-    	logger.error("Invalid signature on token " + authToken, s);
-    	ctx.response().setStatusCode(401)
-    		.end("Invalid token signature");
-    	return;
+        logger.error("Invalid signature on token " + authToken, s);
+        ctx.response().setStatusCode(401)
+                .end("Invalid token signature");
+        return;
     } catch(UnsupportedJwtException u) {
-      logger.error("Unsupported JWT format", u);
-      ctx.response().setStatusCode(401)
-              .end("Invalid token format");
-      return;
+        logger.error("Unsupported JWT format", u);
+        ctx.response().setStatusCode(401)
+                .end("Invalid token format");
+        return;
     }
 
     logger.debug("AuthZ> Token claims are " + getClaims(authToken).encode());
@@ -414,7 +414,7 @@ public class MainVerticle extends AbstractVerticle {
       logger.debug("AuthZ> Permissions for " + username + ": " + permissions.encode());
       logger.debug("AuthZ> Extra permissions for request: " + extraPermissions.encode());
       usePermissionsSource.expandPermissions(extraPermissions).setHandler( res2 -> {
-      	if(res2.failed()) {
+        if(res2.failed()) {
           String message = "Error getting expanded permissions for " +
                   extraPermissions.encode() + " : " + res2.cause().getLocalizedMessage();
           ctx.response().setStatusCode(500)
