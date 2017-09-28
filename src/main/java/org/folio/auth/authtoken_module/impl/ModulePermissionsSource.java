@@ -121,6 +121,9 @@ public class ModulePermissionsSource implements PermissionsSource {
           req.end();
         }
       });
+      permUserRes.exceptionHandler(e -> {
+      	future.fail(e);
+      });
     });
     permUserReq.headers()
             .add("X-Okapi-Token", requestToken)
@@ -212,6 +215,9 @@ public class ModulePermissionsSource implements PermissionsSource {
             logger.error(e.getLocalizedMessage(), e);
             future.fail("Unable to expand permissions: " + e.getLocalizedMessage());
           }
+        });
+        res.exceptionHandler(e -> {
+        	future.fail(e);
         });
       });
       req.putHeader("X-Okapi-Token", requestToken)
