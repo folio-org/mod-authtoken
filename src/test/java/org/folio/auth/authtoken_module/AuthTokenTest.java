@@ -14,10 +14,16 @@ import static com.jayway.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
 import com.jayway.restassured.response.Response;
 import guru.nidi.ramltester.restassured.RestAssuredClient;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.util.concurrent.ThreadLocalRandom;
 import org.junit.runner.RunWith;
 import org.junit.Before;
 import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
+
 
 
 /**
@@ -26,25 +32,31 @@ import org.junit.Test;
  */
 @RunWith(VertxUnitRunner.class)
 public class AuthTokenTest {
-  private final Logger logger = LoggerFactory.getLogger("okapi");
+  private static final Logger logger = LoggerFactory.getLogger("okapi");
   private static final String LS = System.lineSeparator();
   private static final String tenant = "Roskilde";
-  private HttpClient httpClient;
-  private TokenCreator tokenCreator;
-  private JsonObject payload;
-  private String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
-  private String basicToken;
-  Vertx vertx;
+  private static HttpClient httpClient;
+  private static TokenCreator tokenCreator;
+  private static JsonObject payload;
+  private static JsonObject payload2;
+  private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
+  private static String basicToken;
+  private static String basicToken2;
+  static int port;
+  static int mockPort;
+  static Vertx vertx;
   Async async;
 
-  private final String port = System.getProperty("port", "9129");
-
-  @Before
-  public void setUp(TestContext context) {
-    logger.info("Setting up AuthTokenTest. Port=" + port);
+  @BeforeClass
+  public static void setUpClass(TestContext context) {
+    Async async = context.async();
+    port = nextFreePort();
+    mockPort = nextFreePort();
     vertx = Vertx.vertx();
+
+    logger.info("Setting up AuthTokenTest. Port=" + port);
     JsonObject conf = new JsonObject()
-      .put("port", port);
+      .put("port", Integer.toString(port));
     DeploymentOptions opt = new DeploymentOptions()
       .setConfig(conf);
     payload = new JsonObject()
@@ -52,19 +64,54 @@ public class AuthTokenTest {
       .put("tenant", tenant)
       .put("dummy", true)
       .put("sub", "jones");
+    payload2 = new JsonObject()
+      .put("user_id", userUUID)
+      .put("tenant", tenant)
+      .put("sub", "jones");     
     tokenCreator = new TokenCreator("CorrectBatteryHorseStaple");
     basicToken = tokenCreator.createToken(payload.encode());
+    basicToken2 = tokenCreator.createToken(payload2.encode());
     System.setProperty("jwt.signing.key", "CorrectBatteryHorseStaple");
-    vertx.deployVerticle(MainVerticle.class.getName(),
-      opt, context.asyncAssertSuccess());
+    
     httpClient = vertx.createHttpClient();
-    RestAssured.port = Integer.parseInt(port);
+    RestAssured.port = port;
+    DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
+      new JsonObject()
+        .put("port", mockPort));
+    logger.info("Deploying mock permissions module");
+    vertx.deployVerticle(PermsMock.class.getName(), mockOptions, mockRes -> {
+      if(mockRes.failed()) {
+        mockRes.cause().printStackTrace();
+        context.fail(mockRes.cause());
+      } else {
+        logger.info("Deploying Main Verticle (authtoken)");
+        vertx.deployVerticle(MainVerticle.class.getName(), opt, mainRes -> {
+          if(mainRes.failed()) {
+            context.fail(mainRes.cause());
+          } else {
+            async.complete();
+          }
+        });
+      }
+    });
+  }
+  
+  /*
+  @Before
+  public void setUp(TestContext context) {
+   
   }
 
   @After
   public void tearDown(TestContext context) {
+    
+  }
+  */
+  
+  @AfterClass
+  public static void tearDownClass(TestContext context) {
+    Async async = context.async();
     logger.info("Cleaning up after AuthTokenTest");
-    async = context.async();
     vertx.close(x -> {
       async.complete();
     });
@@ -83,6 +130,18 @@ public class AuthTokenTest {
    *
    * @param context
    */
+  @Test 
+  public void globTest(TestContext context) {
+    async = context.async();
+    String testGlob = "*bottle*cup";
+    String testString1 = "WhitebottleBluecup";
+    String testString2 = "WhitebotBluecu";
+    context.assertTrue(Util.globMatch(testGlob, testString1));
+    context.assertFalse(Util.globMatch(testGlob, testString2));
+    async.complete();
+  }
+  
+  
   @Test
   public void test1(TestContext context) {
     async = context.async();
@@ -222,12 +281,46 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(401);
+    
+    //pass a desired permission through as a wildcard
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(202)
+      .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
 
-
-      async.complete();
+    async.complete();
     logger.debug("AuthToken test1 done");
 
   }
+  
+  public static int nextFreePort() {
+    int maxTries = 10000;
+    int port = ThreadLocalRandom.current().nextInt(49152, 65535);
+    while (true) {
+      if (isLocalPortFree(port)) {
+        return port;
+      } else {
+        port = ThreadLocalRandom.current().nextInt(49152, 65535);
+      }
+      maxTries--;
+      if (maxTries == 0) {
+        return 8081;
+      }
+    }
+  }
 
-
+  private static boolean isLocalPortFree(int port) {
+    try {
+      new ServerSocket(port).close();
+      return true;
+    } catch (IOException e) {
+      return false;
+    }
+  }
+  
 }
