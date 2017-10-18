@@ -1,4 +1,11 @@
-## 0.6.1 2016-7-31
+## 1.1.0 2017-10-11
+ * Allow wildcard permission names in desired permissions
+
+## 1.0.0 2017-09-05
+ * Use new id-referenced scheme for retrieving permissions
+ * Add userid field to authtoken
+
+## 0.6.1 2016-07-31
  * Fix bug with missing source file
 
 ## 0.6.0 2017-7-31

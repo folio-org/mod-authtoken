@@ -106,8 +106,7 @@ public class MainVerticle extends AbstractVerticle {
 
   }
 
-
-  /*
+	/*
    * Handle a request to sign a new token
    * (Typically used by login module)
    */
@@ -432,6 +431,7 @@ public class MainVerticle extends AbstractVerticle {
           //Check that for all required permissions, we have them
           for (Object o : permissionsRequired) {
             if (!permissions.contains((String) o) && !extraPermissions.contains((String) o)) {
+            //if(!arrayContainsGlob(permissions, (String) o) && !arrayContainsGlob(extraPermissions, (String) o)) {
               logger.error("Authz> " + permissions.encode() + "(user permissions) nor "
                       + extraPermissions.encode() + "(module permissions) do not contain " + (String) o);
               ctx.response()
@@ -444,7 +444,7 @@ public class MainVerticle extends AbstractVerticle {
           //Remove all permissions not listed in permissionsRequired or permissionsDesired
           List<Object> deleteList = new ArrayList<>();
           for (Object o : permissions) {
-            if (!permissionsRequired.contains(o) && !permissionsDesired.contains(o)) {
+            if (!permissionsRequired.contains(o) && !Util.arrayContainsGlob(permissionsDesired, (String) o)) {
               deleteList.add(o);
             }
           }
@@ -518,6 +518,6 @@ public class MainVerticle extends AbstractVerticle {
       return "";
     }
     return token;
-  }
-
+  } 
+  
 }
