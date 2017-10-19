@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.folio.auth.authtoken_module;
 
 import io.vertx.core.AbstractVerticle;
@@ -18,7 +13,7 @@ import io.vertx.ext.web.RoutingContext;
  * @author kurt
  */
 public class PermsMock extends AbstractVerticle {
-  
+
   public void start(Future<Void> future) {
     final int port = context.config().getInteger("port");
 
@@ -26,7 +21,7 @@ public class PermsMock extends AbstractVerticle {
     HttpServer server = vertx.createHttpServer();
 
     router.route("/perms/users/:id/permissions").handler(this::handlePermUsersPermissions);
-    router.route("/perms/users").handler(this::handlePermsUsers); 
+    router.route("/perms/users").handler(this::handlePermsUsers);
     System.out.println("Running PermsMock on port " + port + "\n");
     server.requestHandler(router::accept).listen(port, result -> {
       if(result.failed()) {
@@ -36,7 +31,7 @@ public class PermsMock extends AbstractVerticle {
       }
     });
   }
-  
+
   private void handlePermsUsers(RoutingContext context) {
     JsonObject output = new JsonObject().put("permissionUsers", new JsonArray()
       .add(new JsonObject()
@@ -45,16 +40,16 @@ public class PermsMock extends AbstractVerticle {
         .put("permissions", new JsonArray()
           .add("extra.foobar")
           .add("extra.foofish")
-        )       
+        )
       )
     );
-    
+
     context.response()
       .setStatusCode(200)
       .end(output.encode());
-    
+
   }
-  
+
   private void handlePermUsersPermissions(RoutingContext context) {
     JsonObject output = new JsonObject().put("permissionNames",
       new JsonArray()
@@ -62,10 +57,10 @@ public class PermsMock extends AbstractVerticle {
         .add("extra.foofish")
     )
       .put("totalRecords", 1);
-    
+
     context.response()
       .setStatusCode(200)
       .end(output.encode());
   }
-  
+
 }

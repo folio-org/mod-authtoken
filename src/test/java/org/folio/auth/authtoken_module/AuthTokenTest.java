@@ -67,12 +67,12 @@ public class AuthTokenTest {
     payload2 = new JsonObject()
       .put("user_id", userUUID)
       .put("tenant", tenant)
-      .put("sub", "jones");     
+      .put("sub", "jones");
     tokenCreator = new TokenCreator("CorrectBatteryHorseStaple");
     basicToken = tokenCreator.createToken(payload.encode());
     basicToken2 = tokenCreator.createToken(payload2.encode());
     System.setProperty("jwt.signing.key", "CorrectBatteryHorseStaple");
-    
+
     httpClient = vertx.createHttpClient();
     RestAssured.port = port;
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
@@ -95,19 +95,19 @@ public class AuthTokenTest {
       }
     });
   }
-  
+
   /*
   @Before
   public void setUp(TestContext context) {
-   
+
   }
 
   @After
   public void tearDown(TestContext context) {
-    
+
   }
   */
-  
+
   @AfterClass
   public static void tearDownClass(TestContext context) {
     Async async = context.async();
@@ -130,7 +130,7 @@ public class AuthTokenTest {
    *
    * @param context
    */
-  @Test 
+  @Test
   public void globTest(TestContext context) {
     async = context.async();
     String testGlob = "*bottle*cup";
@@ -140,8 +140,8 @@ public class AuthTokenTest {
     context.assertFalse(Util.globMatch(testGlob, testString2));
     async.complete();
   }
-  
-  
+
+
   @Test
   public void test1(TestContext context) {
     async = context.async();
@@ -281,7 +281,7 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(401);
-    
+
     //pass a desired permission through as a wildcard
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -297,7 +297,7 @@ public class AuthTokenTest {
     logger.debug("AuthToken test1 done");
 
   }
-  
+
   public static int nextFreePort() {
     int maxTries = 10000;
     int port = ThreadLocalRandom.current().nextInt(49152, 65535);
@@ -322,5 +322,5 @@ public class AuthTokenTest {
       return false;
     }
   }
-  
+
 }

@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.folio.auth.authtoken_module;
 
 import io.vertx.core.json.JsonArray;
@@ -19,7 +14,7 @@ public class Util {
     Pattern pattern = Pattern.compile(regexPattern);
     return pattern.matcher(target).find();
   }
-  
+
   public static boolean arrayContainsGlob(JsonArray array, String target) {
     for(Object o : array) {
       String s;
@@ -30,7 +25,7 @@ public class Util {
     }
     return false;
   }
-  
+
   public static String makeRegex(String pattern) {
     Pattern regex = Pattern.compile("[^*]+|(\\*)");
     Matcher m = regex.matcher(pattern);
@@ -46,5 +41,5 @@ public class Util {
     return replaced;
   }
 
-  
+
 }
