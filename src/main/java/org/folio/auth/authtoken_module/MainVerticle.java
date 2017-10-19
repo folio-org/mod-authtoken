@@ -518,6 +518,6 @@ public class MainVerticle extends AbstractVerticle {
       return "";
     }
     return token;
-  } 
-  
+  }
+
 }

@@ -14,7 +14,7 @@ public class Util {
     Pattern pattern = Pattern.compile(regexPattern);
     return pattern.matcher(target).find();
   }
-  
+
   public static boolean arrayContainsGlob(JsonArray array, String target) {
     for(Object o : array) {
       String s;
@@ -25,7 +25,7 @@ public class Util {
     }
     return false;
   }
-  
+
   public static String makeRegex(String pattern) {
     Pattern regex = Pattern.compile("[^*]+|(\\*)");
     Matcher m = regex.matcher(pattern);
@@ -41,5 +41,5 @@ public class Util {
     return replaced;
   }
 
-  
+
 }
