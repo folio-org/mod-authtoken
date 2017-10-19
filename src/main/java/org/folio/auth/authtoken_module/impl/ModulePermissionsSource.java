@@ -122,7 +122,7 @@ public class ModulePermissionsSource implements PermissionsSource {
         }
       });
       permUserRes.exceptionHandler(e -> {
-      	future.fail(e);
+        future.fail(e);
       });
     });
     permUserReq.headers()
@@ -217,7 +217,7 @@ public class ModulePermissionsSource implements PermissionsSource {
           }
         });
         res.exceptionHandler(e -> {
-        	future.fail(e);
+          future.fail(e);
         });
       });
       req.putHeader("X-Okapi-Token", requestToken)

@@ -106,7 +106,7 @@ public class MainVerticle extends AbstractVerticle {
 
   }
 
-	/*
+  /*
    * Handle a request to sign a new token
    * (Typically used by login module)
    */
