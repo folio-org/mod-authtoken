@@ -1,5 +1,6 @@
 {
   "srvcId": "${artifactId}-${version}",
+  "nodeId": "localhost",
   "descriptor": {
     "exec": "java -jar ../mod-authtoken/target/mod-authtoken-fat.jar -Dport=%p"
   }
