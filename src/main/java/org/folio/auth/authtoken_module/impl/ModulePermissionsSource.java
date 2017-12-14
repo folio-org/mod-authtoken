@@ -35,6 +35,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     client = vertx.createHttpClient(options);
   }
 
+  @Override
   public void setOkapiUrl(String url) {
     okapiUrl = url;
     if (!okapiUrl.endsWith("/")) {
@@ -42,14 +43,17 @@ public class ModulePermissionsSource implements PermissionsSource {
     }
   }
 
+  @Override
   public void setRequestToken(String token) {
     requestToken = token;
   }
 
+  @Override
   public void setAuthApiKey(String key) {
     authApiKey = key;
   }
 
+  @Override
   public void setTenant(String tenant) {
     this.tenant = tenant;
   }
