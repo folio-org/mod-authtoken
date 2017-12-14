@@ -57,7 +57,6 @@ public class MainVerticle extends AbstractVerticle {
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
-  private int permLookupTimeout;
   private boolean suppressErrorResponse = false;
 
   private TokenCreator tokenCreator;
@@ -65,7 +64,7 @@ public class MainVerticle extends AbstractVerticle {
   public void start(Future<Void> future) {
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
-    permLookupTimeout =Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
+    int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     String keySetting = System.getProperty("jwt.signing.key");
     tokenCreator = new TokenCreator(keySetting);
 
@@ -84,8 +83,7 @@ public class MainVerticle extends AbstractVerticle {
         logger.error("Unable to set log level: " + e.getMessage());
       }
     }
-    permissionsSource = new ModulePermissionsSource(vertx);
-    //permissionsSource = new DummyPermissionsSource();
+    permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
@@ -233,8 +231,7 @@ public class MainVerticle extends AbstractVerticle {
     String permissionsRequestToken = tokenCreator.createToken(permissionRequestPayload.encode());
 
     permissionsSource.setRequestToken(permissionsRequestToken);
-    permissionsSource.setRequestTimeout(permLookupTimeout);
-    if(candidateToken == null) {
+    if (candidateToken == null) {
       logger.info("AuthZ> Generating dummy authtoken");
       JsonObject dummyPayload = new JsonObject();
       try {

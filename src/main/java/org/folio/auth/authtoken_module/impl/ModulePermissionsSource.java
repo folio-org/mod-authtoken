@@ -24,14 +24,18 @@ public class ModulePermissionsSource implements PermissionsSource {
   private String requestToken;
   private String authApiKey = "";
   private String tenant;
-  private int timeout = 10;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+  private final HttpClient client;
 
-  public ModulePermissionsSource(Vertx vertx) {
+  public ModulePermissionsSource(Vertx vertx, int timeout) {
     //permissionsModuleUrl = url;
     this.vertx = vertx;
+    HttpClientOptions options = new HttpClientOptions();
+    options.setConnectTimeout(timeout * 1000);
+    client = vertx.createHttpClient(options);
   }
 
+  @Override
   public void setOkapiUrl(String url) {
     okapiUrl = url;
     if (!okapiUrl.endsWith("/")) {
@@ -39,28 +43,24 @@ public class ModulePermissionsSource implements PermissionsSource {
     }
   }
 
+  @Override
   public void setRequestToken(String token) {
     requestToken = token;
   }
 
+  @Override
   public void setAuthApiKey(String key) {
     authApiKey = key;
   }
 
+  @Override
   public void setTenant(String tenant) {
     this.tenant = tenant;
-  }
-
-  public void setRequestTimeout(int seconds) {
-    this.timeout = seconds;
   }
 
   @Override
   public Future<JsonArray> getPermissionsForUser(String userid) {
     Future<JsonArray> future = Future.future();
-    HttpClientOptions options = new HttpClientOptions();
-    options.setConnectTimeout(timeout * 1000);
-    HttpClient client = vertx.createHttpClient(options);
     String okapiUrlCandidate = "http://localhost:9130/";
     if (okapiUrl != null) {
       okapiUrlCandidate = okapiUrl;
@@ -157,9 +157,6 @@ public class ModulePermissionsSource implements PermissionsSource {
       String requestUrl = okapiUrlFinal + "perms/permissions?"
               + URLEncoder.encode("expandSubs=true&query=" + query, "UTF-8");
       logger.debug("Requesting expanded permissions from URL at " + requestUrl);
-      HttpClientOptions options = new HttpClientOptions();
-      //options.setConnectTimeout(timeout);
-      HttpClient client = vertx.createHttpClient(options);
       HttpClientRequest req = client.getAbs(requestUrl, res -> {
         res.bodyHandler(body -> {
           try {

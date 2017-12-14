@@ -38,11 +38,6 @@ public class DummyPermissionsSource implements PermissionsSource {
   }
 
   @Override
-  public void setRequestTimeout(int seconds) {
-    return;
-  }
-
-  @Override
   public Future<JsonArray> expandPermissions(JsonArray permissions) {
     Future<JsonArray> future = Future.future();
     future.complete(permissions);
