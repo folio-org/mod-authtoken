@@ -18,7 +18,7 @@
       "methods" : [ "*" ],
       "pathPattern" : "/*",
       "phase" : "auth",
-      "type" : "request-only",
+      "type" : "headers",
       "modulePermissions" : [ "perms.users.get" ]
     }
   ]
