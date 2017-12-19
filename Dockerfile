@@ -1,4 +1,4 @@
-FROM openjdk:8-jre-alpine
+FROM folioci/openjdk8-jre-alpine:latest
 
 ENV VERTICLE_FILE mod-authtoken-fat.jar
 
@@ -6,22 +6,7 @@ ENV VERTICLE_FILE mod-authtoken-fat.jar
 ENV VERTICLE_HOME /usr/verticles
 
 # Copy your fat jar to the container
-COPY target/$VERTICLE_FILE $VERTICLE_HOME/module.jar
-COPY docker/docker-entrypoint.sh $VERTICLE_HOME/docker-entrypoint.sh
-
-# Create user/group 'folio'
-RUN addgroup folio && \
-    adduser -H -h $VERTICLE_HOME -G folio -D folio && \
-    chown -R folio.folio $VERTICLE_HOME && \
-    apk add --update bash && rm -rf /var/cache/apk/*
-
-# Run as this user
-USER folio
-
-# Launch the verticle
-WORKDIR $VERTICLE_HOME
+COPY target/$VERTICLE_FILE $VERTICLE_HOME/$VERTICLE_FILE
 
 # Expose this port locally in the container.
 EXPOSE 8081
-
-ENTRYPOINT ["./docker-entrypoint.sh"]
