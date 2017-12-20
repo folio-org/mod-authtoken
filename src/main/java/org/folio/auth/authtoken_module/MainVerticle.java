@@ -277,15 +277,17 @@ public class MainVerticle extends AbstractVerticle {
     logger.debug("AuthZ> Token claims are " + tokenClaims.encode());
 
     /*
-    Here, we're really basically saying that we are only going to allow access
-    to the /token endpoint if the request has a module-level permission defined
-    for it. There really should be no other case for this endpoint to be accessed
+      When the initial request comes in, as a filter, we require that the auth.signtoken
+      permission exists in the module tokens. This means that even if a request has
+      the permission in its permissions list, it cannot request a token unless
+      it has been granted at the module level. If it passes the filter successfully,
+      a new permission, auth.signtoken.execute is attached to the outgoing request
+      which the /token handler will check for when it processes the actual request
     */
     if(ctx.request().path().startsWith("/token")) {
       JsonArray extraPermissions = tokenClaims.getJsonArray("extra_permissions");
       if(ctx.getBodyAsString() == null || ctx.getBodyAsString().isEmpty()) {
         logger.debug("Request for /token with no content, treating as filtering request");
-        JsonObject claims = getClaims(authToken);
         ctx.response()
                 .setChunked(true)
                 .setStatusCode(202)
