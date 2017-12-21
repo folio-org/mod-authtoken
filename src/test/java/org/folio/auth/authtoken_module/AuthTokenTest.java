@@ -14,6 +14,7 @@ import static com.jayway.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
 import com.jayway.restassured.response.Response;
 import guru.nidi.ramltester.restassured.RestAssuredClient;
+import io.vertx.core.json.JsonArray;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.concurrent.ThreadLocalRandom;
@@ -39,9 +40,12 @@ public class AuthTokenTest {
   private static TokenCreator tokenCreator;
   private static JsonObject payload;
   private static JsonObject payload2;
+  private static JsonObject payload3;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String basicToken;
   private static String basicToken2;
+  private static String basicToken3;
+
   static int port;
   static int mockPort;
   static Vertx vertx;
@@ -68,9 +72,16 @@ public class AuthTokenTest {
       .put("user_id", userUUID)
       .put("tenant", tenant)
       .put("sub", "jones");
+    payload3 = new JsonObject()
+      .put("user_id", userUUID)
+      .put("tenant", tenant)
+      .put("sub", "jones")
+      .put("extra_permissions", new JsonArray().add("auth.signtoken"));
     tokenCreator = new TokenCreator("CorrectBatteryHorseStaple");
     basicToken = tokenCreator.createToken(payload.encode());
     basicToken2 = tokenCreator.createToken(payload2.encode());
+    basicToken3 = tokenCreator.createToken(payload3.encode());
+ 
     System.setProperty("jwt.signing.key", "CorrectBatteryHorseStaple");
 
     httpClient = vertx.createHttpClient();
@@ -136,6 +147,7 @@ public class AuthTokenTest {
     String testGlob = "*bottle*cup";
     String testString1 = "WhitebottleBluecup";
     String testString2 = "WhitebotBluecu";
+    
     context.assertTrue(Util.globMatch(testGlob, testString1));
     context.assertFalse(Util.globMatch(testGlob, testString2));
     async.complete();
@@ -292,7 +304,53 @@ public class AuthTokenTest {
       .then()
       .statusCode(202)
       .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+    
+    //post a bad token signing request (no payload)
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .post("/token")
+      .then()
+      .statusCode(401);
+    
+     //post a bad token signing request 
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .body(payload.encode())
+      .post("/token")
+      .then()
+      .statusCode(403);
+    
+    
+    //get a good token signing request (no payload)
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken3)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .post("/token")
+      .then()
+      .statusCode(202);
+    
+  
+    //get a good token signing request 
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"auth.signtoken.execute\"]")
+      .body(new JsonObject().put("payload", payload).encode())
+      .post("/token")
+      .then()
+      .statusCode(200);
 
+    
     async.complete();
     logger.debug("AuthToken test1 done");
 

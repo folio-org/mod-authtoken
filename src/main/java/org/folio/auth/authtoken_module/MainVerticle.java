@@ -257,7 +257,7 @@ public class MainVerticle extends AbstractVerticle {
     try {
       tokenCreator.checkToken(authToken);
     } catch (MalformedJwtException m) {
-        logger.error("Malformed token", m);
+        logger.error("Malformed token: " + authToken, m);
         ctx.response().setStatusCode(401)
                 .end("Invalid token format");
         return;
@@ -288,17 +288,28 @@ public class MainVerticle extends AbstractVerticle {
       JsonArray extraPermissions = tokenClaims.getJsonArray("extra_permissions");
       if(ctx.getBodyAsString() == null || ctx.getBodyAsString().isEmpty()) {
         logger.debug("Request for /token with no content, treating as filtering request");
-        ctx.response()
-                .setChunked(true)
-                .setStatusCode(202)
-                .putHeader(PERMISSIONS_HEADER, new JsonArray().add(SIGN_TOKEN_EXECUTE_PERMISSION).encode())
-                .putHeader(OKAPI_TOKEN_HEADER, authToken);
-        ctx.response().end();
+        if(extraPermissions != null && extraPermissions.contains(SIGN_TOKEN_PERMISSION)) {
+          ctx.response()
+                  .setChunked(true)
+                  .setStatusCode(202)
+                  .putHeader(PERMISSIONS_HEADER, new JsonArray().add(SIGN_TOKEN_EXECUTE_PERMISSION).encode())
+                  .putHeader(OKAPI_TOKEN_HEADER, authToken);
+          ctx.response().end();
+        } else {
+          ctx.response()
+                  .setStatusCode(401)
+                  .end("Missing module-level permissions for token signing request");
+        }
         return;
       } else {
         //Check for permissions
-        JsonArray requestPerms = new JsonArray(ctx.request().headers().get(PERMISSIONS_HEADER));
-        if(!requestPerms.contains(SIGN_TOKEN_EXECUTE_PERMISSION)) {
+        JsonArray requestPerms = null;
+        try {
+          requestPerms = new JsonArray(ctx.request().headers().get(PERMISSIONS_HEADER));
+        } catch(io.vertx.core.json.DecodeException dex) {
+          //Eh, just leave it null
+        }
+        if(requestPerms == null || !requestPerms.contains(SIGN_TOKEN_EXECUTE_PERMISSION)) {
           logger.error("Request for /token, but no permissions granted in header");
           ctx.response()
                   .setStatusCode(403)
