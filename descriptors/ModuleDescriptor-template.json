@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "authtoken",
-      "version": "1.1",
+      "version": "1.2",
       "handlers" : [
         {
           "methods" : [ "POST" ],
@@ -18,7 +18,7 @@
       "methods" : [ "*" ],
       "pathPattern" : "/*",
       "phase" : "auth",
-      "type" : "request-only",
+      "type" : "headers",
       "modulePermissions" : [ "perms.users.get" ]
     }
   ]

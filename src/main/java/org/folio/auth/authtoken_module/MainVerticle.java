@@ -49,6 +49,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
   private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
   private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
+  private static final String SIGN_TOKEN_EXECUTE_PERMISSION = "auth.signtoken.execute";
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   private static final String TOKEN_USER_ID_FIELD = "user_id";
 
@@ -256,7 +257,7 @@ public class MainVerticle extends AbstractVerticle {
     try {
       tokenCreator.checkToken(authToken);
     } catch (MalformedJwtException m) {
-        logger.error("Malformed token", m);
+        logger.error("Malformed token: " + authToken, m);
         ctx.response().setStatusCode(401)
                 .end("Invalid token format");
         return;
@@ -271,24 +272,53 @@ public class MainVerticle extends AbstractVerticle {
                 .end("Invalid token format");
         return;
     }
-
-    logger.debug("AuthZ> Token claims are " + getClaims(authToken).encode());
+    
+    JsonObject tokenClaims = getClaims(authToken);
+    logger.debug("AuthZ> Token claims are " + tokenClaims.encode());
 
     /*
-    Here, we're really basically saying that we are only going to allow access
-    to the /token endpoint if the request has a module-level permission defined
-    for it. There really should be no other case for this endpoint to be accessed
+      When the initial request comes in, as a filter, we require that the auth.signtoken
+      permission exists in the module tokens. This means that even if a request has
+      the permission in its permissions list, it cannot request a token unless
+      it has been granted at the module level. If it passes the filter successfully,
+      a new permission, auth.signtoken.execute is attached to the outgoing request
+      which the /token handler will check for when it processes the actual request
     */
-
-    JsonObject tokenClaims = getClaims(authToken);
-
     if(ctx.request().path().startsWith("/token")) {
       JsonArray extraPermissions = tokenClaims.getJsonArray("extra_permissions");
-      if(extraPermissions == null || !extraPermissions.contains(SIGN_TOKEN_PERMISSION)) {
-        //do nothing
-      } else {
-        handleSignToken(ctx);
+      if(ctx.getBodyAsString() == null || ctx.getBodyAsString().isEmpty()) {
+        logger.debug("Request for /token with no content, treating as filtering request");
+        if(extraPermissions != null && extraPermissions.contains(SIGN_TOKEN_PERMISSION)) {
+          ctx.response()
+                  .setChunked(true)
+                  .setStatusCode(202)
+                  .putHeader(PERMISSIONS_HEADER, new JsonArray().add(SIGN_TOKEN_EXECUTE_PERMISSION).encode())
+                  .putHeader(OKAPI_TOKEN_HEADER, authToken);
+          ctx.response().end();
+        } else {
+          ctx.response()
+                  .setStatusCode(401)
+                  .end("Missing module-level permissions for token signing request");
+        }
         return;
+      } else {
+        //Check for permissions
+        JsonArray requestPerms = null;
+        try {
+          requestPerms = new JsonArray(ctx.request().headers().get(PERMISSIONS_HEADER));
+        } catch(io.vertx.core.json.DecodeException dex) {
+          //Eh, just leave it null
+        }
+        if(requestPerms == null || !requestPerms.contains(SIGN_TOKEN_EXECUTE_PERMISSION)) {
+          logger.error("Request for /token, but no permissions granted in header");
+          ctx.response()
+                  .setStatusCode(403)
+                  .end("Missing permissions for token signing request");
+          return;
+        } else {
+          handleSignToken(ctx);
+          return;
+        }
       }
     }
 
@@ -474,7 +504,7 @@ public class MainVerticle extends AbstractVerticle {
             ctx.response().putHeader(USERID_HEADER, finalUserId);
           }
 
-          ctx.response().end(ctx.getBodyAsString());
+          ctx.response().end();
           return;
         }
       });
