@@ -27,6 +27,8 @@ import java.util.regex.Pattern;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
@@ -59,8 +61,10 @@ public class MainVerticle extends AbstractVerticle {
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
   private boolean suppressErrorResponse = false;
+  private boolean cachePermissions = false;
 
   private TokenCreator tokenCreator;
+  private Map<String, CacheEntry> cacheMap;
 
   public void start(Future<Void> future) {
     Router router = Router.router(vertx);
@@ -73,6 +77,13 @@ public class MainVerticle extends AbstractVerticle {
     if(suppressString.equals("true")) {
       suppressErrorResponse = true;
     }
+    
+    String cachePermsString = System.getProperty("cache.permissions", "false");
+    if(cachePermsString.equals("true")) {
+      cachePermissions = true;
+    }
+    
+    cacheMap = new HashMap<>();
 
     String logLevel = System.getProperty("log.level", null);
     if(logLevel != null) {
@@ -410,6 +421,22 @@ public class MainVerticle extends AbstractVerticle {
       }
     }
 
+    //Using one-element array to get around the must-be-final hoo-hah
+    CacheEntry[] currentCache = new CacheEntry[1];
+    if(cachePermissions) {
+      currentCache[0] = cacheMap.getOrDefault(userId, null);
+      if(currentCache[0] == null || ( (System.currentTimeMillis() - currentCache[0].getTimestamp() )/ 1000) > 10) {
+        currentCache[0] = new CacheEntry();
+        if(userId != null) {
+          cacheMap.put(userId, currentCache[0]);
+        }
+        logger.debug("No valid permissions cache found, creating new entry");
+      } else {
+        logger.debug("Using cached permissions");
+      }
+    } else {
+      logger.debug("Permissions cache disabled");
+    }
     PermissionsSource usePermissionsSource;
     if(tokenClaims.getBoolean("dummy") != null || username.startsWith(UNDEFINED_USER_NAME)) {
       logger.debug("AuthZ> Using dummy permissions source");
@@ -422,7 +449,14 @@ public class MainVerticle extends AbstractVerticle {
     logger.debug("AuthZ> Getting user permissions for " + username + " (userId " +
             userId + ")");
     long startTime = System.currentTimeMillis();
-    usePermissionsSource.getPermissionsForUser(userId).setHandler((AsyncResult<JsonArray> res) -> {
+    Future<JsonArray> retrievedPermissionsFuture;
+    if(cachePermissions && currentCache[0].getPermissions() != null) {
+      retrievedPermissionsFuture = Future.future();
+      retrievedPermissionsFuture.complete(currentCache[0].getPermissions());
+    } else {
+      retrievedPermissionsFuture = usePermissionsSource.getPermissionsForUser(userId);
+    }
+    retrievedPermissionsFuture.setHandler((AsyncResult<JsonArray> res) -> {
       if(res.failed()) {
         long stopTime = System.currentTimeMillis();
         logger.error("AuthZ> Unable to retrieve permissions for " + username + ": " + res.cause().getMessage() +
@@ -437,9 +471,19 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       JsonArray permissions = res.result();
+      if(cachePermissions) {
+        currentCache[0].setPermissions(permissions);
+      }
       logger.debug("AuthZ> Permissions for " + username + ": " + permissions.encode());
       logger.debug("AuthZ> Extra permissions for request: " + extraPermissions.encode());
-      usePermissionsSource.expandPermissions(extraPermissions).setHandler( res2 -> {
+      Future<JsonArray> expandedPermissionsFuture;
+      if(cachePermissions && currentCache[0].getExpandedPermissions() != null) {
+        expandedPermissionsFuture = Future.future();
+        expandedPermissionsFuture.complete(currentCache[0].getExpandedPermissions());
+      } else {
+        expandedPermissionsFuture = usePermissionsSource.expandPermissions(extraPermissions);
+      }
+      expandedPermissionsFuture.setHandler( res2 -> {
         if(res2.failed()) {
           String message = "Error getting expanded permissions for " +
                   extraPermissions.encode() + " : " + res2.cause().getLocalizedMessage();
@@ -448,6 +492,9 @@ public class MainVerticle extends AbstractVerticle {
           logger.error(message, res2.cause());
         } else {
           JsonArray expandedExtraPermissions = res2.result();
+          if(cachePermissions) {
+            currentCache[0].setExpandedPermissions(expandedExtraPermissions);
+          }
           if(expandedExtraPermissions != null) {
             logger.debug("AuthZ> expandedExtraPermissions are: " + expandedExtraPermissions.encode());
             for (Object o : expandedExtraPermissions) {
@@ -547,4 +594,40 @@ public class MainVerticle extends AbstractVerticle {
     return token;
   }
 
+}
+
+class CacheEntry {
+  private Long timestamp;
+  private JsonArray permissions;
+  private JsonArray expandedPermissions;
+
+  public CacheEntry() {
+    timestamp = System.currentTimeMillis();
+    permissions = null;
+    expandedPermissions = null;
+  }
+
+  public Long getTimestamp() {
+    return timestamp;
+  }
+
+  public void setTimestamp(Long timestamp) {
+    this.timestamp = timestamp;
+  }
+
+  public JsonArray getPermissions() {
+    return permissions;
+  }
+
+  public void setPermissions(JsonArray permissions) {
+    this.permissions = permissions;
+  }
+
+  public JsonArray getExpandedPermissions() {
+    return expandedPermissions;
+  }
+
+  public void setExpandedPermissions(JsonArray expandedPermissions) {
+    this.expandedPermissions = expandedPermissions;
+  }
 }
