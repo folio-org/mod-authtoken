@@ -1,3 +1,7 @@
+## 1.2.0 2018-02-22
+ * Implement option for time-based caching
+ * Adjust token signing hand-off for new Okapi behavior
+
 ## 1.1.0 2017-10-11
  * Allow wildcard permission names in desired permissions
 

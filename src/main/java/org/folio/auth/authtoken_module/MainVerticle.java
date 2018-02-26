@@ -64,10 +64,10 @@ public class MainVerticle extends AbstractVerticle {
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
   private boolean suppressErrorResponse = false;
-  private boolean cachePermissions = false;
+  private boolean cachePermissions = true;
 
   private TokenCreator tokenCreator;
-  private Map<String, CacheEntry> cacheMap;
+  //private Map<String, CacheEntry> cacheMap;
 
   private LimitedSizeQueue<String> tokenCache;
 
@@ -86,13 +86,15 @@ public class MainVerticle extends AbstractVerticle {
       suppressErrorResponse = true;
     }
     
-    String cachePermsString = System.getProperty("cache.permissions", "false");
+    String cachePermsString = System.getProperty("cache.permissions", "true");
     if(cachePermsString.equals("true")) {
       cachePermissions = true;
+    } else {
+      cachePermissions = false;
     }
     
-    cacheMap = new HashMap<>();
-		permissionsRequestTokenMap = new HashMap<>();
+
+    permissionsRequestTokenMap = new HashMap<>();
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
     String logLevel = System.getProperty("log.level", null);
     if(logLevel != null) {
@@ -104,7 +106,7 @@ public class MainVerticle extends AbstractVerticle {
         logger.error("Unable to set log level: " + e.getMessage());
       }
     }
-    permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
+    permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout, cachePermissions);
 
 	  // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
@@ -237,20 +239,20 @@ public class MainVerticle extends AbstractVerticle {
       ugly 'lookup loop'
     */
     String permissionsRequestToken;
-    if(permissionsRequestTokenMap.containsKey(tenant)) {
-    	permissionsRequestToken = permissionsRequestTokenMap.get(tenant);
-		} else {
-			JsonObject permissionRequestPayload = new JsonObject()
-									.put("sub", "_AUTHZ_MODULE_")
-									.put("tenant", tenant)
-									.put("dummy", true)
-									.put("request_id", "PERMISSIONS_REQUEST_TOKEN")
-									.put("extra_permissions", new JsonArray()
-													.add(PERMISSIONS_PERMISSION_READ_BIT)
-													.add(PERMISSIONS_USER_READ_BIT));
+    if (permissionsRequestTokenMap.containsKey(tenant)) {
+      permissionsRequestToken = permissionsRequestTokenMap.get(tenant);
+    } else {
+      JsonObject permissionRequestPayload = new JsonObject()
+              .put("sub", "_AUTHZ_MODULE_")
+              .put("tenant", tenant)
+              .put("dummy", true)
+              .put("request_id", "PERMISSIONS_REQUEST_TOKEN")
+              .put("extra_permissions", new JsonArray()
+                      .add(PERMISSIONS_PERMISSION_READ_BIT)
+                      .add(PERMISSIONS_USER_READ_BIT));
 
-			permissionsRequestToken = tokenCreator.createToken(permissionRequestPayload.encode());
-		}
+      permissionsRequestToken = tokenCreator.createToken(permissionRequestPayload.encode());
+    }
 
     permissionsSource.setRequestToken(permissionsRequestToken);
     if (candidateToken == null) {
@@ -312,6 +314,7 @@ public class MainVerticle extends AbstractVerticle {
       if(ctx.getBodyAsString() == null || ctx.getBodyAsString().isEmpty()) {
         logger.debug("Request for /token with no content, treating as filtering request");
         if(extraPermissions != null && extraPermissions.contains(SIGN_TOKEN_PERMISSION)) {
+          logger.debug("Adding permissions header with '" + SIGN_TOKEN_EXECUTE_PERMISSION + "' permisison to request");
           ctx.response()
                   .setChunked(true)
                   .setStatusCode(202)
@@ -325,6 +328,7 @@ public class MainVerticle extends AbstractVerticle {
         }
         return;
       } else {
+        logger.debug("Payload detected, treating as token signing request");
         //Check for permissions
         JsonArray requestPerms = null;
         try {
@@ -332,7 +336,10 @@ public class MainVerticle extends AbstractVerticle {
         } catch(io.vertx.core.json.DecodeException dex) {
           //Eh, just leave it null
         }
-        if(requestPerms == null || !requestPerms.contains(SIGN_TOKEN_EXECUTE_PERMISSION)) {
+        
+        
+        if( (requestPerms == null || !requestPerms.contains(SIGN_TOKEN_EXECUTE_PERMISSION)) &&
+               (extraPermissions == null || !extraPermissions.contains(SIGN_TOKEN_PERMISSION)) ) {
           logger.error("Request for /token, but no permissions granted in header");
           ctx.response()
                   .setStatusCode(403)
@@ -434,6 +441,7 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     //Using one-element array to get around the must-be-final hoo-hah
+    /*
     CacheEntry[] currentCache = new CacheEntry[1];
     if(cachePermissions) {
       currentCache[0] = cacheMap.getOrDefault(userId, null);
@@ -449,6 +457,7 @@ public class MainVerticle extends AbstractVerticle {
     } else {
       logger.debug("Permissions cache disabled");
     }
+    */
     PermissionsSource usePermissionsSource;
     if(tokenClaims.getBoolean("dummy") != null || username.startsWith(UNDEFINED_USER_NAME)) {
       logger.debug("Using dummy permissions source");
@@ -461,14 +470,21 @@ public class MainVerticle extends AbstractVerticle {
     logger.debug("Getting user permissions for " + username + " (userId " +
             userId + ")");
     long startTime = System.currentTimeMillis();
-    Future<JsonArray> retrievedPermissionsFuture;
+    Future<PermissionData> retrievedPermissionsFuture;
+    /*
     if(cachePermissions && currentCache[0].getPermissions() != null) {
       retrievedPermissionsFuture = Future.future();
       retrievedPermissionsFuture.complete(currentCache[0].getPermissions());
     } else {
       retrievedPermissionsFuture = usePermissionsSource.getPermissionsForUser(userId);
     }
-    retrievedPermissionsFuture.setHandler((AsyncResult<JsonArray> res) -> {
+    */
+    //retrievedPermissionsFuture = usePermissionsSource.getPermissionsForUser(userId);
+    retrievedPermissionsFuture = usePermissionsSource.getUserAndExpandedPermissions(
+            userId, extraPermissions);
+    logger.info("Retrieving permissions for userid " + userId + ", and expanded permissions for " +
+            extraPermissions.encode());
+    retrievedPermissionsFuture.setHandler(res -> {
       if(res.failed()) {
         long stopTime = System.currentTimeMillis();
         logger.error("Unable to retrieve permissions for " + username + ": " + res.cause().getMessage() +
@@ -482,7 +498,8 @@ public class MainVerticle extends AbstractVerticle {
         }
         return;
       }
-      JsonArray permissions = res.result();
+      
+      /*
       if(cachePermissions) {
       	JsonArray copiedPermissions = new JsonArray();
       	for(Object p : permissions) {
@@ -490,91 +507,89 @@ public class MainVerticle extends AbstractVerticle {
 				}
         currentCache[0].setPermissions(copiedPermissions);
       }
+      */
+      JsonArray permissions = res.result().getUserPermissions();
+      JsonArray expandedExtraPermissions = res.result().getExpandedPermissions();
       logger.debug("Permissions for " + username + ": " + permissions.encode());
-      logger.debug("Extra permissions for request: " + extraPermissions.encode());
-      Future<JsonArray> expandedPermissionsFuture;
+      
+
+      /*
       if(cachePermissions && currentCache[0].getExpandedPermissions() != null) {
         expandedPermissionsFuture = Future.future();
         expandedPermissionsFuture.complete(currentCache[0].getExpandedPermissions());
       } else {
         expandedPermissionsFuture = usePermissionsSource.expandPermissions(extraPermissions);
       }
-      expandedPermissionsFuture.setHandler( res2 -> {
-        if(res2.failed()) {
-          String message = "Error getting expanded permissions for " +
-                  extraPermissions.encode() + " : " + res2.cause().getLocalizedMessage();
-          ctx.response().setStatusCode(500)
-                  .end(message);
-          logger.error(message, res2.cause());
-        } else {
-          JsonArray expandedExtraPermissions = res2.result();
-          if(cachePermissions) {
-          	JsonArray expandedExtraPermissionsCopy = new JsonArray();
-          	for(Object ep : expandedExtraPermissions) {
-          		expandedExtraPermissionsCopy.add(ep);
-						}
-            currentCache[0].setExpandedPermissions(expandedExtraPermissionsCopy);
-          }
-          if(expandedExtraPermissions != null) {
-            logger.debug("expandedExtraPermissions are: " + expandedExtraPermissions.encode());
-            for (Object o : expandedExtraPermissions) {
-              permissions.add((String) o);
-            }
-          }
+      */
+      
+     
+      /*
+      if(cachePermissions) {
+            JsonArray expandedExtraPermissionsCopy = new JsonArray();
+            for(Object ep : expandedExtraPermissions) {
+                    expandedExtraPermissionsCopy.add(ep);
+                                            }
+        currentCache[0].setExpandedPermissions(expandedExtraPermissionsCopy);
+      }
+      */
+      if(expandedExtraPermissions != null) {
+        logger.debug("expandedExtraPermissions are: " + expandedExtraPermissions.encode());
+        for (Object o : expandedExtraPermissions) {
+          permissions.add((String) o);
+        }
+      }
 
-          //Check that for all required permissions, we have them
-          for (Object o : permissionsRequired) {
-            if (!permissions.contains((String) o) && !extraPermissions.contains((String) o)) {
-            //if(!arrayContainsGlob(permissions, (String) o) && !arrayContainsGlob(extraPermissions, (String) o)) {
-              logger.error(permissions.encode() + "(user permissions) nor "
-                      + extraPermissions.encode() + "(module permissions) do not contain " + (String) o);
-              ctx.response()
-                      .setStatusCode(403)
-                      .end("Access requires permission: " + (String) o);
-              return;
-            }
-          }
-
-          //Remove all permissions not listed in permissionsRequired or permissionsDesired
-          List<Object> deleteList = new ArrayList<>();
-          for (Object o : permissions) {
-            if (!permissionsRequired.contains(o) && !Util.arrayContainsGlob(permissionsDesired, (String) o)) {
-              deleteList.add(o);
-            }
-          }
-
-          for (Object o : deleteList) {
-            permissions.remove(o);
-          }
-
-          //Create new JWT to pass back with request, include calling module field
-          JsonObject claims = getClaims(authToken);
-
-          if (ctx.request().headers().contains(CALLING_MODULE_HEADER)) {
-            claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
-          }
-
-          String token = tokenCreator.createToken(claims.encode());
-
-          logger.debug("Returning header " + PERMISSIONS_HEADER + " with content " + permissions.encode());
-          logger.debug("Returning header " + MODULE_TOKENS_HEADER + " with content " + moduleTokens.encode());
-          logger.debug("Returning Authorization Bearer token with content " + claims.encode());
-          //Return header containing relevant permissions
+      //Check that for all required permissions, we have them
+      for (Object o : permissionsRequired) {
+        if (!permissions.contains((String) o) && !extraPermissions.contains((String) o)) {
+        //if(!arrayContainsGlob(permissions, (String) o) && !arrayContainsGlob(extraPermissions, (String) o)) {
+          logger.error(permissions.encode() + "(user permissions) nor "
+                  + extraPermissions.encode() + "(module permissions) do not contain " + (String) o);
           ctx.response()
-                  .setChunked(true)
-                  .setStatusCode(202)
-                  .putHeader(PERMISSIONS_HEADER, permissions.encode())
-                  .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
-                  .putHeader("Authorization", "Bearer " + token)
-                  .putHeader(OKAPI_TOKEN_HEADER, token);
-          if (finalUserId != null) {
-            ctx.response().putHeader(USERID_HEADER, finalUserId);
-          }
-
-          ctx.response().end();
+                  .setStatusCode(403)
+                  .end("Access requires permission: " + (String) o);
           return;
         }
-      });
+      }
+
+      //Remove all permissions not listed in permissionsRequired or permissionsDesired
+      List<Object> deleteList = new ArrayList<>();
+      for (Object o : permissions) {
+        if (!permissionsRequired.contains(o) && !Util.arrayContainsGlob(permissionsDesired, (String) o)) {
+          deleteList.add(o);
+        }
+      }
+
+      for (Object o : deleteList) {
+        permissions.remove(o);
+      }
+
+      //Create new JWT to pass back with request, include calling module field
+      JsonObject claims = getClaims(authToken);
+
+      if (ctx.request().headers().contains(CALLING_MODULE_HEADER)) {
+        claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
+      }
+
+      String token = tokenCreator.createToken(claims.encode());
+
+      logger.debug("Returning header " + PERMISSIONS_HEADER + " with content " + permissions.encode());
+      logger.debug("Returning header " + MODULE_TOKENS_HEADER + " with content " + moduleTokens.encode());
+      logger.debug("Returning Authorization Bearer token with content " + claims.encode());
+      //Return header containing relevant permissions
+      ctx.response()
+              .setChunked(true)
+              .setStatusCode(202)
+              .putHeader(PERMISSIONS_HEADER, permissions.encode())
+              .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
+              .putHeader("Authorization", "Bearer " + token)
+              .putHeader(OKAPI_TOKEN_HEADER, token);
+      if (finalUserId != null) {
+        ctx.response().putHeader(USERID_HEADER, finalUserId);
+      }
+
+      ctx.response().end();
+      return;
     });
   }
 
@@ -616,41 +631,7 @@ public class MainVerticle extends AbstractVerticle {
 
 }
 
-class CacheEntry {
-  private Long timestamp;
-  private JsonArray permissions;
-  private JsonArray expandedPermissions;
 
-  public CacheEntry() {
-    timestamp = System.currentTimeMillis();
-    permissions = null;
-    expandedPermissions = null;
-  }
-
-  public Long getTimestamp() {
-    return timestamp;
-  }
-
-  public void setTimestamp(Long timestamp) {
-    this.timestamp = timestamp;
-  }
-
-  public JsonArray getPermissions() {
-    return permissions;
-  }
-
-  public void setPermissions(JsonArray permissions) {
-    this.permissions = permissions;
-  }
-
-  public JsonArray getExpandedPermissions() {
-    return expandedPermissions;
-  }
-
-  public void setExpandedPermissions(JsonArray expandedPermissions) {
-    this.expandedPermissions = expandedPermissions;
-  }
-}
 
 
 class LimitedSizeQueue<K> extends ArrayList<K> {
