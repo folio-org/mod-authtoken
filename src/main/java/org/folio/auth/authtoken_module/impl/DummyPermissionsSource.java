@@ -3,6 +3,9 @@ package org.folio.auth.authtoken_module.impl;
 import org.folio.auth.authtoken_module.PermissionsSource;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import org.folio.auth.authtoken_module.PermissionData;
+
 
 /**
  *
@@ -42,6 +45,14 @@ public class DummyPermissionsSource implements PermissionsSource {
     Future<JsonArray> future = Future.future();
     future.complete(permissions);
     return future;
+  }
+
+  @Override
+  public Future<PermissionData> getUserAndExpandedPermissions(String userid, 
+          JsonArray permissions) {
+    PermissionData permissionData = new PermissionData();
+    permissionData.setExpandedPermissions(permissions);
+    return Future.succeededFuture(permissionData);
   }
 
 }
