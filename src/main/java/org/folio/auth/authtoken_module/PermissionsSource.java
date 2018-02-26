@@ -2,6 +2,7 @@ package org.folio.auth.authtoken_module;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 
 /**
  *
@@ -17,5 +18,9 @@ public interface PermissionsSource {
   Future<JsonArray> getPermissionsForUser(String username);
 
   Future<JsonArray> expandPermissions(JsonArray permissions);
+  
+  Future<PermissionData> getUserAndExpandedPermissions(String userid, JsonArray permissions);
 
 }
+
+

@@ -1,5 +1,6 @@
 package org.folio.auth.authtoken_module.impl;
 
+import io.vertx.core.CompositeFuture;
 import java.util.StringJoiner;
 import org.folio.auth.authtoken_module.PermissionsSource;
 import io.vertx.core.Future;
@@ -12,6 +13,9 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
+import org.folio.auth.authtoken_module.PermissionData;
 
 /**
  *
@@ -26,15 +30,21 @@ public class ModulePermissionsSource implements PermissionsSource {
   private String tenant;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private final HttpClient client;
+  private Map<String, CacheEntry> cacheMap;
+  private boolean cacheEntries;
 
-  public ModulePermissionsSource(Vertx vertx, int timeout) {
+  public ModulePermissionsSource(Vertx vertx, int timeout, boolean cache) {
     //permissionsModuleUrl = url;
+    cacheEntries = cache;
     this.vertx = vertx;
     HttpClientOptions options = new HttpClientOptions();
     options.setConnectTimeout(timeout * 1000);
     client = vertx.createHttpClient(options);
+    if(cache) {
+      cacheMap = new HashMap<>();
+    }
   }
-
+  
   @Override
   public void setOkapiUrl(String url) {
     okapiUrl = url;
@@ -166,6 +176,7 @@ public class ModulePermissionsSource implements PermissionsSource {
               future.fail(message);
               logger.error("Error expanding " + permissions.encode() + ": " + message);
             } else {
+              logger.info("Got result from permissions module: " + body.toString());
               JsonObject result = new JsonObject(body.toString());
               JsonArray expandedPermissions = new JsonArray();
               for (Object ob : permissions) {
@@ -235,4 +246,99 @@ public class ModulePermissionsSource implements PermissionsSource {
     return future;
   }
 
+  @Override
+  public Future<PermissionData> getUserAndExpandedPermissions(String userid, JsonArray permissions) {
+    System.out.println("getUserAndExpandedPermissions, userid=" + userid + "permissions=" +
+            permissions.encode());
+    logger.info("Retrieving permissions for userid "  + userid + " and expanding permissions for " +
+      permissions.encode());
+    CacheEntry[] currentCache = new CacheEntry[1];
+    if(cacheEntries) {
+      currentCache[0] = cacheMap.getOrDefault(userid, null);
+      if(currentCache[0] == null ||
+              (System.currentTimeMillis() - currentCache[0].getTimestamp()) / 1000 > 10 ) {
+        logger.debug("Cache expired, discarding");
+        currentCache[0] = new CacheEntry();
+        if(userid != null) {
+          cacheMap.put(userid, currentCache[0]);
+        }
+      } 
+    }
+    Future<PermissionData> future = Future.future();
+    Future<JsonArray> userPermsFuture;
+    if(cacheEntries && currentCache[0].getPermissions() != null) {
+      userPermsFuture = Future.succeededFuture(currentCache[0].getPermissions());
+    } else {
+      userPermsFuture = getPermissionsForUser(userid);
+    }
+    Future<JsonArray> expandedPermsFuture;
+    if(cacheEntries && currentCache[0].getExpandedPermissions() != null) {
+      expandedPermsFuture = Future.succeededFuture(currentCache[0].getExpandedPermissions());
+    } else {
+      expandedPermsFuture = expandPermissions(permissions);
+    }
+    CompositeFuture compositeFuture = CompositeFuture.all(userPermsFuture, expandedPermsFuture);
+    compositeFuture.setHandler(compositeRes -> {
+      if(compositeFuture.failed()) {
+        future.fail(compositeFuture.cause());
+      } else {
+        PermissionData permissionData = new PermissionData();
+        permissionData.setUserPermissions(userPermsFuture.result());
+        permissionData.setExpandedPermissions(expandedPermsFuture.result());
+        if(cacheEntries) {
+          JsonArray copiedUserPerms = new JsonArray();
+          JsonArray copiedExpandedPerms = new JsonArray();
+          for(Object p : userPermsFuture.result()) {
+            copiedUserPerms.add(p);
+          }
+          currentCache[0].setPermissions(copiedUserPerms);
+          for(Object p : expandedPermsFuture.result()) {
+            copiedExpandedPerms.add(p);
+          }
+          currentCache[0].setExpandedPermissions(copiedExpandedPerms);
+        }
+        future.complete(permissionData);
+        System.out.println("completing future with user permissions=" + permissionData.getUserPermissions().encode() +
+                ", expanded permissions=" + permissionData.getExpandedPermissions().encode());
+      }
+    });
+    return future;
+  }
+
+}
+
+class CacheEntry {
+  private Long timestamp;
+  private JsonArray permissions;
+  private JsonArray expandedPermissions;
+
+  public CacheEntry() {
+    timestamp = System.currentTimeMillis();
+    permissions = null;
+    expandedPermissions = null;
+  }
+
+  public Long getTimestamp() {
+    return timestamp;
+  }
+
+  public void setTimestamp(Long timestamp) {
+    this.timestamp = timestamp;
+  }
+
+  public JsonArray getPermissions() {
+    return permissions;
+  }
+
+  public void setPermissions(JsonArray permissions) {
+    this.permissions = permissions;
+  }
+
+  public JsonArray getExpandedPermissions() {
+    return expandedPermissions;
+  }
+
+  public void setExpandedPermissions(JsonArray expandedPermissions) {
+    this.expandedPermissions = expandedPermissions;
+  }
 }
