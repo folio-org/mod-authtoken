@@ -22,6 +22,7 @@ public class PermsMock extends AbstractVerticle {
 
     router.route("/perms/users/:id/permissions").handler(this::handlePermUsersPermissions);
     router.route("/perms/users").handler(this::handlePermsUsers);
+    router.route("/perms/permissions").handler(this::handlePermsPermissions);
     System.out.println("Running PermsMock on port " + port + "\n");
     server.requestHandler(router::accept).listen(port, result -> {
       if(result.failed()) {
@@ -46,6 +47,7 @@ public class PermsMock extends AbstractVerticle {
 
     context.response()
       .setStatusCode(200)
+      .putHeader("Content-Type", "application/json")
       .end(output.encode());
 
   }
@@ -61,6 +63,20 @@ public class PermsMock extends AbstractVerticle {
     context.response()
       .setStatusCode(200)
       .end(output.encode());
+  }
+  
+  private void handlePermsPermissions(RoutingContext context) {
+    JsonObject output = new JsonObject().put("permissions", new JsonArray()
+      .add(new JsonObject()
+        .put("permissionName", "bar.first"))
+      .add(new JsonObject()
+        .put("permissionName", "bar.second"))
+    );
+    
+    context.response()
+            .setStatusCode(200)
+            .putHeader("Content-type", "application/json")
+            .end(output.encode());
   }
 
 }
