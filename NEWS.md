@@ -1,3 +1,6 @@
+## 1.4.1 2018-02-27
+ * Correct package name in pom
+
 ## 1.4.0 2018-02-27
  * Add header to zap cache on demand
 
