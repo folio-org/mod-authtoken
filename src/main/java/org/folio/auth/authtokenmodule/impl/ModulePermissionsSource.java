@@ -1,8 +1,8 @@
-package org.folio.auth.authtoken_module.impl;
+package org.folio.auth.authtokenmodule.impl;
 
 import io.vertx.core.CompositeFuture;
 import java.util.StringJoiner;
-import org.folio.auth.authtoken_module.PermissionsSource;
+import org.folio.auth.authtokenmodule.PermissionsSource;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
@@ -15,8 +15,8 @@ import io.vertx.core.logging.LoggerFactory;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
-import org.folio.auth.authtoken_module.Cache;
-import org.folio.auth.authtoken_module.PermissionData;
+import org.folio.auth.authtokenmodule.Cache;
+import org.folio.auth.authtokenmodule.PermissionData;
 
 /**
  *
@@ -310,14 +310,14 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
 
   @Override
   public void clearCache(String userId) {
-    if(cacheMap != null) {
-      if(cacheMap.containsKey(userId)) {
+    if(cacheMap != null && cacheMap.containsKey(userId)) {
         cacheMap.remove(userId);
-      }
     }
   }
-
+  
 }
+
+
 
 class CacheEntry {
   private Long timestamp;

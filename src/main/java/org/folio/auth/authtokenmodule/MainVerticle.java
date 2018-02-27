@@ -1,7 +1,7 @@
-package org.folio.auth.authtoken_module;
+package org.folio.auth.authtokenmodule;
 
-import org.folio.auth.authtoken_module.impl.DummyPermissionsSource;
-import org.folio.auth.authtoken_module.impl.ModulePermissionsSource;
+import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
+import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import java.util.Base64;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;

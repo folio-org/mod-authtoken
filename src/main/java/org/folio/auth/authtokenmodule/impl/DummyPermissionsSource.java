@@ -1,10 +1,10 @@
-package org.folio.auth.authtoken_module.impl;
+package org.folio.auth.authtokenmodule.impl;
 
-import org.folio.auth.authtoken_module.PermissionsSource;
+import org.folio.auth.authtokenmodule.PermissionsSource;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import org.folio.auth.authtoken_module.PermissionData;
+import org.folio.auth.authtokenmodule.PermissionData;
 
 
 /**
