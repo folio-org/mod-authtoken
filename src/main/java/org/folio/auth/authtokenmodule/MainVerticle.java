@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import io.jsonwebtoken.SignatureException;
@@ -57,7 +56,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final String TOKEN_USER_ID_FIELD = "user_id";
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
 
-  private static int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
+  private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
 
   PermissionsSource permissionsSource;
   private String okapiUrl;
@@ -68,13 +67,12 @@ public class MainVerticle extends AbstractVerticle {
   private boolean cachePermissions = true;
 
   private TokenCreator tokenCreator;
-  //private Map<String, CacheEntry> cacheMap;
 
   private LimitedSizeQueue<String> tokenCache;
 
-  private String uniqueSecret = UUID.randomUUID().toString();
   private Map<String, String> permissionsRequestTokenMap;
 
+  @Override
   public void start(Future<Void> future) {
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
@@ -276,8 +274,11 @@ public class MainVerticle extends AbstractVerticle {
                 .put("request_id", requestId)
                 .put("dummy", true);
       } catch(Exception e) {
-        logger.error("Error creating dummy token: " + e.getMessage());
-        throw new RuntimeException(e);
+        String errStr = "Error creating dummy token: " + e.getMessage();
+        logger.error(errStr);
+        ctx.response().setStatusCode(500)
+                .end(errStr);
+        return;
       }
       candidateToken = tokenCreator.createToken(dummyPayload.encode());
     }
@@ -498,10 +499,11 @@ public class MainVerticle extends AbstractVerticle {
 
       //Check that for all required permissions, we have them
       for (Object o : permissionsRequired) {
-        if (!permissions.contains((String) o) && !extraPermissions.contains((String) o)) {
-        //if(!arrayContainsGlob(permissions, (String) o) && !arrayContainsGlob(extraPermissions, (String) o)) {
+        if (!permissions.contains((String) o) &&
+                !extraPermissions.contains((String) o)) {
           logger.error(permissions.encode() + "(user permissions) nor "
-                  + extraPermissions.encode() + "(module permissions) do not contain " + (String) o);
+                  + extraPermissions.encode() + "(module permissions) do not contain "
+                  + (String) o);
           ctx.response()
                   .setStatusCode(403)
                   .end("Access requires permission: " + (String) o);
@@ -546,7 +548,6 @@ public class MainVerticle extends AbstractVerticle {
       }
 
       ctx.response().end();
-      return;
     });
   }
 
@@ -591,12 +592,13 @@ public class MainVerticle extends AbstractVerticle {
 
 class LimitedSizeQueue<K> extends ArrayList<K> {
 
-	private int maxSize;
+	private final int maxSize;
 
 	public LimitedSizeQueue(int size){
 		this.maxSize = size;
 	}
 
+        @Override
 	public boolean add(K k){
 		boolean r = super.add(k);
 		if (size() > maxSize) {
