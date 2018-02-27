@@ -15,13 +15,14 @@ import io.vertx.core.logging.LoggerFactory;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
+import org.folio.auth.authtoken_module.Cache;
 import org.folio.auth.authtoken_module.PermissionData;
 
 /**
  *
  * @author kurt
  */
-public class ModulePermissionsSource implements PermissionsSource {
+public class ModulePermissionsSource implements PermissionsSource, Cache {
 
   private String okapiUrl = null;
   private Vertx vertx;
@@ -42,6 +43,8 @@ public class ModulePermissionsSource implements PermissionsSource {
     client = vertx.createHttpClient(options);
     if(cache) {
       cacheMap = new HashMap<>();
+    } else {
+      cacheMap = null;
     }
   }
   
@@ -257,7 +260,7 @@ public class ModulePermissionsSource implements PermissionsSource {
       currentCache[0] = cacheMap.getOrDefault(userid, null);
       if(currentCache[0] == null ||
               (System.currentTimeMillis() - currentCache[0].getTimestamp()) / 1000 > 10 ) {
-        logger.debug("Cache expired, discarding");
+        logger.debug("Cache expired or not found");
         currentCache[0] = new CacheEntry();
         if(userid != null) {
           cacheMap.put(userid, currentCache[0]);
@@ -303,6 +306,15 @@ public class ModulePermissionsSource implements PermissionsSource {
       }
     });
     return future;
+  }
+
+  @Override
+  public void clearCache(String userId) {
+    if(cacheMap != null) {
+      if(cacheMap.containsKey(userId)) {
+        cacheMap.remove(userId);
+      }
+    }
   }
 
 }
