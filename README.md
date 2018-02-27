@@ -23,3 +23,11 @@ at the [FOLIO issue tracker](http://dev.folio.org/community/guide-issues).
 Other [modules](http://dev.folio.org/source-code/#server-side).
 
 Other FOLIO Developer documentation is at [dev.folio.org](http://dev.folio.org/)
+
+# Command Line Options
+
+mod-authtoken employs a caching mechanism to avoid repeated lookups to the permissions module for rapid incoming requests. This is enabled by default, though it may be disabled by passing -Dcache.permissions=false to the jar when loading.
+
+# Custom Headers
+
+Passing a value of "true" to the Authtoken-Refresh-Cache header for any request will inform mod-authtoken to delete the permissions cache for that userid and to request fresh permissions, regardless of cache age.

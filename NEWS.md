@@ -1,3 +1,6 @@
+## 1.4.0 2018-02-27
+ * Add header to zap cache on demand
+
 ## 1.3.0 2018-02-22
  * Implement option for time-based caching
  * Adjust token signing hand-off for new Okapi behavior

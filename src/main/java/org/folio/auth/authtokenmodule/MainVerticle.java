@@ -1,7 +1,7 @@
-package org.folio.auth.authtoken_module;
+package org.folio.auth.authtokenmodule;
 
-import org.folio.auth.authtoken_module.impl.DummyPermissionsSource;
-import org.folio.auth.authtoken_module.impl.ModulePermissionsSource;
+import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
+import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import java.util.Base64;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.AsyncResult;
@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.HashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import io.jsonwebtoken.SignatureException;
@@ -55,8 +54,9 @@ public class MainVerticle extends AbstractVerticle {
   private static final String SIGN_TOKEN_EXECUTE_PERMISSION = "auth.signtoken.execute";
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   private static final String TOKEN_USER_ID_FIELD = "user_id";
+  private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
 
-  private static int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
+  private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
 
   PermissionsSource permissionsSource;
   private String okapiUrl;
@@ -67,13 +67,12 @@ public class MainVerticle extends AbstractVerticle {
   private boolean cachePermissions = true;
 
   private TokenCreator tokenCreator;
-  //private Map<String, CacheEntry> cacheMap;
 
   private LimitedSizeQueue<String> tokenCache;
 
-  private String uniqueSecret = UUID.randomUUID().toString();
   private Map<String, String> permissionsRequestTokenMap;
 
+  @Override
   public void start(Future<Void> future) {
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
@@ -205,6 +204,12 @@ public class MainVerticle extends AbstractVerticle {
       ctx.response().end("Missing header: " + OKAPI_TENANT_HEADER);
       return;
     }
+    String zapCacheString = ctx.request().headers().get(ZAP_CACHE_HEADER);
+    boolean zapCache = false;
+    if(zapCacheString != null && zapCacheString.equals("true")) {
+      zapCache = true;
+    }
+    
     updateOkapiUrl(ctx);
     //String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
@@ -269,18 +274,21 @@ public class MainVerticle extends AbstractVerticle {
                 .put("request_id", requestId)
                 .put("dummy", true);
       } catch(Exception e) {
-        logger.error("Error creating dummy token: " + e.getMessage());
-        throw new RuntimeException(e);
+        String errStr = "Error creating dummy token: " + e.getMessage();
+        logger.error(errStr);
+        ctx.response().setStatusCode(500)
+                .end(errStr);
+        return;
       }
       candidateToken = tokenCreator.createToken(dummyPayload.encode());
     }
     final String authToken = candidateToken;
     logger.debug("Final authToken is " + authToken);
     try {
-    	if(!tokenCache.contains(authToken)) {
-				tokenCreator.checkToken(authToken);
-				tokenCache.add(authToken);
-			}
+      if (!tokenCache.contains(authToken)) {
+        tokenCreator.checkToken(authToken);
+        tokenCache.add(authToken);
+      }
     } catch (MalformedJwtException m) {
         logger.error("Malformed token: " + authToken, m);
         ctx.response().setStatusCode(401)
@@ -440,24 +448,6 @@ public class MainVerticle extends AbstractVerticle {
       }
     }
 
-    //Using one-element array to get around the must-be-final hoo-hah
-    /*
-    CacheEntry[] currentCache = new CacheEntry[1];
-    if(cachePermissions) {
-      currentCache[0] = cacheMap.getOrDefault(userId, null);
-      if(currentCache[0] == null || ( (System.currentTimeMillis() - currentCache[0].getTimestamp() )/ 1000) > 10) {
-        currentCache[0] = new CacheEntry();
-        if(userId != null) {
-          cacheMap.put(userId, currentCache[0]);
-        }
-        logger.debug("No valid permissions cache found, creating new entry");
-      } else {
-        logger.debug("Using cached permissions");
-      }
-    } else {
-      logger.debug("Permissions cache disabled");
-    }
-    */
     PermissionsSource usePermissionsSource;
     if(tokenClaims.getBoolean("dummy") != null || username.startsWith(UNDEFINED_USER_NAME)) {
       logger.debug("Using dummy permissions source");
@@ -465,21 +455,18 @@ public class MainVerticle extends AbstractVerticle {
     } else {
       usePermissionsSource = permissionsSource;
     }
+    
+    if(zapCache && usePermissionsSource instanceof Cache) {
+      logger.info("Requesting cleared cache for userid '" + userId + "'");
+      ((Cache)usePermissionsSource).clearCache(userId);
+    }
 
     //Retrieve the user permissions and populate the permissions header
     logger.debug("Getting user permissions for " + username + " (userId " +
             userId + ")");
     long startTime = System.currentTimeMillis();
     Future<PermissionData> retrievedPermissionsFuture;
-    /*
-    if(cachePermissions && currentCache[0].getPermissions() != null) {
-      retrievedPermissionsFuture = Future.future();
-      retrievedPermissionsFuture.complete(currentCache[0].getPermissions());
-    } else {
-      retrievedPermissionsFuture = usePermissionsSource.getPermissionsForUser(userId);
-    }
-    */
-    //retrievedPermissionsFuture = usePermissionsSource.getPermissionsForUser(userId);
+
     retrievedPermissionsFuture = usePermissionsSource.getUserAndExpandedPermissions(
             userId, extraPermissions);
     logger.info("Retrieving permissions for userid " + userId + ", and expanded permissions for " +
@@ -499,39 +486,10 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       
-      /*
-      if(cachePermissions) {
-      	JsonArray copiedPermissions = new JsonArray();
-      	for(Object p : permissions) {
-      		copiedPermissions.add(p);
-				}
-        currentCache[0].setPermissions(copiedPermissions);
-      }
-      */
       JsonArray permissions = res.result().getUserPermissions();
       JsonArray expandedExtraPermissions = res.result().getExpandedPermissions();
       logger.debug("Permissions for " + username + ": " + permissions.encode());
       
-
-      /*
-      if(cachePermissions && currentCache[0].getExpandedPermissions() != null) {
-        expandedPermissionsFuture = Future.future();
-        expandedPermissionsFuture.complete(currentCache[0].getExpandedPermissions());
-      } else {
-        expandedPermissionsFuture = usePermissionsSource.expandPermissions(extraPermissions);
-      }
-      */
-      
-     
-      /*
-      if(cachePermissions) {
-            JsonArray expandedExtraPermissionsCopy = new JsonArray();
-            for(Object ep : expandedExtraPermissions) {
-                    expandedExtraPermissionsCopy.add(ep);
-                                            }
-        currentCache[0].setExpandedPermissions(expandedExtraPermissionsCopy);
-      }
-      */
       if(expandedExtraPermissions != null) {
         logger.debug("expandedExtraPermissions are: " + expandedExtraPermissions.encode());
         for (Object o : expandedExtraPermissions) {
@@ -541,10 +499,11 @@ public class MainVerticle extends AbstractVerticle {
 
       //Check that for all required permissions, we have them
       for (Object o : permissionsRequired) {
-        if (!permissions.contains((String) o) && !extraPermissions.contains((String) o)) {
-        //if(!arrayContainsGlob(permissions, (String) o) && !arrayContainsGlob(extraPermissions, (String) o)) {
+        if (!permissions.contains((String) o) &&
+                !extraPermissions.contains((String) o)) {
           logger.error(permissions.encode() + "(user permissions) nor "
-                  + extraPermissions.encode() + "(module permissions) do not contain " + (String) o);
+                  + extraPermissions.encode() + "(module permissions) do not contain "
+                  + (String) o);
           ctx.response()
                   .setStatusCode(403)
                   .end("Access requires permission: " + (String) o);
@@ -589,7 +548,6 @@ public class MainVerticle extends AbstractVerticle {
       }
 
       ctx.response().end();
-      return;
     });
   }
 
@@ -632,16 +590,15 @@ public class MainVerticle extends AbstractVerticle {
 }
 
 
-
-
 class LimitedSizeQueue<K> extends ArrayList<K> {
 
-	private int maxSize;
+	private final int maxSize;
 
 	public LimitedSizeQueue(int size){
 		this.maxSize = size;
 	}
 
+        @Override
 	public boolean add(K k){
 		boolean r = super.add(k);
 		if (size() > maxSize) {

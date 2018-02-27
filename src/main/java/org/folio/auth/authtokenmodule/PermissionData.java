@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package org.folio.auth.authtoken_module;
+package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.json.JsonArray;
 

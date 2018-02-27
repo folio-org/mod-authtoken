@@ -1,5 +1,8 @@
 package org.folio.auth.authtoken_module;
 
+import org.folio.auth.authtokenmodule.MainVerticle;
+import org.folio.auth.authtokenmodule.TokenCreator;
+import org.folio.auth.authtokenmodule.Util;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
