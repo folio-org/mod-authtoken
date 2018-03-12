@@ -107,7 +107,7 @@ public class MainVerticle extends AbstractVerticle {
     }
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout, cachePermissions);
 
-	  // Get the port from context too, the unit test needs to set it there.
+    // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
     final String portStr = System.getProperty("port", defaultPort);
     final int port = Integer.parseInt(portStr);
@@ -237,7 +237,7 @@ public class MainVerticle extends AbstractVerticle {
 
     logger.debug("Setting tenant for permissions source to " + tenant);
     permissionsSource.setTenant(tenant);
-		/*
+    /*
       In order to make our request to the permissions module
       we generate a custom token (since we have that power) that
       has the necessary permissions in it. This prevents an
@@ -592,26 +592,26 @@ public class MainVerticle extends AbstractVerticle {
 
 class LimitedSizeQueue<K> extends ArrayList<K> {
 
-	private final int maxSize;
+  private final int maxSize;
 
-	public LimitedSizeQueue(int size){
-		this.maxSize = size;
-	}
+  public LimitedSizeQueue(int size){
+    this.maxSize = size;
+  }
 
-        @Override
-	public boolean add(K k){
-		boolean r = super.add(k);
-		if (size() > maxSize) {
-				removeRange(0, size() - maxSize - 1);
-		}
-		return r;
-	}
+  @Override
+  public boolean add(K k){
+    boolean r = super.add(k);
+    if (size() > maxSize) {
+      removeRange(0, size() - maxSize - 1);
+    }
+    return r;
+  }
 
-	public K getYoungest() {
-		return get(size() - 1);
-	}
+  public K getYoungest() {
+    return get(size() - 1);
+  }
 
-	public K getOldest() {
-		return get(0);
-	}
+  public K getOldest() {
+    return get(0);
+  }
 }
