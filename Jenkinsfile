@@ -4,10 +4,10 @@ buildMvn {
   publishAPI = 'no'
   mvnDeploy = 'yes'
 
-  doDocker = {	
-    buildJavaDocker {	
-      publishMaster = 'yes'	
-      healthChk = 'no'	
-    }	
+  doDocker = {
+    buildJavaDocker {
+      publishMaster = 'yes'
+      healthChk = 'no'
+    }
   }
 }

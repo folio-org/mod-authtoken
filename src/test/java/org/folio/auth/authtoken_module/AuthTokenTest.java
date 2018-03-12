@@ -84,7 +84,7 @@ public class AuthTokenTest {
     basicToken = tokenCreator.createToken(payload.encode());
     basicToken2 = tokenCreator.createToken(payload2.encode());
     basicToken3 = tokenCreator.createToken(payload3.encode());
- 
+
     System.setProperty("jwt.signing.key", "CorrectBatteryHorseStaple");
 
     httpClient = vertx.createHttpClient();
@@ -150,7 +150,7 @@ public class AuthTokenTest {
     String testGlob = "*bottle*cup";
     String testString1 = "WhitebottleBluecup";
     String testString2 = "WhitebotBluecu";
-    
+
     context.assertTrue(Util.globMatch(testGlob, testString1));
     context.assertFalse(Util.globMatch(testGlob, testString2));
     async.complete();
@@ -307,7 +307,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(202)
       .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
-    
+
     //post a bad token signing request (no payload)
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -317,8 +317,8 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(401);
-    
-     //post a bad token signing request 
+
+     //post a bad token signing request
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken)
@@ -328,8 +328,8 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(403);
-    
-    
+
+
     //get a good token signing request (no payload)
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -339,9 +339,9 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(202);
-    
-  
-    //get a good token signing request 
+
+
+    //get a good token signing request
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
@@ -353,7 +353,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(200);
 
-    
+
     async.complete();
     logger.debug("AuthToken test1 done");
 
