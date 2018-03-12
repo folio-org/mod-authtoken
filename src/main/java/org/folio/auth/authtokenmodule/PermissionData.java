@@ -14,7 +14,7 @@ import io.vertx.core.json.JsonArray;
 public class PermissionData {
   private JsonArray userPermissions;
   private JsonArray expandedPermissions;
-  
+
   public PermissionData() {
     userPermissions = new JsonArray();
     expandedPermissions = new JsonArray();

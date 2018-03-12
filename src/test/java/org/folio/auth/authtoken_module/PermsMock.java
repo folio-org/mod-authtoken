@@ -64,7 +64,7 @@ public class PermsMock extends AbstractVerticle {
       .setStatusCode(200)
       .end(output.encode());
   }
-  
+
   private void handlePermsPermissions(RoutingContext context) {
     JsonObject output = new JsonObject().put("permissions", new JsonArray()
       .add(new JsonObject()
@@ -72,7 +72,7 @@ public class PermsMock extends AbstractVerticle {
       .add(new JsonObject()
         .put("permissionName", "bar.second"))
     );
-    
+
     context.response()
             .setStatusCode(200)
             .putHeader("Content-type", "application/json")

@@ -48,7 +48,7 @@ public class DummyPermissionsSource implements PermissionsSource {
   }
 
   @Override
-  public Future<PermissionData> getUserAndExpandedPermissions(String userid, 
+  public Future<PermissionData> getUserAndExpandedPermissions(String userid,
           JsonArray permissions) {
     PermissionData permissionData = new PermissionData();
     permissionData.setExpandedPermissions(permissions);

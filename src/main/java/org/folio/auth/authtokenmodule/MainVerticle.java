@@ -84,14 +84,14 @@ public class MainVerticle extends AbstractVerticle {
     if(suppressString.equals("true")) {
       suppressErrorResponse = true;
     }
-    
+
     String cachePermsString = System.getProperty("cache.permissions", "true");
     if(cachePermsString.equals("true")) {
       cachePermissions = true;
     } else {
       cachePermissions = false;
     }
-    
+
 
     permissionsRequestTokenMap = new HashMap<>();
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
@@ -209,7 +209,7 @@ public class MainVerticle extends AbstractVerticle {
     if(zapCacheString != null && zapCacheString.equals("true")) {
       zapCache = true;
     }
-    
+
     updateOkapiUrl(ctx);
     //String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
@@ -305,7 +305,7 @@ public class MainVerticle extends AbstractVerticle {
                 .end("Invalid token format");
         return;
     }
-    
+
     JsonObject tokenClaims = getClaims(authToken);
     logger.debug("Token claims are " + tokenClaims.encode());
 
@@ -344,8 +344,8 @@ public class MainVerticle extends AbstractVerticle {
         } catch(io.vertx.core.json.DecodeException dex) {
           //Eh, just leave it null
         }
-        
-        
+
+
         if( (requestPerms == null || !requestPerms.contains(SIGN_TOKEN_EXECUTE_PERMISSION)) &&
                (extraPermissions == null || !extraPermissions.contains(SIGN_TOKEN_PERMISSION)) ) {
           logger.error("Request for /token, but no permissions granted in header");
@@ -455,7 +455,7 @@ public class MainVerticle extends AbstractVerticle {
     } else {
       usePermissionsSource = permissionsSource;
     }
-    
+
     if(zapCache && usePermissionsSource instanceof Cache) {
       logger.info("Requesting cleared cache for userid '" + userId + "'");
       ((Cache)usePermissionsSource).clearCache(userId);
@@ -485,11 +485,11 @@ public class MainVerticle extends AbstractVerticle {
         }
         return;
       }
-      
+
       JsonArray permissions = res.result().getUserPermissions();
       JsonArray expandedExtraPermissions = res.result().getExpandedPermissions();
       logger.debug("Permissions for " + username + ": " + permissions.encode());
-      
+
       if(expandedExtraPermissions != null) {
         logger.debug("expandedExtraPermissions are: " + expandedExtraPermissions.encode());
         for (Object o : expandedExtraPermissions) {

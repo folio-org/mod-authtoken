@@ -47,7 +47,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       cacheMap = null;
     }
   }
-  
+
   @Override
   public void setOkapiUrl(String url) {
     okapiUrl = url;
@@ -265,7 +265,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
         if(userid != null) {
           cacheMap.put(userid, currentCache[0]);
         }
-      } 
+      }
     }
     Future<PermissionData> future = Future.future();
     Future<JsonArray> userPermsFuture;
@@ -314,7 +314,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
         cacheMap.remove(userId);
     }
   }
-  
+
 }
 
 
