@@ -19,7 +19,7 @@ public interface PermissionsSource {
 
   Future<JsonArray> expandPermissions(JsonArray permissions);
 
-  Future<PermissionData> getUserAndExpandedPermissions(String userid, JsonArray permissions);
+  Future<PermissionData> getUserAndExpandedPermissions(String userid, JsonArray permissions, String key);
 
 }
 
