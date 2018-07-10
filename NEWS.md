@@ -1,3 +1,6 @@
+## 1.5.0 2018-07-10
+ * Add 'iat' claim to all generated tokens
+
 ## 1.4.1 2018-02-27
  * Correct package name in pom
 

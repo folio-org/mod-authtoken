@@ -27,6 +27,7 @@ import java.util.regex.Pattern;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -173,6 +174,10 @@ public class MainVerticle extends AbstractVerticle {
         }
 
         payload.put("tenant", tenant);
+        
+        //Set "time issued" claim on token
+        Instant instant = Instant.now();
+        payload.put("iat", instant.getEpochSecond());
         String token = tokenCreator.createToken(payload.encode());
 
         ctx.response().setStatusCode(200)
@@ -449,7 +454,8 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     PermissionsSource usePermissionsSource;
-    if(tokenClaims.getBoolean("dummy") != null || username.startsWith(UNDEFINED_USER_NAME)) {
+    if((tokenClaims.getBoolean("dummy") != null && tokenClaims.getBoolean("dummy"))
+            || username.startsWith(UNDEFINED_USER_NAME)) {
       logger.debug("Using dummy permissions source");
       usePermissionsSource = new DummyPermissionsSource();
     } else {
@@ -465,23 +471,24 @@ public class MainVerticle extends AbstractVerticle {
     logger.debug("Getting user permissions for " + username + " (userId " +
             userId + ")");
     long startTime = System.currentTimeMillis();
-    Future<PermissionData> retrievedPermissionsFuture;
-
-    retrievedPermissionsFuture = usePermissionsSource.getUserAndExpandedPermissions(
-            userId, extraPermissions);
-    logger.info("Retrieving permissions for userid " + userId + ", and expanded permissions for " +
+    Future<PermissionData> retrievedPermissionsFuture = usePermissionsSource
+            .getUserAndExpandedPermissions(userId, extraPermissions, authToken);
+    logger.info("Retrieving permissions for userid " + userId +
+            ", and expanded permissions for " +
             extraPermissions.encode());
     retrievedPermissionsFuture.setHandler(res -> {
       if(res.failed()) {
         long stopTime = System.currentTimeMillis();
-        logger.error("Unable to retrieve permissions for " + username + ": " + res.cause().getMessage() +
-                " request took " + (stopTime - startTime) + " ms");
+        logger.error("Unable to retrieve permissions for " + username + ": "
+                + res.cause().getMessage() + " request took " +
+                (stopTime - startTime) + " ms");
         ctx.response()
                 .setStatusCode(500);
         if(suppressErrorResponse) {
           ctx.response().end();
         } else {
-          ctx.response().end("Unable to retrieve permissions for user with id'" + finalUserId + "': " +  res.cause().getLocalizedMessage());
+          ctx.response().end("Unable to retrieve permissions for user with id'" 
+                  + finalUserId + "': " +  res.cause().getLocalizedMessage());
         }
         return;
       }

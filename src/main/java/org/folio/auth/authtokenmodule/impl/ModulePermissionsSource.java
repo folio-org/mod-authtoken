@@ -15,6 +15,7 @@ import io.vertx.core.logging.LoggerFactory;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.folio.auth.authtokenmodule.Cache;
 import org.folio.auth.authtokenmodule.PermissionData;
 
@@ -33,6 +34,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   private final HttpClient client;
   private Map<String, CacheEntry> cacheMap;
   private boolean cacheEntries;
+  private final String keyPrefix;
 
   public ModulePermissionsSource(Vertx vertx, int timeout, boolean cache) {
     //permissionsModuleUrl = url;
@@ -41,6 +43,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     HttpClientOptions options = new HttpClientOptions();
     options.setConnectTimeout(timeout * 1000);
     client = vertx.createHttpClient(options);
+    keyPrefix = UUID.randomUUID().toString();
     if(cache) {
       cacheMap = new HashMap<>();
     } else {
@@ -250,34 +253,45 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   }
 
   @Override
-  public Future<PermissionData> getUserAndExpandedPermissions(String userid, JsonArray permissions) {
+  public Future<PermissionData> getUserAndExpandedPermissions(String userid,
+          JsonArray permissions, String key) {
     System.out.println("getUserAndExpandedPermissions, userid=" + userid + "permissions=" +
             permissions.encode());
     logger.info("Retrieving permissions for userid "  + userid + " and expanding permissions for " +
       permissions.encode());
     CacheEntry[] currentCache = new CacheEntry[1];
     if(cacheEntries) {
-      currentCache[0] = cacheMap.getOrDefault(userid, null);
+      if(key == null && userid == null && permissions != null) {
+        key = keyPrefix + permissions.encode();
+      }
+      logger.info(String.format("Attempting to find cache with key of '%s'", key));
+      currentCache[0] = cacheMap.getOrDefault(key, null);
       if(currentCache[0] == null ||
               (System.currentTimeMillis() - currentCache[0].getTimestamp()) / 1000 > 10 ) {
-        logger.debug("Cache expired or not found");
+        logger.info("Cache expired or not found");
         currentCache[0] = new CacheEntry();
-        if(userid != null) {
-          cacheMap.put(userid, currentCache[0]);
+        if(key != null) {
+          cacheMap.put(key, currentCache[0]);
         }
+      } else {
+        logger.info("Cache found");
       }
     }
     Future<PermissionData> future = Future.future();
     Future<JsonArray> userPermsFuture;
     if(cacheEntries && currentCache[0].getPermissions() != null) {
+      logger.info("Using entry from cache for user permissions");
       userPermsFuture = Future.succeededFuture(currentCache[0].getPermissions());
     } else {
+      logger.info("Retrieving permissions for user");
       userPermsFuture = getPermissionsForUser(userid);
     }
     Future<JsonArray> expandedPermsFuture;
     if(cacheEntries && currentCache[0].getExpandedPermissions() != null) {
+      logger.info("Using entry from cache for expanded permissions");
       expandedPermsFuture = Future.succeededFuture(currentCache[0].getExpandedPermissions());
     } else {
+      logger.info("Expanding permissions");
       expandedPermsFuture = expandPermissions(permissions);
     }
     CompositeFuture compositeFuture = CompositeFuture.all(userPermsFuture, expandedPermsFuture);
@@ -309,9 +323,9 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   }
 
   @Override
-  public void clearCache(String userId) {
-    if(cacheMap != null && cacheMap.containsKey(userId)) {
-        cacheMap.remove(userId);
+  public void clearCache(String key) {
+    if(cacheMap != null && cacheMap.containsKey(key)) {
+        cacheMap.remove(key);
     }
   }
 

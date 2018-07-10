@@ -49,7 +49,7 @@ public class DummyPermissionsSource implements PermissionsSource {
 
   @Override
   public Future<PermissionData> getUserAndExpandedPermissions(String userid,
-          JsonArray permissions) {
+          JsonArray permissions, String key) {
     PermissionData permissionData = new PermissionData();
     permissionData.setExpandedPermissions(permissions);
     return Future.succeededFuture(permissionData);
