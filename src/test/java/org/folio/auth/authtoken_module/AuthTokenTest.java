@@ -16,6 +16,7 @@ import com.jayway.restassured.RestAssured;
 import static com.jayway.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
 import com.jayway.restassured.response.Response;
+import com.jayway.restassured.response.ValidatableResponse;
 import guru.nidi.ramltester.restassured.RestAssuredClient;
 import io.vertx.core.json.JsonArray;
 import java.io.IOException;
@@ -352,6 +353,7 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(200);
+    
 
 
     async.complete();

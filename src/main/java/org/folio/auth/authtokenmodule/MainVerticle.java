@@ -27,6 +27,7 @@ import java.util.regex.Pattern;
 import io.jsonwebtoken.SignatureException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -173,6 +174,10 @@ public class MainVerticle extends AbstractVerticle {
         }
 
         payload.put("tenant", tenant);
+        
+        //Set "time issued" claim on token
+        Instant instant = Instant.now();
+        payload.put("iat", instant.getEpochSecond());
         String token = tokenCreator.createToken(payload.encode());
 
         ctx.response().setStatusCode(200)
