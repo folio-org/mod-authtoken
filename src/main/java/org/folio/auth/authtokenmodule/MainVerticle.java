@@ -463,8 +463,8 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     if(zapCache && usePermissionsSource instanceof Cache) {
-      logger.info("Requesting cleared cache for userid '" + userId + "'");
-      ((Cache)usePermissionsSource).clearCache(userId);
+      logger.info("Requesting cleared cache for authToken '" + authToken + "'");
+      ((Cache)usePermissionsSource).clearCache(authToken);
     }
 
     //Retrieve the user permissions and populate the permissions header
