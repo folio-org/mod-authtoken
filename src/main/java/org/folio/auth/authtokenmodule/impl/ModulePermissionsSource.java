@@ -27,7 +27,6 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
 
   private String okapiUrl = null;
   private Vertx vertx;
-  // private String requestToken;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private final HttpClient client;
   private Map<String, CacheEntry> cacheMap;
