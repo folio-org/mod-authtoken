@@ -27,9 +27,6 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
 
   private String okapiUrl = null;
   private Vertx vertx;
-  private String requestToken;
-  private String authApiKey = "";
-  private String tenant;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private final HttpClient client;
   private Map<String, CacheEntry> cacheMap;
@@ -60,22 +57,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   }
 
   @Override
-  public void setRequestToken(String token) {
-    requestToken = token;
-  }
-
-  @Override
-  public void setAuthApiKey(String key) {
-    authApiKey = key;
-  }
-
-  @Override
-  public void setTenant(String tenant) {
-    this.tenant = tenant;
-  }
-
-  @Override
-  public Future<JsonArray> getPermissionsForUser(String userid) {
+  public Future<JsonArray> getPermissionsForUser(String userid, String tenant, String requestToken) {
     Future<JsonArray> future = Future.future();
     String okapiUrlCandidate = "http://localhost:9130/";
     if (okapiUrl != null) {
@@ -151,7 +133,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   }
 
   @Override
-  public Future<JsonArray> expandPermissions(JsonArray permissions) {
+  public Future<JsonArray> expandPermissions(JsonArray permissions, String tenant, String requestToken) {
     Future<JsonArray> future = Future.future();
     if (permissions.isEmpty()) {
       future.complete(new JsonArray());
@@ -253,7 +235,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   }
 
   @Override
-  public Future<PermissionData> getUserAndExpandedPermissions(String userid,
+  public Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant, String requestToken,
           JsonArray permissions, String key) {
     System.out.println("getUserAndExpandedPermissions, userid=" + userid + "permissions=" +
             permissions.encode());
@@ -284,7 +266,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       userPermsFuture = Future.succeededFuture(currentCache[0].getPermissions());
     } else {
       logger.info("Retrieving permissions for user");
-      userPermsFuture = getPermissionsForUser(userid);
+      userPermsFuture = getPermissionsForUser(userid, tenant, requestToken);
     }
     Future<JsonArray> expandedPermsFuture;
     if(cacheEntries && currentCache[0].getExpandedPermissions() != null) {
@@ -292,7 +274,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       expandedPermsFuture = Future.succeededFuture(currentCache[0].getExpandedPermissions());
     } else {
       logger.info("Expanding permissions");
-      expandedPermsFuture = expandPermissions(permissions);
+      expandedPermsFuture = expandPermissions(permissions, tenant, requestToken);
     }
     CompositeFuture compositeFuture = CompositeFuture.all(userPermsFuture, expandedPermsFuture);
     compositeFuture.setHandler(compositeRes -> {

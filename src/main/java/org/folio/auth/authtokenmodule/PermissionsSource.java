@@ -2,7 +2,6 @@ package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 
 /**
  *
@@ -11,15 +10,13 @@ import io.vertx.core.json.JsonObject;
 public interface PermissionsSource {
 
   public void setOkapiUrl(String url);
-  public void setRequestToken(String token);
-  public void setAuthApiKey(String key);
-  public void setTenant(String tenant);
 
-  Future<JsonArray> getPermissionsForUser(String username);
+  Future<JsonArray> getPermissionsForUser(String username, String tenant, String requestToken);
 
-  Future<JsonArray> expandPermissions(JsonArray permissions);
+  Future<JsonArray> expandPermissions(JsonArray permissions, String tenant, String requestToken);
 
-  Future<PermissionData> getUserAndExpandedPermissions(String userid, JsonArray permissions, String key);
+  Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant, String requestToken,
+    JsonArray permissions, String key);
 
 }
 

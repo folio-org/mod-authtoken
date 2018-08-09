@@ -240,8 +240,6 @@ public class MainVerticle extends AbstractVerticle {
       candidateToken = null;
     }
 
-    logger.debug("Setting tenant for permissions source to " + tenant);
-    permissionsSource.setTenant(tenant);
     /*
       In order to make our request to the permissions module
       we generate a custom token (since we have that power) that
@@ -264,7 +262,6 @@ public class MainVerticle extends AbstractVerticle {
       permissionsRequestToken = tokenCreator.createToken(permissionRequestPayload.encode());
     }
 
-    permissionsSource.setRequestToken(permissionsRequestToken);
     if (candidateToken == null) {
       logger.info("Generating dummy authtoken");
       JsonObject dummyPayload = new JsonObject();
@@ -472,7 +469,7 @@ public class MainVerticle extends AbstractVerticle {
             userId + ")");
     long startTime = System.currentTimeMillis();
     Future<PermissionData> retrievedPermissionsFuture = usePermissionsSource
-            .getUserAndExpandedPermissions(userId, extraPermissions, authToken);
+            .getUserAndExpandedPermissions(userId, tenant, permissionsRequestToken, extraPermissions, authToken);
     logger.info("Retrieving permissions for userid " + userId +
             ", and expanded permissions for " +
             extraPermissions.encode());
