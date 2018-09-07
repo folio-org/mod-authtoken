@@ -64,6 +64,9 @@ public class TokenCreator {
      if(key.length() < 32) {
        key = String.format("%-32s", key);
      }
+     if(key.length() > 32) {
+       key = key.substring(0, 32);
+     }
      //sharedKey = key.getBytes();
      init(key.getBytes());
    } else {

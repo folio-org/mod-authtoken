@@ -18,8 +18,7 @@
       "methods" : [ "*" ],
       "pathPattern" : "/*",
       "phase" : "auth",
-      "type" : "headers",
-      "modulePermissions" : [ "perms.users.get" ]
+      "type" : "headers"
     }
   ],
   "launchDescriptor": {

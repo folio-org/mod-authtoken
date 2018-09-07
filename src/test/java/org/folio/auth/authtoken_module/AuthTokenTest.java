@@ -451,17 +451,50 @@ public class AuthTokenTest {
     JsonObject refreshResponse = new JsonObject(r.getBody().asString());
     final String accessToken = refreshResponse.getString("token");
     
-    logger.info("Test with 'refreshed' token");
+    logger.info(String.format("Test with 'refreshed' token: %s", accessToken));
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", accessToken)
       //.header("X-Okapi-Token", basicToken)
-      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
       .header("X-Okapi-User-Id", userUUID)
       .get("/bar")
       .then()
       .statusCode(202);
-
+    
+    logger.info("Get an encrypted token as a service");
+    String secretWord = "kamehameha";
+    JsonObject tokenPayload = new JsonObject()
+        .put("type", "resetToken")
+        .put("secret", secretWord);
+    String secret = "THEYRECOMINGTOTAKEMEAWAYHAHATHEYRECOMINGTOTAKEMEAWAY";
+    r = given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Token", basicToken)
+        .header("X-Okapi-Permissions", "[\""+ getMagicPermission("/encrypted-token/create") +"\"]")
+        .body(new JsonObject().put("passPhrase", secret).put("payload", tokenPayload).encode())
+        .post("/encrypted-token/create")
+        .then()
+        .statusCode(201)
+        .extract().response();
+    
+    String encryptedTokenResponse = r.getBody().asString();
+    JsonObject encryptedTokenJson = new JsonObject(encryptedTokenResponse);
+    String encryptedToken = encryptedTokenJson.getString("token");
+    
+    logger.info(String.format("Attempting to decrypt token %s", encryptedToken));
+    r = given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Token", basicToken)
+        .header("X-Okapi-Permissions", "[\""+ getMagicPermission("/encrypted-token/decode") +"\"]")
+        .body(new JsonObject().put("passPhrase", secret).put("token", encryptedToken).encode())
+        .post("/encrypted-token/decode")
+        .then()
+        .statusCode(201)
+        .extract().response();
+    
+    JsonObject decodedJson = new JsonObject(r.body().asString());
+    context.assertTrue(decodedJson.getJsonObject("payload").getString("secret").equals(secretWord));
 
     async.complete();
     logger.debug("AuthToken test1 done");
