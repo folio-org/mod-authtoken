@@ -309,7 +309,6 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     JsonObject tokenClaims = getClaims(authToken);
-    logger.debug("Token claims are " + tokenClaims.encode());
 
     /*
       When the initial request comes in, as a filter, we require that the auth.signtoken
@@ -386,7 +385,7 @@ public class MainVerticle extends AbstractVerticle {
         userId = tokenUserId;
       }
     } else {
-      logger.info("No '" + TOKEN_USER_ID_FIELD + "' field found in token");
+      logger.debug("No '" + TOKEN_USER_ID_FIELD + "' field found in token");
     }
 
     final String finalUserId = userId;
@@ -415,7 +414,6 @@ public class MainVerticle extends AbstractVerticle {
     /* TODO get module permissions (if they exist) */
     if(ctx.request().headers().contains(MODULE_PERMISSIONS_HEADER)) {
       JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(MODULE_PERMISSIONS_HEADER));
-      logger.debug("Recieved module permissions are " + modulePermissions.encode());
       for(String moduleName : modulePermissions.fieldNames()) {
         JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
         JsonObject tokenPayload = new JsonObject();
@@ -470,9 +468,7 @@ public class MainVerticle extends AbstractVerticle {
     long startTime = System.currentTimeMillis();
     Future<PermissionData> retrievedPermissionsFuture = usePermissionsSource
             .getUserAndExpandedPermissions(userId, tenant, permissionsRequestToken, extraPermissions, authToken);
-    logger.info("Retrieving permissions for userid " + userId +
-            ", and expanded permissions for " +
-            extraPermissions.encode());
+    logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
       if(res.failed()) {
         long stopTime = System.currentTimeMillis();
@@ -492,10 +488,8 @@ public class MainVerticle extends AbstractVerticle {
 
       JsonArray permissions = res.result().getUserPermissions();
       JsonArray expandedExtraPermissions = res.result().getExpandedPermissions();
-      logger.debug("Permissions for " + username + ": " + permissions.encode());
 
       if(expandedExtraPermissions != null) {
-        logger.debug("expandedExtraPermissions are: " + expandedExtraPermissions.encode());
         for (Object o : expandedExtraPermissions) {
           permissions.add((String) o);
         }
@@ -536,9 +530,6 @@ public class MainVerticle extends AbstractVerticle {
 
       String token = tokenCreator.createToken(claims.encode());
 
-      logger.debug("Returning header " + PERMISSIONS_HEADER + " with content " + permissions.encode());
-      logger.debug("Returning header " + MODULE_TOKENS_HEADER + " with content " + moduleTokens.encode());
-      logger.debug("Returning Authorization Bearer token with content " + claims.encode());
       //Return header containing relevant permissions
       ctx.response()
               .setChunked(true)
