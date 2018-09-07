@@ -139,7 +139,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       future.complete(new JsonArray());
       return future;
     }
-    logger.debug("Expanding permissions array: " + permissions.encode());
+    logger.debug("Expanding permissions array");
     String query = "(";
     StringJoiner joiner = new StringJoiner(" or ");
     for (Object ob : permissions) {
@@ -164,7 +164,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
               future.fail(message);
               logger.error("Error expanding " + permissions.encode() + ": " + message);
             } else {
-              logger.info("Got result from permissions module: " + body.toString());
+              logger.debug("Got result from permissions module: " + body.toString());
               JsonObject result = new JsonObject(body.toString());
               JsonArray expandedPermissions = new JsonArray();
               for (Object ob : permissions) {
@@ -237,43 +237,40 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   @Override
   public Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant, String requestToken,
           JsonArray permissions, String key) {
-    System.out.println("getUserAndExpandedPermissions, userid=" + userid + "permissions=" +
-            permissions.encode());
-    logger.info("Retrieving permissions for userid "  + userid + " and expanding permissions for " +
-      permissions.encode());
+    logger.debug("Retrieving permissions for userid "  + userid + " and expanding permissions");
     CacheEntry[] currentCache = new CacheEntry[1];
     if(cacheEntries) {
       if(key == null && userid == null && permissions != null) {
         key = keyPrefix + permissions.encode();
       }
-      logger.info(String.format("Attempting to find cache with key of '%s'", key));
+      logger.debug(String.format("Attempting to find cache with key of '%s'", key));
       currentCache[0] = cacheMap.getOrDefault(key, null);
       if(currentCache[0] == null ||
               (System.currentTimeMillis() - currentCache[0].getTimestamp()) / 1000 > 10 ) {
-        logger.info("Cache expired or not found");
+        logger.debug("Cache expired or not found");
         currentCache[0] = new CacheEntry();
         if(key != null) {
           cacheMap.put(key, currentCache[0]);
         }
       } else {
-        logger.info("Cache found");
+        logger.debug("Cache found");
       }
     }
     Future<PermissionData> future = Future.future();
     Future<JsonArray> userPermsFuture;
     if(cacheEntries && currentCache[0].getPermissions() != null) {
-      logger.info("Using entry from cache for user permissions");
+      logger.debug("Using entry from cache for user permissions");
       userPermsFuture = Future.succeededFuture(currentCache[0].getPermissions());
     } else {
-      logger.info("Retrieving permissions for user");
+      logger.debug("Retrieving permissions for user");
       userPermsFuture = getPermissionsForUser(userid, tenant, requestToken);
     }
     Future<JsonArray> expandedPermsFuture;
     if(cacheEntries && currentCache[0].getExpandedPermissions() != null) {
-      logger.info("Using entry from cache for expanded permissions");
+      logger.debug("Using entry from cache for expanded permissions");
       expandedPermsFuture = Future.succeededFuture(currentCache[0].getExpandedPermissions());
     } else {
-      logger.info("Expanding permissions");
+      logger.debug("Expanding permissions");
       expandedPermsFuture = expandPermissions(permissions, tenant, requestToken);
     }
     CompositeFuture compositeFuture = CompositeFuture.all(userPermsFuture, expandedPermsFuture);
@@ -297,8 +294,6 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
           currentCache[0].setExpandedPermissions(copiedExpandedPerms);
         }
         future.complete(permissionData);
-        System.out.println("completing future with user permissions=" + permissionData.getUserPermissions().encode() +
-                ", expanded permissions=" + permissionData.getExpandedPermissions().encode());
       }
     });
     return future;

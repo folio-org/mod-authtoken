@@ -1,3 +1,6 @@
+## 1.5.2 2018-09-07
+ * Reduce verbosity and level of several logs
+
 ## 1.5.1 2018-07-25
  * Merge fix for caching-flush bug
 
