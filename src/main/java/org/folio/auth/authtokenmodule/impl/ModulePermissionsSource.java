@@ -69,8 +69,10 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     HttpClientRequest permUserReq = client.getAbs(permUserRequestUrl, permUserRes -> {
       permUserRes.bodyHandler(permUserBody -> {
         if (permUserRes.statusCode() != 200) {
-          future.fail("Expected return code 200, got " + permUserRes.statusCode()
-                  + " : " + permUserBody.toString());
+          String message = "Expected return code 200, got " + permUserRes.statusCode()
+                  + " : " + permUserBody.toString();
+          logger.error(message);
+          future.fail(message);
         } else {
           JsonObject permUserResults = new JsonObject(permUserBody.toString());
           JsonObject permUser = permUserResults.getJsonArray("permissionUsers").getJsonObject(0);
@@ -87,10 +89,10 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
                   permissionsObject = null;
                 }
                 if (permissionsObject != null && permissionsObject.getJsonArray("permissionNames") != null) {
-                  logger.debug("Got permissions: " + permissionsObject.getJsonArray("permissionNames").encodePrettily());
+                  logger.debug("Got permissions");
                   future.complete(permissionsObject.getJsonArray("permissionNames"));
                 } else {
-                  logger.debug("Got malformed/empty permissions object");
+                  logger.error("Got malformed/empty permissions object");
                   future.fail("Got malformed/empty permissions object");
                 }
               });
@@ -164,7 +166,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
               future.fail(message);
               logger.error("Error expanding " + permissions.encode() + ": " + message);
             } else {
-              logger.debug("Got result from permissions module: " + body.toString());
+              logger.debug("Got result from permissions module");
               JsonObject result = new JsonObject(body.toString());
               JsonArray expandedPermissions = new JsonArray();
               for (Object ob : permissions) {
