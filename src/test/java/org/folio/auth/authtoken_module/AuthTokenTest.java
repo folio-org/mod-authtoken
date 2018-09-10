@@ -415,7 +415,7 @@ public class AuthTokenTest {
       .body(new JsonObject().put("payload", payload).encode())
       .post("/token")
       .then()
-      .statusCode(200);
+      .statusCode(201);
     
     //get a refresh token
     logger.info("POST signing request for a refresh token");

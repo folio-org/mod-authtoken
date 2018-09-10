@@ -418,6 +418,10 @@ public class MainVerticle extends AbstractVerticle {
   /*
    * Handle a request to sign a new token
    * (Typically used by login module)
+   Request content: 
+  {
+    "payload" : { }
+  }
    */
   private void handleSignToken(RoutingContext ctx) {
     try {
@@ -468,10 +472,10 @@ public class MainVerticle extends AbstractVerticle {
         payload.put("iat", instant.getEpochSecond());
         String token = tokenCreator.createJWTToken(payload.encode());
 
-        ctx.response().setStatusCode(200)
-                .putHeader("Authorization", "Bearer " + token)
-                .putHeader(OKAPI_TOKEN_HEADER, token)
-                .end(postContent);
+        JsonObject responseObject = new JsonObject().put("token", token);
+        ctx.response().setStatusCode(201)
+                .putHeader("Content-Type", "application/json")
+                .end(responseObject.encode());
         return;
 
       } else {
