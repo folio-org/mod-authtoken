@@ -1,5 +1,6 @@
 package org.folio.auth.authtokenmodule;
 
+import com.nimbusds.jose.JOSEException;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import java.util.Base64;
@@ -17,6 +18,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -24,9 +26,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import io.jsonwebtoken.SignatureException;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.UnsupportedJwtException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +38,7 @@ import java.util.UUID;
 public class MainVerticle extends AbstractVerticle {
 
   // TODO - Use header names from Okapi.common
-  private static final String PERMISSIONS_HEADER = "X-Okapi-Permissions";
+  public static final String PERMISSIONS_HEADER = "X-Okapi-Permissions";
   private static final String DESIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Desired";
   private static final String REQUIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Required";
   private static final String MODULE_PERMISSIONS_HEADER = "X-Okapi-Module-Permissions";
@@ -49,10 +48,10 @@ public class MainVerticle extends AbstractVerticle {
   private static final String REQUESTID_HEADER = "X-Okapi-Request-Id";
   private static final String MODULE_TOKENS_HEADER = "X-Okapi-Module-Tokens";
   private static final String OKAPI_URL_HEADER = "X-Okapi-Url";
-  private static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
+  public static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
   private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
-  private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
-  private static final String SIGN_TOKEN_EXECUTE_PERMISSION = "auth.signtoken.execute";
+  public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
+  public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   private static final String TOKEN_USER_ID_FIELD = "user_id";
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
@@ -72,14 +71,40 @@ public class MainVerticle extends AbstractVerticle {
   private LimitedSizeQueue<String> tokenCache;
 
   private Map<String, String> permissionsRequestTokenMap;
+  private List<AuthRoutingEntry> authRoutingEntryList;
+  
+  private Map<String, TokenCreator> clientTokenCreatorMap;
+  
+  
+  private String logAndReturnError(Throwable t) {
+    String message = String.format("Error: %s", t.getLocalizedMessage());
+    logger.error(message, t);
+    return message;
+  }
 
   @Override
   public void start(Future<Void> future) {
+    authRoutingEntryList = new ArrayList<>();
+    authRoutingEntryList.add(new AuthRoutingEntry("/token",
+        new String[] {SIGN_TOKEN_PERMISSION}, this::handleSignToken));
+    authRoutingEntryList.add(new AuthRoutingEntry("/refreshtoken",
+        new String[] {SIGN_REFRESH_TOKEN_PERMISSION}, this::handleSignRefreshToken));
+    authRoutingEntryList.add(new AuthRoutingEntry("/refresh",
+        new String[] {}, this::handleRefresh));
+    authRoutingEntryList.add(new AuthRoutingEntry("/encrypted-token/create",
+        new String[] {}, this::handleSignEncryptedToken));
+    authRoutingEntryList.add(new AuthRoutingEntry("/encrypted-token/decode",
+        new String[] {}, this::handleDecodeEncryptedToken));
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     String keySetting = System.getProperty("jwt.signing.key");
-    tokenCreator = new TokenCreator(keySetting);
+    try {
+      tokenCreator = new TokenCreator(keySetting);
+    } catch(Exception e) {
+      future.fail("Unable to initialize TokenCreator: " + e.getLocalizedMessage());
+      return;
+    }
 
     String suppressString = System.getProperty("suppress.error.response", "false");
     if(suppressString.equals("true")) {
@@ -93,8 +118,9 @@ public class MainVerticle extends AbstractVerticle {
       cachePermissions = false;
     }
 
-
     permissionsRequestTokenMap = new HashMap<>();
+    clientTokenCreatorMap = new HashMap<>();
+    
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
     String logLevel = System.getProperty("log.level", null);
     if(logLevel != null) {
@@ -126,10 +152,270 @@ public class MainVerticle extends AbstractVerticle {
 
 
   }
+  
+ /*
+  Sign a provided JSON object into an encrypted token as a service
+  The content of the request should look like:
+  {
+      "passPhrase" : "",
+      "payload" : {
+      }
+  }
+  */
+  private void handleSignEncryptedToken(RoutingContext ctx) {
+    try {
+      TokenCreator localTokenCreator = null;
+      logger.debug("Token signing request from " +  ctx.request().absoluteURI());
+      if(ctx.request().method() != HttpMethod.POST) {
+        String message = "Invalid method for this endpoint";
+        ctx.response()
+            .setStatusCode(400)
+            .end(message);
+        return;
+      }
+      String content = ctx.getBodyAsString();
+      JsonObject requestJson = null;
+      try {
+        requestJson = parseJsonObject(content, 
+            new String[] {"passPhrase", "payload"});
+      } catch(Exception e) {
+        String message = String.format("Unable to parse content: %s",
+            e.getLocalizedMessage());
+        ctx.response()
+            .setStatusCode(400)
+            .end(message);
+        return;
+      }
+      String passPhrase = requestJson.getString("passPhrase");
+      if(clientTokenCreatorMap.containsKey(passPhrase)) {
+        localTokenCreator = clientTokenCreatorMap.get(passPhrase);
+      } else {
+        localTokenCreator = new TokenCreator(passPhrase);
+        clientTokenCreatorMap.put(passPhrase, localTokenCreator);
+      }
+      String token = null;
+      try {
+        token = localTokenCreator.createJWEToken(requestJson.getJsonObject("payload")
+            .encode());
+      } catch(Exception e) {
+        throw new AuthtokenException(e.getLocalizedMessage()); //Go ahead and just pass it up for now
+      }
+      JsonObject responseJson = new JsonObject()
+          .put("token", token);
+      ctx.response()
+          .setStatusCode(201)
+          .putHeader("Content-Type", "application/json")
+          .end(responseJson.encode());
+    } catch(Exception e) {
+      String error = logAndReturnError(e);
+      ctx.response().setStatusCode(500)
+          .end(String.format("Internal Server Error: %s", error));
+    }
+  }
+  
+  /*
+  Decode a provided JSON object into an encrypted token as a service
+  The content of the request should look like:
+  {
+      "passPhrase" : "",
+      "token" : {
+      }
+  }
+  */
+  private void handleDecodeEncryptedToken(RoutingContext ctx) {
+    try {
+      TokenCreator localTokenCreator = null;
+      if(ctx.request().method() != HttpMethod.POST) {
+        String message = "Invalid method for this endpoint";
+        ctx.response()
+            .setStatusCode(400)
+            .end(message);
+        return;
+      }
+      String content = ctx.getBodyAsString();
+      JsonObject requestJson = null;
+      try {
+        requestJson = parseJsonObject(content, 
+            new String[] {"passPhrase", "token"});
+      } catch(Exception e) {
+        String message = String.format("Unable to parse content: %s",
+            e.getLocalizedMessage());
+        ctx.response()
+            .setStatusCode(400)
+            .end(message);
+        return;
+      }
+      String passPhrase = requestJson.getString("passPhrase");
+      if(clientTokenCreatorMap.containsKey(passPhrase)) {
+        localTokenCreator = clientTokenCreatorMap.get(passPhrase);
+      } else {
+        localTokenCreator = new TokenCreator(passPhrase);
+        clientTokenCreatorMap.put(passPhrase, localTokenCreator);
+      }
+      String token = requestJson.getString("token");
+      String encodedJson = null;
+      try {
+        encodedJson = localTokenCreator.decodeJWEToken(token);
+      } catch(Exception e) {
+        throw e;
+      }
+      JsonObject responseJson = new JsonObject()
+          .put("payload", new JsonObject(encodedJson));
+      ctx.response()
+          .setStatusCode(201)
+          .putHeader("Content-Type", "application/json")
+          .end(responseJson.encode());
+    } catch(Exception e) {
+      String error = logAndReturnError(e);
+      ctx.response().setStatusCode(500)
+          .end(String.format("Internal Server Error: %s", error));
+    }
+  }
+  
+   /*
+  In order to get a new access token, the client should issue a POST request
+  to the refresh endpoint, with the content being a JSON object with the following
+  structure:
+  {
+    "refreshToken" : ""
+  }. The module will then check the refresh token for validity, generate a new access token
+  and return it in the body of the response as a JSON object:
+  {
+    "token" : ""
+  }
+  */
+  private void handleRefresh(RoutingContext ctx) {
+    try {
+      logger.debug("Token refresh request from " +  ctx.request().absoluteURI());
+      if(ctx.request().method() != HttpMethod.POST) {
+        String message = "Invalid method for this endpoint";
+        ctx.response()
+            .setStatusCode(400)
+            .end(message);
+        return;
+      }
+      String content = ctx.getBodyAsString();
+      JsonObject requestJson = null;
+      try {
+        requestJson = parseJsonObject(content, 
+            new String[] {"refreshToken"});
+      } catch(Exception e) {
+        String message = String.format("Unable to parse content: %s",
+            e.getLocalizedMessage());
+        logger.error(message);
+        ctx.response()
+            .setStatusCode(400)
+            .end(message);
+        return;
+      }
+      String token = requestJson.getString("refreshToken");
+      String tokenContent = null;
+      JsonObject tokenClaims = null;
+      try {
+        tokenContent = tokenCreator.decodeJWEToken(token);
+        tokenClaims = new JsonObject(tokenContent);
+      } catch(Exception e) {
+        String message = String.format("Unable to decode token %s: %s", 
+            token, e.getLocalizedMessage());
+        logger.error(message);
+        ctx.response()
+            .setStatusCode(400)
+            .end("Invalid token format");        
+        return;
+      }  
+      String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+      //Go ahead and make the new request token
+      String newAuthToken = mintNewAuthToken(tenant, tokenClaims);
+      validateRefreshToken(tokenClaims, ctx).setHandler(res -> {
+        if(res.failed()) {
+          String message = logAndReturnError(res.cause());
+          ctx.response()
+              .setStatusCode(500)
+              .end(message);
+        } else {
+          if(!res.result()) {
+            ctx.response()
+            .setStatusCode(401)
+            .end("Invalid refresh token");
+          } else {
+            JsonObject responseObject = new JsonObject()
+                .put("token", newAuthToken);
+            ctx.response()
+                .setStatusCode(201)
+                .putHeader("Content-Type", "application/json")
+                .end(responseObject.encode());
+          }
+        }
+      });
+    } catch(Exception e) {
+      String message = logAndReturnError(e);
+      ctx.response().setStatusCode(500)
+          .end(message);
+    }
+  }
 
+  /*
+  POST a request with a json payload, containing the following:
+  {
+    "userId" : "",
+    "sub" : ""
+  }
+  */
+  private void handleSignRefreshToken(RoutingContext ctx) {
+    try {
+      if(ctx.request().method() != HttpMethod.POST) {
+        String message = String.format("Invalid method '%s' for this endpoint '%s'",
+            ctx.request().method().toString(),
+            ctx.request().absoluteURI());
+        logger.error(message);
+        ctx.response()
+            .setStatusCode(400)
+            .end(message);
+        return;
+      }
+      String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+      String address = ctx.request().remoteAddress().host();
+      String content = ctx.getBodyAsString();
+      JsonObject requestJson = null;
+      try {
+        requestJson = parseJsonObject(content, 
+            new String[] {"userId", "sub"});
+      } catch(Exception e) {
+        String message = String.format("Unable to parse content: %s",
+            e.getLocalizedMessage());
+        logger.error(message);
+        ctx.response()
+            .setStatusCode(400)
+            .end(message);
+        return;
+      }
+      String userId = requestJson.getString("userId");
+      String sub = requestJson.getString("sub");
+      String refreshToken = null;
+      try {
+        refreshToken = generateRefreshToken(tenant, userId, address, sub);
+      } catch(Exception e) {
+        throw e;
+      }
+      JsonObject responseJson = new JsonObject()
+          .put("refreshToken", refreshToken);
+      ctx.response()
+          .setStatusCode(201)
+          .putHeader("Content-Type", "application/json")
+          .end(responseJson.encode());      
+    } catch(Exception e) {
+       String error = logAndReturnError(e);
+       ctx.response().setStatusCode(500)
+          .end(String.format("Internal Server Error: %s", error));
+    }
+  }
   /*
    * Handle a request to sign a new token
    * (Typically used by login module)
+   Request content: 
+  {
+    "payload" : { }
+  }
    */
   private void handleSignToken(RoutingContext ctx) {
     try {
@@ -178,12 +464,12 @@ public class MainVerticle extends AbstractVerticle {
         //Set "time issued" claim on token
         Instant instant = Instant.now();
         payload.put("iat", instant.getEpochSecond());
-        String token = tokenCreator.createToken(payload.encode());
+        String token = tokenCreator.createJWTToken(payload.encode());
 
-        ctx.response().setStatusCode(200)
-                .putHeader("Authorization", "Bearer " + token)
-                .putHeader(OKAPI_TOKEN_HEADER, token)
-                .end(postContent);
+        JsonObject responseObject = new JsonObject().put("token", token);
+        ctx.response().setStatusCode(201)
+                .putHeader("Content-Type", "application/json")
+                .end(responseObject.encode());
         return;
 
       } else {
@@ -259,7 +545,15 @@ public class MainVerticle extends AbstractVerticle {
                       .add(PERMISSIONS_PERMISSION_READ_BIT)
                       .add(PERMISSIONS_USER_READ_BIT));
 
-      permissionsRequestToken = tokenCreator.createToken(permissionRequestPayload.encode());
+      try {
+        permissionsRequestToken = tokenCreator.createJWTToken(permissionRequestPayload.encode());
+      } catch(Exception e) {
+        String errStr = "Error creating permission request token: " + e.getMessage();
+        logger.error(errStr);
+        ctx.response().setStatusCode(500)
+                .end(errStr);
+        return;
+      }
     }
 
     if (candidateToken == null) {
@@ -282,29 +576,38 @@ public class MainVerticle extends AbstractVerticle {
                 .end(errStr);
         return;
       }
-      candidateToken = tokenCreator.createToken(dummyPayload.encode());
+      try {
+        candidateToken = tokenCreator.createJWTToken(dummyPayload.encode());
+      } catch(Exception e) {
+        String errStr = "Error creating candidate token: " + e.getMessage();
+        logger.error(errStr);
+        ctx.response().setStatusCode(500)
+                .end(errStr);
+        return;
+      }
     }
     final String authToken = candidateToken;
     logger.debug("Final authToken is " + authToken);
     try {
       if (!tokenCache.contains(authToken)) {
-        tokenCreator.checkToken(authToken);
+        tokenCreator.checkJWTToken(authToken);
         tokenCache.add(authToken);
       }
-    } catch (MalformedJwtException m) {
-        logger.error("Malformed token: " + authToken, m);
+    } catch (ParseException p) {
+        logger.error("Malformed token: " + authToken, p);
         ctx.response().setStatusCode(401)
-                .end("Invalid token format");
+                .end("Invalid token");
         return;
-    } catch(SignatureException s) {
-        logger.error("Invalid signature on token " + authToken, s);
+    } catch(JOSEException j) {
+        logger.error(String.format("Unable to verify token token %s, %s",
+            authToken, j.getLocalizedMessage()));
         ctx.response().setStatusCode(401)
-                .end("Invalid token signature");
+                .end("Invalid token");
         return;
-    } catch(UnsupportedJwtException u) {
-        logger.error("Unsupported JWT format", u);
+    } catch(BadSignatureException b) {
+        logger.error("Unsupported JWT format", b);
         ctx.response().setStatusCode(401)
-                .end("Invalid token format");
+                .end("Invalid token");
         return;
     }
 
@@ -318,46 +621,10 @@ public class MainVerticle extends AbstractVerticle {
       a new permission, auth.signtoken.execute is attached to the outgoing request
       which the /token handler will check for when it processes the actual request
     */
-    if(ctx.request().path().startsWith("/token")) {
-      JsonArray extraPermissions = tokenClaims.getJsonArray("extra_permissions");
-      if(ctx.getBodyAsString() == null || ctx.getBodyAsString().isEmpty()) {
-        logger.debug("Request for /token with no content, treating as filtering request");
-        if(extraPermissions != null && extraPermissions.contains(SIGN_TOKEN_PERMISSION)) {
-          logger.debug("Adding permissions header with '" + SIGN_TOKEN_EXECUTE_PERMISSION + "' permisison to request");
-          ctx.response()
-                  .setChunked(true)
-                  .setStatusCode(202)
-                  .putHeader(PERMISSIONS_HEADER, new JsonArray().add(SIGN_TOKEN_EXECUTE_PERMISSION).encode())
-                  .putHeader(OKAPI_TOKEN_HEADER, authToken);
-          ctx.response().end();
-        } else {
-          ctx.response()
-                  .setStatusCode(401)
-                  .end("Missing module-level permissions for token signing request");
-        }
+    
+    for(AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
+      if(authRoutingEntry.handleRoute(ctx, authToken)) {
         return;
-      } else {
-        logger.debug("Payload detected, treating as token signing request");
-        //Check for permissions
-        JsonArray requestPerms = null;
-        try {
-          requestPerms = new JsonArray(ctx.request().headers().get(PERMISSIONS_HEADER));
-        } catch(io.vertx.core.json.DecodeException dex) {
-          //Eh, just leave it null
-        }
-
-
-        if( (requestPerms == null || !requestPerms.contains(SIGN_TOKEN_EXECUTE_PERMISSION)) &&
-               (extraPermissions == null || !extraPermissions.contains(SIGN_TOKEN_PERMISSION)) ) {
-          logger.error("Request for /token, but no permissions granted in header");
-          ctx.response()
-                  .setStatusCode(403)
-                  .end("Missing permissions for token signing request");
-          return;
-        } else {
-          handleSignToken(ctx);
-          return;
-        }
       }
     }
 
@@ -376,8 +643,8 @@ public class MainVerticle extends AbstractVerticle {
       if (userId != null) {
         if (!userId.equals(tokenUserId)) {
           ctx.response().setStatusCode(403)
-                  .end("Payload user id of '" + tokenUserId
-                          + " does not match expected value.");
+          .end("Payload user id of '" + tokenUserId 
+          + " does not match expected value.");
           return;
         }
       } else {
@@ -423,11 +690,21 @@ public class MainVerticle extends AbstractVerticle {
         tokenPayload.put("extra_permissions", permissionList);
         tokenPayload.put("request_id", requestId);
         tokenPayload.put("user_id", finalUserId);
-        String moduleToken = tokenCreator.createToken(tokenPayload.encode());
+        String moduleToken = null;
+        try {
+          moduleToken = tokenCreator.createJWTToken(tokenPayload.encode());
+        } catch(Exception e) {
+          String message = String.format("Error creating moduleToken: %s",
+              e.getLocalizedMessage());
+          logger.error(message);
+          ctx.response().setStatusCode(500)
+              .end("Error generating module permissions token");
+          return;
+        }
         moduleTokens.put(moduleName, moduleToken);
      }
     }
-
+    
     //Add the original token back into the module tokens
     moduleTokens.put("_", authToken);
     //Populate the permissionsRequired array from the header
@@ -528,7 +805,18 @@ public class MainVerticle extends AbstractVerticle {
         claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
       }
 
-      String token = tokenCreator.createToken(claims.encode());
+      String token = null;
+      try {
+        token = tokenCreator.createJWTToken(claims.encode());
+      } catch(Exception e) {
+        String message = String.format("Error creating access token: %s",
+            e.getLocalizedMessage());
+        logger.error(message);
+        ctx.response()
+            .setStatusCode(500)
+            .end("Error creating access token");
+        return;
+      }
 
       //Return header containing relevant permissions
       ctx.response()
@@ -567,7 +855,7 @@ public class MainVerticle extends AbstractVerticle {
     return null;
   }
 
-  public JsonObject getClaims(String jwt) {
+  public static JsonObject getClaims(String jwt) {
     String encodedJson = jwt.split("\\.")[1];
     String decodedJson = new String(Base64.getDecoder().decode(encodedJson));
     return new JsonObject(decodedJson);
@@ -580,6 +868,107 @@ public class MainVerticle extends AbstractVerticle {
       return "";
     }
     return token;
+  }
+  
+  private String mintNewAuthToken(String tenant, JsonObject refreshTokenClaims) 
+      throws JOSEException, ParseException {
+    JsonObject newJWTPayload = new JsonObject();
+    long nowTime = Instant.now().getEpochSecond();
+    newJWTPayload
+        .put("sub", refreshTokenClaims.getString("sub"))
+        .put("tenant", tenant)
+        .put("iat", nowTime)
+        .put("exp", nowTime + 600) //10 minute TTL
+        .put("user_id", refreshTokenClaims.getString("user_id"));
+    return tokenCreator.createJWTToken(newJWTPayload.encode());
+  }
+  
+  protected String generateRefreshToken(String tenant, String userId, String address,
+      String subject) throws JOSEException {
+    JsonObject payload = new JsonObject();
+    long nowTime = Instant.now().getEpochSecond();
+    payload.put("user_id", userId)
+        .put("address", address)
+        .put("tenant", tenant)
+        .put("sub", subject)
+        .put("iat", nowTime)
+        .put("exp", nowTime + (60 * 60 * 24))
+        .put("jti", UUID.randomUUID().toString())
+        .put("prn", "refresh");
+    String refreshToken = tokenCreator.createJWEToken(payload.encode());
+    return refreshToken;
+  }
+  
+  private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
+    Future<Boolean> future = Future.future();
+    try {
+      String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+      if(!tenant.equals(tokenClaims.getString("tenant"))) {
+        logger.error("Tenant mismatch for refresh token");
+        future.complete(Boolean.FALSE);
+        return future;
+      }
+      String address = ctx.request().remoteAddress().host();
+      if(!address.equals(tokenClaims.getString("address"))) {
+        logger.error("Issuing address does not match for refresh token");
+        future.complete(Boolean.FALSE);
+        return future;
+      }
+      Long nowTime = Instant.now().getEpochSecond();
+      Long expiration = tokenClaims.getLong("exp");
+      if(expiration < nowTime) {
+        logger.error("Attempt to refresh with expired refresh token");
+        future.complete(Boolean.FALSE);
+        return future;
+      }
+      checkRefreshTokenRevoked(tokenClaims).setHandler(res -> {
+        if(res.failed()) {
+          logAndReturnError(res.cause());
+          future.fail(res.cause());
+        } else {
+          if(res.result()) {
+            logger.error("Attempt to refresh with revoked token");
+            future.complete(Boolean.FALSE);
+          } else {
+            future.complete(Boolean.TRUE);
+          }
+        }
+      });
+    } catch(Exception e) {
+      logAndReturnError(e);
+      future.fail(e);
+    }
+    return future;
+  }
+  
+  private Future<Boolean> checkRefreshTokenRevoked(JsonObject tokenClaims) {
+    //Stub function until we implement a shared revocation list
+    Future<Boolean> future = Future.future();
+    future.complete(Boolean.FALSE);
+    return future;
+  }
+
+  private JsonObject parseJsonObject(String encoded, String[] requiredMembers)
+      throws AuthtokenException {
+    JsonObject json = null;
+    try {
+      json = new JsonObject(encoded);
+    } catch(Exception e) {
+      throw new AuthtokenException(String.format("Unable to parse JSON %s: %s", encoded,
+          e.getLocalizedMessage()));
+    }
+    if(json == null) {
+      throw new AuthtokenException(String.format("Unable to parse %s into valid JSON", encoded));
+    }
+    for(String s : requiredMembers) {
+      if(!json.containsKey(s)) {
+        throw new AuthtokenException(String.format("Missing required member: '%s'", s));
+      }
+      if(json.getValue(s) == null) {
+        throw new AuthtokenException(String.format("Null value for required member: '%s'", s));
+      }
+    }
+    return json;
   }
 
 }

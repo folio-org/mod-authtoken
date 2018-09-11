@@ -7,12 +7,15 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 
 /**
  *
  * @author kurt
  */
 public class PermsMock extends AbstractVerticle {
+  private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
 
   public void start(Future<Void> future) {
     final int port = context.config().getInteger("port");
@@ -23,7 +26,7 @@ public class PermsMock extends AbstractVerticle {
     router.route("/perms/users/:id/permissions").handler(this::handlePermUsersPermissions);
     router.route("/perms/users").handler(this::handlePermsUsers);
     router.route("/perms/permissions").handler(this::handlePermsPermissions);
-    System.out.println("Running PermsMock on port " + port + "\n");
+    logger.info("Running PermsMock on port " + port);
     server.requestHandler(router::accept).listen(port, result -> {
       if(result.failed()) {
         future.fail(result.cause());

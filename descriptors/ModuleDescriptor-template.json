@@ -4,11 +4,19 @@
   "provides": [
     {
       "id": "authtoken",
-      "version": "1.2",
+      "version": "2.0",
       "handlers" : [
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/token"
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/refreshtoken"
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/refresh"
         }
       ]
     }
@@ -18,8 +26,7 @@
       "methods" : [ "*" ],
       "pathPattern" : "/*",
       "phase" : "auth",
-      "type" : "headers",
-      "modulePermissions" : [ "perms.users.get" ]
+      "type" : "headers"
     }
   ],
   "launchDescriptor": {
