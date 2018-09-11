@@ -1,3 +1,6 @@
+## 2.0.1 2018-09-11
+ * Code clean-up
+
 ## 2.0.0 2018-09-10
  * Implement /refreshtoken and /refresh endpoints for obtaining and using refresh tokens
  * Change return format of /token endpoint to return token in body rather than header
