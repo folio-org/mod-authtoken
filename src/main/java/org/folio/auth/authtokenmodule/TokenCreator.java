@@ -33,7 +33,6 @@ import org.folio.auth.authtokenmodule.BadSignatureException;
 
 
 public class TokenCreator {
-  private static final EncryptionMethod encryptionMethod = EncryptionMethod.A256CBC_HS512;
   private byte[] sharedKey;
   private MACSigner macSigner;
   private MACVerifier macVerifier;

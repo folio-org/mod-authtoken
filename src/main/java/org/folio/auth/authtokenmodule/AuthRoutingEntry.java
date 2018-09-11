@@ -38,7 +38,7 @@ public class AuthRoutingEntry {
       Handler<RoutingContext> handler) {
     this.endpoint = endpoint;
     if(requiredPermissions == null) {
-      this.requiredPermissions = new ArrayList<String>();
+      this.requiredPermissions = new ArrayList<>();
     } else {
       this.requiredPermissions = requiredPermissions;
     }

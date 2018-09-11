@@ -26,11 +26,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-/*
-import io.jsonwebtoken.SignatureException;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.UnsupportedJwtException;
-*/
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -57,7 +52,6 @@ public class MainVerticle extends AbstractVerticle {
   private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
   public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
-  private static final String SIGN_TOKEN_EXECUTE_PERMISSION = "auth.signtoken.execute";
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   private static final String TOKEN_USER_ID_FIELD = "user_id";
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
@@ -170,7 +164,7 @@ public class MainVerticle extends AbstractVerticle {
   */
   private void handleSignEncryptedToken(RoutingContext ctx) {
     try {
-      TokenCreator tokenCreator = null;
+      TokenCreator localTokenCreator = null;
       logger.debug("Token signing request from " +  ctx.request().absoluteURI());
       if(ctx.request().method() != HttpMethod.POST) {
         String message = "Invalid method for this endpoint";
@@ -194,14 +188,14 @@ public class MainVerticle extends AbstractVerticle {
       }
       String passPhrase = requestJson.getString("passPhrase");
       if(clientTokenCreatorMap.containsKey(passPhrase)) {
-        tokenCreator = clientTokenCreatorMap.get(passPhrase);
+        localTokenCreator = clientTokenCreatorMap.get(passPhrase);
       } else {
-        tokenCreator = new TokenCreator(passPhrase);
-        clientTokenCreatorMap.put(passPhrase, tokenCreator);
+        localTokenCreator = new TokenCreator(passPhrase);
+        clientTokenCreatorMap.put(passPhrase, localTokenCreator);
       }
       String token = null;
       try {
-        token = tokenCreator.createJWEToken(requestJson.getJsonObject("payload")
+        token = localTokenCreator.createJWEToken(requestJson.getJsonObject("payload")
             .encode());
       } catch(Exception e) {
         throw new AuthtokenException(e.getLocalizedMessage()); //Go ahead and just pass it up for now
@@ -230,7 +224,7 @@ public class MainVerticle extends AbstractVerticle {
   */
   private void handleDecodeEncryptedToken(RoutingContext ctx) {
     try {
-      TokenCreator tokenCreator = null;
+      TokenCreator localTokenCreator = null;
       if(ctx.request().method() != HttpMethod.POST) {
         String message = "Invalid method for this endpoint";
         ctx.response()
@@ -253,15 +247,15 @@ public class MainVerticle extends AbstractVerticle {
       }
       String passPhrase = requestJson.getString("passPhrase");
       if(clientTokenCreatorMap.containsKey(passPhrase)) {
-        tokenCreator = clientTokenCreatorMap.get(passPhrase);
+        localTokenCreator = clientTokenCreatorMap.get(passPhrase);
       } else {
-        tokenCreator = new TokenCreator(passPhrase);
-        clientTokenCreatorMap.put(passPhrase, tokenCreator);
+        localTokenCreator = new TokenCreator(passPhrase);
+        clientTokenCreatorMap.put(passPhrase, localTokenCreator);
       }
       String token = requestJson.getString("token");
       String encodedJson = null;
       try {
-        encodedJson = tokenCreator.decodeJWEToken(token);
+        encodedJson = localTokenCreator.decodeJWEToken(token);
       } catch(Exception e) {
         throw e;
       }
@@ -929,7 +923,7 @@ public class MainVerticle extends AbstractVerticle {
       }
       checkRefreshTokenRevoked(tokenClaims).setHandler(res -> {
         if(res.failed()) {
-          String message = logAndReturnError(res.cause());
+          logAndReturnError(res.cause());
           future.fail(res.cause());
         } else {
           if(res.result()) {
@@ -941,7 +935,7 @@ public class MainVerticle extends AbstractVerticle {
         }
       });
     } catch(Exception e) {
-      String message = logAndReturnError(e);
+      logAndReturnError(e);
       future.fail(e);
     }
     return future;
@@ -955,12 +949,12 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private JsonObject parseJsonObject(String encoded, String[] requiredMembers)
-      throws Exception {
+      throws AuthtokenException {
     JsonObject json = null;
     try {
       json = new JsonObject(encoded);
     } catch(Exception e) {
-      throw new Exception(String.format("Unable to parse JSON %s: %s", encoded,
+      throw new AuthtokenException(String.format("Unable to parse JSON %s: %s", encoded,
           e.getLocalizedMessage()));
     }
     if(json == null) {
