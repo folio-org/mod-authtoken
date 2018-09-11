@@ -1,3 +1,7 @@
+## 2.0.0 2018-09-10
+ * Implement /refreshtoken and /refresh endpoints for obtaining and using refresh tokens
+ * Change return format of /token endpoint to return token in body rather than header
+
 ## 1.5.2 2018-09-07
  * Reduce verbosity and level of several logs
 

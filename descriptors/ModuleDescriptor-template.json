@@ -9,6 +9,14 @@
         {
           "methods" : [ "POST" ],
           "pathPattern" : "/token"
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/refreshtoken"
+        },
+        {
+          "methods" : [ "POST" ],
+          "pathPattern" : "/refresh"
         }
       ]
     }
