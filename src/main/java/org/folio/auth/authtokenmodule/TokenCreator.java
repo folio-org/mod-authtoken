@@ -1,19 +1,7 @@
 package org.folio.auth.authtokenmodule;
 
-
-/*
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.JwtParser;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.impl.crypto.MacProvider;
-*/
 import javax.crypto.spec.SecretKeySpec;
 import java.security.Key;
-/*
-import io.jsonwebtoken.SignatureException;
-import io.jsonwebtoken.MalformedJwtException;
-import io.jsonwebtoken.UnsupportedJwtException;
-*/
 import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWEAlgorithm;
@@ -45,12 +33,7 @@ import org.folio.auth.authtokenmodule.BadSignatureException;
 
 
 public class TokenCreator {
-  private SecretKey JWTSigningKey;
-  //private JwtParser parser;
-  //private static final SignatureAlgorithm JWTAlgorithm = SignatureAlgorithm.HS512;
   private static final EncryptionMethod encryptionMethod = EncryptionMethod.A256CBC_HS512;
-  private int keyBitLength;
-  private SecretKeyFactory keyFactory;
   private byte[] sharedKey;
   private MACSigner macSigner;
   private MACVerifier macVerifier;
@@ -67,10 +50,8 @@ public class TokenCreator {
      if(key.length() > 32) {
        key = key.substring(0, 32);
      }
-     //sharedKey = key.getBytes();
      init(key.getBytes());
    } else {
-     //sharedKey = new byte[64];
      byte[] tempKey = new byte[64];
      new SecureRandom().nextBytes(tempKey);
      init(tempKey);
@@ -78,7 +59,6 @@ public class TokenCreator {
   }
   
   public TokenCreator(byte[] byteArray) throws KeyLengthException, JOSEException {
-    //sharedKey = byteArray;
     init(byteArray);
   }
   
@@ -103,7 +83,6 @@ public class TokenCreator {
 
   public void checkJWTToken(String token) throws JOSEException, ParseException,
       BadSignatureException {
-    //parser.parseClaimsJws(token);
     SignedJWT jwt = SignedJWT.parse(token);
     if(!jwt.verify(macVerifier)) {
       String message = String.format("Could not verify token %s", token);

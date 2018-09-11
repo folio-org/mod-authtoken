@@ -204,7 +204,7 @@ public class MainVerticle extends AbstractVerticle {
         token = tokenCreator.createJWEToken(requestJson.getJsonObject("payload")
             .encode());
       } catch(Exception e) {
-        throw e; //Go ahead and just pass it up for now
+        throw new AuthtokenException(e.getLocalizedMessage()); //Go ahead and just pass it up for now
       }
       JsonObject responseJson = new JsonObject()
           .put("token", token);
@@ -964,14 +964,14 @@ public class MainVerticle extends AbstractVerticle {
           e.getLocalizedMessage()));
     }
     if(json == null) {
-      throw new Exception(String.format("Unable to parse %s into valid JSON", encoded));
+      throw new AuthtokenException(String.format("Unable to parse %s into valid JSON", encoded));
     }
     for(String s : requiredMembers) {
       if(!json.containsKey(s)) {
-        throw new Exception(String.format("Missing required member: '%s'", s));
+        throw new AuthtokenException(String.format("Missing required member: '%s'", s));
       }
       if(json.getValue(s) == null) {
-        throw new Exception(String.format("Null value for required member: '%s'", s));
+        throw new AuthtokenException(String.format("Null value for required member: '%s'", s));
       }
     }
     return json;
