@@ -13,6 +13,10 @@ a given user and making decisions regarding access based on user permissions
 and defined requirements for a given path. It provides a token creation endpoint
 that privileged modules (such as Authentication) may make use of.
 
+# Building
+
+This module requires that the Java Cryptography Extension files be installed, in order to run successfully. For Oracle JDK, they can be located at https://www.oracle.com/technetwork/java/javase/downloads/jce8-download-2133166.html
+
 # Interface
 
 In addition to acting as a filter, the module exposes a few endpoints that are accessible as part as the regular Okapi ecosystem. These endpoints are as follows:
