@@ -1,11 +1,6 @@
 package org.folio.auth.authtokenmodule;
 
 import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.KeyLengthException;
-
-import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
-import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
-import java.util.Base64;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpServer;
@@ -22,6 +17,7 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -31,6 +27,8 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
+import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 
 /**
  *
