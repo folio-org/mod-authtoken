@@ -1,4 +1,4 @@
-package org.folio.auth.authtoken_module;
+package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;

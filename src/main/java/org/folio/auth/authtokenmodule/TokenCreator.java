@@ -8,7 +8,6 @@ import com.nimbusds.jose.JWEObject;
 import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.KeyLengthException;
 import com.nimbusds.jose.crypto.DirectDecrypter;
 import com.nimbusds.jose.crypto.DirectEncrypter;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -17,11 +16,11 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import java.security.SecureRandom;
 import java.text.ParseException;
+import java.util.Arrays;
 import java.util.Date;
 import org.folio.auth.authtokenmodule.BadSignatureException;
 
 public class TokenCreator {
-  private byte[] sharedKey;
   private MACSigner macSigner;
   private MACVerifier macVerifier;
   private DirectEncrypter encrypter;
@@ -29,33 +28,36 @@ public class TokenCreator {
   JWSHeader jwsHeader = new JWSHeader(JWSAlgorithm.HS256);
   JWEHeader jweHeader = new JWEHeader(JWEAlgorithm.DIR, EncryptionMethod.A256GCM);
 
-  public TokenCreator(String key) throws KeyLengthException, JOSEException {
-   if(key != null) {
-     //pad to minimum length
-     if(key.length() < 32) {
-       key = String.format("%-32s", key);
-     }
-     if(key.length() > 32) {
-       key = key.substring(0, 32);
-     }
-     init(key.getBytes());
-   } else {
-     byte[] tempKey = new byte[64];
-     new SecureRandom().nextBytes(tempKey);
-     init(tempKey);
-   }
+  public TokenCreator(String key) throws JOSEException {
+    int byteLength = jweHeader.getEncryptionMethod().cekBitLength() / 8;
+
+    if (key == null) {
+      byte[] keyBytes = new byte[byteLength];
+      new SecureRandom().nextBytes(keyBytes);
+      init(keyBytes);
+      return;
+    }
+
+    // key.length() is not the number of bytes but the number of Unicode code units
+
+    byte[] keyBytes = key.getBytes();
+
+    if (keyBytes.length != byteLength) {
+      keyBytes = Arrays.copyOf(keyBytes, byteLength);
+    }
+
+    init(keyBytes);
   }
 
-  public TokenCreator(byte[] byteArray) throws KeyLengthException, JOSEException {
+  public TokenCreator(byte[] byteArray) throws JOSEException {
     init(byteArray);
   }
 
-  private void init(byte[] setKey) throws KeyLengthException, JOSEException {
-    sharedKey = setKey;
-    macSigner = new MACSigner(sharedKey);
-    macVerifier = new MACVerifier(sharedKey);
-    encrypter = new DirectEncrypter(sharedKey);
-    decrypter = new DirectDecrypter(sharedKey);
+  private void init(byte[] setKey) throws JOSEException {
+    macSigner = new MACSigner(setKey);
+    macVerifier = new MACVerifier(setKey);
+    encrypter = new DirectEncrypter(setKey);
+    decrypter = new DirectDecrypter(setKey);
   }
 
   /**

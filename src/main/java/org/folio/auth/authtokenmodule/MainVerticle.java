@@ -81,7 +81,7 @@ public class MainVerticle extends AbstractVerticle {
     return message;
   }
 
-  protected TokenCreator getTokenCreator() throws JOSEException {
+  TokenCreator getTokenCreator() throws JOSEException {
     String keySetting = System.getProperty("jwt.signing.key");
     return new TokenCreator(keySetting);
   }
