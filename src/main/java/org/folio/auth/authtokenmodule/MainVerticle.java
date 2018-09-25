@@ -1,11 +1,12 @@
 package org.folio.auth.authtokenmodule;
 
 import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.KeyLengthException;
+
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import java.util.Base64;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpServer;
 import io.vertx.ext.web.Router;
@@ -72,14 +73,19 @@ public class MainVerticle extends AbstractVerticle {
 
   private Map<String, String> permissionsRequestTokenMap;
   private List<AuthRoutingEntry> authRoutingEntryList;
-  
+
   private Map<String, TokenCreator> clientTokenCreatorMap;
-  
-  
+
+
   private String logAndReturnError(Throwable t) {
     String message = String.format("Error: %s", t.getLocalizedMessage());
     logger.error(message, t);
     return message;
+  }
+
+  protected TokenCreator getTokenCreator() throws JOSEException {
+    String keySetting = System.getProperty("jwt.signing.key");
+    return new TokenCreator(keySetting);
   }
 
   @Override
@@ -98,11 +104,12 @@ public class MainVerticle extends AbstractVerticle {
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
-    String keySetting = System.getProperty("jwt.signing.key");
+
     try {
-      tokenCreator = new TokenCreator(keySetting);
+      tokenCreator = getTokenCreator();
+      tokenCreator.tryAlgorithms();
     } catch(Exception e) {
-      future.fail("Unable to initialize TokenCreator: " + e.getLocalizedMessage());
+      future.fail(new RuntimeException("Unable to initialize TokenCreator: " + e.getLocalizedMessage(), e));
       return;
     }
 
@@ -120,7 +127,7 @@ public class MainVerticle extends AbstractVerticle {
 
     permissionsRequestTokenMap = new HashMap<>();
     clientTokenCreatorMap = new HashMap<>();
-    
+
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
     String logLevel = System.getProperty("log.level", null);
     if(logLevel != null) {
@@ -152,7 +159,7 @@ public class MainVerticle extends AbstractVerticle {
 
 
   }
-  
+
  /*
   Sign a provided JSON object into an encrypted token as a service
   The content of the request should look like:
@@ -176,7 +183,7 @@ public class MainVerticle extends AbstractVerticle {
       String content = ctx.getBodyAsString();
       JsonObject requestJson = null;
       try {
-        requestJson = parseJsonObject(content, 
+        requestJson = parseJsonObject(content,
             new String[] {"passPhrase", "payload"});
       } catch(Exception e) {
         String message = String.format("Unable to parse content: %s",
@@ -212,7 +219,7 @@ public class MainVerticle extends AbstractVerticle {
           .end(String.format("Internal Server Error: %s", error));
     }
   }
-  
+
   /*
   Decode a provided JSON object into an encrypted token as a service
   The content of the request should look like:
@@ -235,7 +242,7 @@ public class MainVerticle extends AbstractVerticle {
       String content = ctx.getBodyAsString();
       JsonObject requestJson = null;
       try {
-        requestJson = parseJsonObject(content, 
+        requestJson = parseJsonObject(content,
             new String[] {"passPhrase", "token"});
       } catch(Exception e) {
         String message = String.format("Unable to parse content: %s",
@@ -271,7 +278,7 @@ public class MainVerticle extends AbstractVerticle {
           .end(String.format("Internal Server Error: %s", error));
     }
   }
-  
+
    /*
   In order to get a new access token, the client should issue a POST request
   to the refresh endpoint, with the content being a JSON object with the following
@@ -297,7 +304,7 @@ public class MainVerticle extends AbstractVerticle {
       String content = ctx.getBodyAsString();
       JsonObject requestJson = null;
       try {
-        requestJson = parseJsonObject(content, 
+        requestJson = parseJsonObject(content,
             new String[] {"refreshToken"});
       } catch(Exception e) {
         String message = String.format("Unable to parse content: %s",
@@ -315,14 +322,14 @@ public class MainVerticle extends AbstractVerticle {
         tokenContent = tokenCreator.decodeJWEToken(token);
         tokenClaims = new JsonObject(tokenContent);
       } catch(Exception e) {
-        String message = String.format("Unable to decode token %s: %s", 
+        String message = String.format("Unable to decode token %s: %s",
             token, e.getLocalizedMessage());
         logger.error(message);
         ctx.response()
             .setStatusCode(400)
-            .end("Invalid token format");        
+            .end("Invalid token format");
         return;
-      }  
+      }
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
       //Go ahead and make the new request token
       String newAuthToken = mintNewAuthToken(tenant, tokenClaims);
@@ -378,7 +385,7 @@ public class MainVerticle extends AbstractVerticle {
       String content = ctx.getBodyAsString();
       JsonObject requestJson = null;
       try {
-        requestJson = parseJsonObject(content, 
+        requestJson = parseJsonObject(content,
             new String[] {"userId", "sub"});
       } catch(Exception e) {
         String message = String.format("Unable to parse content: %s",
@@ -402,7 +409,7 @@ public class MainVerticle extends AbstractVerticle {
       ctx.response()
           .setStatusCode(201)
           .putHeader("Content-Type", "application/json")
-          .end(responseJson.encode());      
+          .end(responseJson.encode());
     } catch(Exception e) {
        String error = logAndReturnError(e);
        ctx.response().setStatusCode(500)
@@ -412,7 +419,7 @@ public class MainVerticle extends AbstractVerticle {
   /*
    * Handle a request to sign a new token
    * (Typically used by login module)
-   Request content: 
+   Request content:
   {
     "payload" : { }
   }
@@ -460,7 +467,7 @@ public class MainVerticle extends AbstractVerticle {
         }
 
         payload.put("tenant", tenant);
-        
+
         //Set "time issued" claim on token
         Instant instant = Instant.now();
         payload.put("iat", instant.getEpochSecond());
@@ -621,7 +628,7 @@ public class MainVerticle extends AbstractVerticle {
       a new permission, auth.signtoken.execute is attached to the outgoing request
       which the /token handler will check for when it processes the actual request
     */
-    
+
     for(AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
       if(authRoutingEntry.handleRoute(ctx, authToken)) {
         return;
@@ -643,7 +650,7 @@ public class MainVerticle extends AbstractVerticle {
       if (userId != null) {
         if (!userId.equals(tokenUserId)) {
           ctx.response().setStatusCode(403)
-          .end("Payload user id of '" + tokenUserId 
+          .end("Payload user id of '" + tokenUserId
           + " does not match expected value.");
           return;
         }
@@ -704,7 +711,7 @@ public class MainVerticle extends AbstractVerticle {
         moduleTokens.put(moduleName, moduleToken);
      }
     }
-    
+
     //Add the original token back into the module tokens
     moduleTokens.put("_", authToken);
     //Populate the permissionsRequired array from the header
@@ -757,7 +764,7 @@ public class MainVerticle extends AbstractVerticle {
         if(suppressErrorResponse) {
           ctx.response().end();
         } else {
-          ctx.response().end("Unable to retrieve permissions for user with id'" 
+          ctx.response().end("Unable to retrieve permissions for user with id'"
                   + finalUserId + "': " +  res.cause().getLocalizedMessage());
         }
         return;
@@ -774,8 +781,8 @@ public class MainVerticle extends AbstractVerticle {
 
       //Check that for all required permissions, we have them
       for (Object o : permissionsRequired) {
-        if (!permissions.contains((String) o) &&
-                !extraPermissions.contains((String) o)) {
+        if (!permissions.contains(o) &&
+                !extraPermissions.contains(o)) {
           logger.error(permissions.encode() + "(user permissions) nor "
                   + extraPermissions.encode() + "(module permissions) do not contain "
                   + (String) o);
@@ -869,8 +876,8 @@ public class MainVerticle extends AbstractVerticle {
     }
     return token;
   }
-  
-  private String mintNewAuthToken(String tenant, JsonObject refreshTokenClaims) 
+
+  private String mintNewAuthToken(String tenant, JsonObject refreshTokenClaims)
       throws JOSEException, ParseException {
     JsonObject newJWTPayload = new JsonObject();
     long nowTime = Instant.now().getEpochSecond();
@@ -882,7 +889,7 @@ public class MainVerticle extends AbstractVerticle {
         .put("user_id", refreshTokenClaims.getString("user_id"));
     return tokenCreator.createJWTToken(newJWTPayload.encode());
   }
-  
+
   protected String generateRefreshToken(String tenant, String userId, String address,
       String subject) throws JOSEException {
     JsonObject payload = new JsonObject();
@@ -898,7 +905,7 @@ public class MainVerticle extends AbstractVerticle {
     String refreshToken = tokenCreator.createJWEToken(payload.encode());
     return refreshToken;
   }
-  
+
   private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
     Future<Boolean> future = Future.future();
     try {
@@ -940,7 +947,7 @@ public class MainVerticle extends AbstractVerticle {
     }
     return future;
   }
-  
+
   private Future<Boolean> checkRefreshTokenRevoked(JsonObject tokenClaims) {
     //Stub function until we implement a shared revocation list
     Future<Boolean> future = Future.future();
