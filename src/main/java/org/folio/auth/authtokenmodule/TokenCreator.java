@@ -8,7 +8,6 @@ import com.nimbusds.jose.JWEObject;
 import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.KeyLengthException;
 import com.nimbusds.jose.crypto.DirectDecrypter;
 import com.nimbusds.jose.crypto.DirectEncrypter;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -17,45 +16,56 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import java.security.SecureRandom;
 import java.text.ParseException;
+import java.util.Arrays;
+import java.util.Date;
 import org.folio.auth.authtokenmodule.BadSignatureException;
 
-
-
 public class TokenCreator {
-  private byte[] sharedKey;
   private MACSigner macSigner;
   private MACVerifier macVerifier;
   private DirectEncrypter encrypter;
   private DirectDecrypter decrypter;
-  
+  JWSHeader jwsHeader = new JWSHeader(JWSAlgorithm.HS256);
+  JWEHeader jweHeader = new JWEHeader(JWEAlgorithm.DIR, EncryptionMethod.A256GCM);
 
-  public TokenCreator(String key) throws KeyLengthException, JOSEException {
-   if(key != null) {
-     //pad to minimum length
-     if(key.length() < 32) {
-       key = String.format("%-32s", key);
-     }
-     if(key.length() > 32) {
-       key = key.substring(0, 32);
-     }
-     init(key.getBytes());
-   } else {
-     byte[] tempKey = new byte[64];
-     new SecureRandom().nextBytes(tempKey);
-     init(tempKey);
-   }
+  public TokenCreator(String key) throws JOSEException {
+    int byteLength = jweHeader.getEncryptionMethod().cekBitLength() / 8;
+
+    if (key == null) {
+      byte[] keyBytes = new byte[byteLength];
+      new SecureRandom().nextBytes(keyBytes);
+      init(keyBytes);
+      return;
+    }
+
+    // key.length() is not the number of bytes but the number of Unicode code units
+
+    byte[] keyBytes = key.getBytes();
+
+    if (keyBytes.length != byteLength) {
+      keyBytes = Arrays.copyOf(keyBytes, byteLength);
+    }
+
+    init(keyBytes);
   }
-  
-  public TokenCreator(byte[] byteArray) throws KeyLengthException, JOSEException {
+
+  public TokenCreator(byte[] byteArray) throws JOSEException {
     init(byteArray);
   }
-  
-  private void init(byte[] setKey) throws KeyLengthException, JOSEException {
-    sharedKey = setKey;
-    macSigner = new MACSigner(sharedKey);
-    macVerifier = new MACVerifier(sharedKey);
-    encrypter = new DirectEncrypter(sharedKey);
-    decrypter = new DirectDecrypter(sharedKey);
+
+  private void init(byte[] setKey) throws JOSEException {
+    macSigner = new MACSigner(setKey);
+    macVerifier = new MACVerifier(setKey);
+    encrypter = new DirectEncrypter(setKey);
+    decrypter = new DirectDecrypter(setKey);
+  }
+
+  /**
+   * Set the algorithm for {@link #createJWEToken(String)}.
+   * @param jweHeader the new algorithm
+   */
+  public void setJweHeader(JWEHeader jweHeader) {
+    this.jweHeader = jweHeader;
   }
 
   /*
@@ -64,7 +74,7 @@ public class TokenCreator {
    */
   public String createJWTToken(String payload) throws JOSEException, ParseException {
     JWTClaimsSet claims = JWTClaimsSet.parse(payload);
-    SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+    SignedJWT jwt = new SignedJWT(jwsHeader, claims);
     jwt.sign(macSigner);
     return jwt.serialize();
   }
@@ -77,18 +87,32 @@ public class TokenCreator {
       throw(new BadSignatureException(message));
     };
   }
-  
+
   public String createJWEToken(String payloadString) throws JOSEException {
     Payload payload = new Payload(payloadString);
-    JWEHeader header = new JWEHeader(JWEAlgorithm.DIR, EncryptionMethod.A256GCM);
-    JWEObject jwe = new JWEObject(header, payload);
+    JWEObject jwe = new JWEObject(jweHeader, payload);
     jwe.encrypt(encrypter);
     return jwe.serialize();
   }
-  
+
   public String decodeJWEToken(String token) throws JOSEException, ParseException {
     JWEObject jwe = JWEObject.parse(token);
     jwe.decrypt(decrypter);
     return jwe.getPayload().toString();
+  }
+
+  /**
+   * Create a dummy JWT token and a dummy JWE token to dry run the configured algorithms.
+   * @throws JOSEException  if an algorithm is not available
+   * @throws ParseException  on JWT parse error
+   */
+  public void dryRunAlgorithms() throws JOSEException, ParseException {
+    JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+        .subject("One Thousand and One Nights")
+        .issuer("https://example.com")
+        .expirationTime(new Date())
+        .build();
+    createJWTToken(claimsSet.toString());
+    createJWEToken("Ali Baba and the Forty Thieves");
   }
 }

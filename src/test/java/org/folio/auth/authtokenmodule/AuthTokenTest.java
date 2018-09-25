@@ -1,4 +1,4 @@
-package org.folio.auth.authtoken_module;
+package org.folio.auth.authtokenmodule;
 
 import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.TokenCreator;
