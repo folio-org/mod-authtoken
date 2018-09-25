@@ -107,7 +107,7 @@ public class MainVerticle extends AbstractVerticle {
 
     try {
       tokenCreator = getTokenCreator();
-      tokenCreator.tryAlgorithms();
+      tokenCreator.dryRunAlgorithms();
     } catch(Exception e) {
       future.fail(new RuntimeException("Unable to initialize TokenCreator: " + e.getLocalizedMessage(), e));
       return;
