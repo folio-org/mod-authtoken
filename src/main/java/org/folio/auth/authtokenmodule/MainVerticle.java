@@ -170,7 +170,7 @@ public class MainVerticle extends AbstractVerticle {
   private void handleSignEncryptedToken(RoutingContext ctx) {
     try {
       TokenCreator localTokenCreator = null;
-      logger.debug("Token signing request from " +  ctx.request().absoluteURI());
+      logger.debug("Encrypted token signing request from " +  ctx.request().absoluteURI());
       if(ctx.request().method() != HttpMethod.POST) {
         String message = "Invalid method for this endpoint";
         ctx.response()

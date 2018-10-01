@@ -17,21 +17,25 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.folio.auth.authtokenmodule.Cache;
+import org.folio.auth.authtokenmodule.LimitedSizeMap;
 import org.folio.auth.authtokenmodule.PermissionData;
 
 /**
  *
  * @author kurt
  */
+
 public class ModulePermissionsSource implements PermissionsSource, Cache {
 
   private String okapiUrl = null;
   private Vertx vertx;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private final HttpClient client;
-  private Map<String, CacheEntry> cacheMap;
+  private LimitedSizeMap<String, CacheEntry> cacheMap;
   private boolean cacheEntries;
   private final String keyPrefix;
+  private final int MAX_CACHE_SIZE = 250;
+  
 
   public ModulePermissionsSource(Vertx vertx, int timeout, boolean cache) {
     //permissionsModuleUrl = url;
@@ -42,7 +46,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     client = vertx.createHttpClient(options);
     keyPrefix = UUID.randomUUID().toString();
     if(cache) {
-      cacheMap = new HashMap<>();
+      cacheMap = new LimitedSizeMap<>(MAX_CACHE_SIZE);
     } else {
       cacheMap = null;
     }
