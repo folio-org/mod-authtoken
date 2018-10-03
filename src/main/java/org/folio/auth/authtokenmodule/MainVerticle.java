@@ -759,7 +759,8 @@ public class MainVerticle extends AbstractVerticle {
                 + res.cause().getMessage() + " request took " +
                 (stopTime - startTime) + " ms");
         ctx.response()
-                .setStatusCode(500);
+                .setStatusCode(500)
+                .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
         if(suppressErrorResponse) {
           ctx.response().end();
         } else {
@@ -787,6 +788,7 @@ public class MainVerticle extends AbstractVerticle {
                   + (String) o);
           ctx.response()
                   .setStatusCode(403)
+                  .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
                   .end("Access requires permission: " + (String) o);
           return;
         }
@@ -820,6 +822,7 @@ public class MainVerticle extends AbstractVerticle {
         logger.error(message);
         ctx.response()
             .setStatusCode(500)
+            .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
             .end("Error creating access token");
         return;
       }
