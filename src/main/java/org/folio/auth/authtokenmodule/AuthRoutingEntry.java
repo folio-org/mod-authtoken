@@ -15,6 +15,7 @@ import io.vertx.ext.web.RoutingContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import static org.folio.auth.authtokenmodule.MainVerticle.MODULE_TOKENS_HEADER;
 import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
 import static org.folio.auth.authtokenmodule.MainVerticle.PERMISSIONS_HEADER;
 import static org.folio.auth.authtokenmodule.MainVerticle.getClaims;
@@ -29,12 +30,12 @@ public class AuthRoutingEntry {
   private List<String> requiredPermissions;
   private Handler<RoutingContext> handler;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
-  
+
   public AuthRoutingEntry(String endpoint, String[] requiredPermissions,
       Handler<RoutingContext> handler) {
     init(endpoint, new ArrayList<>(Arrays.asList(requiredPermissions)), handler);
   }
-  private void init(String endpoint, List<String> requiredPermissions, 
+  private void init(String endpoint, List<String> requiredPermissions,
       Handler<RoutingContext> handler) {
     this.endpoint = endpoint;
     if(requiredPermissions == null) {
@@ -44,7 +45,7 @@ public class AuthRoutingEntry {
     }
     this.handler = handler;
   }
-  
+
   public String getEndpoint() {
     return endpoint;
   }
@@ -56,11 +57,11 @@ public class AuthRoutingEntry {
   public Handler<RoutingContext> getHandler() {
     return handler;
   }
-  
+
   /*
   Return true if we're handling the route, false if pass-thru
   */
-  public boolean handleRoute(RoutingContext ctx, String authToken) {
+  public boolean handleRoute(RoutingContext ctx, String authToken, String moduleToken) {
     JsonObject claims = getClaims(authToken);
     JsonArray extraPermissions = claims.getJsonArray("extra_permissions");
     if(extraPermissions == null) {
@@ -93,8 +94,9 @@ public class AuthRoutingEntry {
             .setStatusCode(202)
             .putHeader(PERMISSIONS_HEADER, new JsonArray().add(magicPermission).encode())
             .putHeader(OKAPI_TOKEN_HEADER, authToken)
+            .putHeader(MODULE_TOKENS_HEADER, moduleToken)
             .end();
-      }    
+      }
       return true;
     } else {
       logger.debug(String.format("Body found in request for %s, treating as request", endpoint));
@@ -121,9 +123,9 @@ public class AuthRoutingEntry {
             .end(String.format("Missing permissions to access endpoint '%s'", endpoint));
       }
       return true;
-    }  
+    }
   }
-  
+
   private String getMagicPermission(String endpoint) {
     return String.format("%s.execute", Base64.encode(endpoint));
   }

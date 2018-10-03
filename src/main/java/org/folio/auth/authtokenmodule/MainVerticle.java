@@ -45,7 +45,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final String CALLING_MODULE_HEADER = "X-Okapi-Calling-Module";
   private static final String USERID_HEADER = "X-Okapi-User-Id";
   private static final String REQUESTID_HEADER = "X-Okapi-Request-Id";
-  private static final String MODULE_TOKENS_HEADER = "X-Okapi-Module-Tokens";
+  public static final String MODULE_TOKENS_HEADER = "X-Okapi-Module-Tokens";
   private static final String OKAPI_URL_HEADER = "X-Okapi-Url";
   public static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
   private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
@@ -618,21 +618,6 @@ public class MainVerticle extends AbstractVerticle {
 
     JsonObject tokenClaims = getClaims(authToken);
 
-    /*
-      When the initial request comes in, as a filter, we require that the auth.signtoken
-      permission exists in the module tokens. This means that even if a request has
-      the permission in its permissions list, it cannot request a token unless
-      it has been granted at the module level. If it passes the filter successfully,
-      a new permission, auth.signtoken.execute is attached to the outgoing request
-      which the /token handler will check for when it processes the actual request
-    */
-
-    for(AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
-      if(authRoutingEntry.handleRoute(ctx, authToken)) {
-        return;
-      }
-    }
-
     String username = tokenClaims.getString("sub");
     String jwtTenant = tokenClaims.getString("tenant");
     if (jwtTenant == null || !jwtTenant.equals(tenant)) {
@@ -712,6 +697,22 @@ public class MainVerticle extends AbstractVerticle {
 
     //Add the original token back into the module tokens
     moduleTokens.put("_", authToken);
+
+    /*
+    When the initial request comes in, as a filter, we require that the auth.signtoken
+    permission exists in the module tokens. This means that even if a request has
+    the permission in its permissions list, it cannot request a token unless
+    it has been granted at the module level. If it passes the filter successfully,
+    a new permission, auth.signtoken.execute is attached to the outgoing request
+    which the /token handler will check for when it processes the actual request
+    */
+
+    for(AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
+      if(authRoutingEntry.handleRoute(ctx, authToken, moduleTokens.encode())) {
+        return;
+      }
+    }
+
     //Populate the permissionsRequired array from the header
     JsonArray permissionsRequired = new JsonArray();
     JsonArray permissionsDesired = new JsonArray();
