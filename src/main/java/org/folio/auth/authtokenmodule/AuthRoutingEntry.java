@@ -61,7 +61,7 @@ public class AuthRoutingEntry {
   /*
   Return true if we're handling the route, false if pass-thru
   */
-  public boolean handleRoute(RoutingContext ctx, String authToken, String moduleToken) {
+  public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
     JsonObject claims = getClaims(authToken);
     JsonArray extraPermissions = claims.getJsonArray("extra_permissions");
     if(extraPermissions == null) {
@@ -94,7 +94,7 @@ public class AuthRoutingEntry {
             .setStatusCode(202)
             .putHeader(PERMISSIONS_HEADER, new JsonArray().add(magicPermission).encode())
             .putHeader(OKAPI_TOKEN_HEADER, authToken)
-            .putHeader(MODULE_TOKENS_HEADER, moduleToken)
+            .putHeader(MODULE_TOKENS_HEADER, moduleTokens)
             .end();
       }
       return true;
