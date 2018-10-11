@@ -1,3 +1,6 @@
+## 1.5.3 2018-10-11
+ * Add max size limit to cache entry map
+
 ## 1.5.2 2018-09-07
  * Reduce verbosity and level of several logs
 
