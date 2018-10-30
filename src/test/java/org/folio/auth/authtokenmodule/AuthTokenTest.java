@@ -109,7 +109,7 @@ public class AuthTokenTest {
     System.setProperty("jwt.signing.key", passPhrase);
 
     httpClient = vertx.createHttpClient();
-    
+
     RestAssured.port = port;
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
       new JsonObject()
@@ -177,7 +177,7 @@ public class AuthTokenTest {
     context.assertFalse(Util.globMatch(testGlob, testString2));
     async.complete();
   }
-  
+
   @Test
   public void jweTest(TestContext context) throws Exception {
     async = context.async();
@@ -199,9 +199,9 @@ public class AuthTokenTest {
 
     RestAssuredClient c;
     Response r;
-    
+
     logger.info("Beginning tests");
-    
+
     logger.info("Test simple request, sans tenant and token");
     // Simple request, mostly to see we can talk to the module
     // Not even a X-Okapi-Tenant header
@@ -211,7 +211,7 @@ public class AuthTokenTest {
       .statusCode(400)
       .body(containsString("Missing header: X-Okapi-Tenant"));
 
-    
+
     // A request without X-Okapi-Url header.
     // This succeeds (after fixing Folio-476).
     // Not quite sure if it should - without the ability to call back to
@@ -324,7 +324,7 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(202);
-    
+
     logger.info("Test with basicBadToken");
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -416,7 +416,7 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(201);
-    
+
     //get a refresh token
     logger.info("POST signing request for a refresh token");
     r = given()
@@ -431,10 +431,10 @@ public class AuthTokenTest {
         .statusCode(201)
         .header("Content-Type", "application/json")
         .extract().response();
-    
+
     JsonObject refreshTokenResponse = new JsonObject(r.getBody().asString());
     final String refreshToken = refreshTokenResponse.getString("refreshToken");
-    
+
     logger.info("POST refresh token to get a new access token");
     r = given()
         .header("X-Okapi-Tenant", tenant)
@@ -447,10 +447,10 @@ public class AuthTokenTest {
         .then()
         .statusCode(201)
         .extract().response();
-    
+
     JsonObject refreshResponse = new JsonObject(r.getBody().asString());
     final String accessToken = refreshResponse.getString("token");
-    
+
     logger.info(String.format("Test with 'refreshed' token: %s", accessToken));
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -461,7 +461,7 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(202);
-    
+
     logger.info("Get an encrypted token as a service");
     String secretWord = "kamehameha";
     JsonObject tokenPayload = new JsonObject()
@@ -477,11 +477,11 @@ public class AuthTokenTest {
         .then()
         .statusCode(201)
         .extract().response();
-    
+
     String encryptedTokenResponse = r.getBody().asString();
     JsonObject encryptedTokenJson = new JsonObject(encryptedTokenResponse);
     String encryptedToken = encryptedTokenJson.getString("token");
-    
+
     logger.info(String.format("Attempting to decrypt token %s", encryptedToken));
     r = given()
         .header("X-Okapi-Tenant", tenant)
@@ -492,7 +492,7 @@ public class AuthTokenTest {
         .then()
         .statusCode(201)
         .extract().response();
-    
+
     JsonObject decodedJson = new JsonObject(r.body().asString());
     context.assertTrue(decodedJson.getJsonObject("payload").getString("secret").equals(secretWord));
 
@@ -525,7 +525,7 @@ public class AuthTokenTest {
       return false;
     }
   }
-  
+
   private String getMagicPermission(String endpoint) {
     return String.format("%s.execute", Base64.encode(endpoint));
   }

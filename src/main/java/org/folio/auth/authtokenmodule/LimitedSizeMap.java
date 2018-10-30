@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package org.folio.auth.authtokenmodule;
 
 import java.util.LinkedHashMap;
@@ -18,10 +13,10 @@ public class LimitedSizeMap<K,V> extends LinkedHashMap<K, V> {
   public LimitedSizeMap(int maxSize) {
     this.maxSize = maxSize;
   }
-  
+
   @Override
   protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
     return size() > maxSize;
   }
-  
+
 }
