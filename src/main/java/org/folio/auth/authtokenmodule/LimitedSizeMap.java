@@ -18,10 +18,10 @@ public class LimitedSizeMap<K,V> extends LinkedHashMap<K, V> {
   public LimitedSizeMap(int maxSize) {
     this.maxSize = maxSize;
   }
-  
+
   @Override
   protected boolean removeEldestEntry(Map.Entry<K, V> eldest) {
     return size() > maxSize;
   }
-  
+
 }

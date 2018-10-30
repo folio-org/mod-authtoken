@@ -35,7 +35,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   private boolean cacheEntries;
   private final String keyPrefix;
   private final int MAX_CACHE_SIZE = 250;
-  
+
 
   public ModulePermissionsSource(Vertx vertx, int timeout, boolean cache) {
     //permissionsModuleUrl = url;
