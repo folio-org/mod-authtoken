@@ -1,3 +1,6 @@
+## 2.0.3 2018-12-07
+ * Correct version in pom.xml
+
 ## 2.0.2 2018-11-30
  * Fix issue with missing module token when acting as filter (MODAT-38, MODAT-39)
  * Enable A256GCM Encryption (MODAT-35, MODAT-36)
