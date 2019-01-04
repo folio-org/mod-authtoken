@@ -241,19 +241,25 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   }
 
   @Override
-  public Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant, String requestToken,
-          JsonArray permissions, String key) {
+  public Future<PermissionData> getUserAndExpandedPermissions(String userid,
+      String tenant, String requestToken, JsonArray permissions, String key) {
     logger.debug("Retrieving permissions for userid "  + userid + " and expanding permissions");
     CacheEntry[] currentCache = new CacheEntry[1];
     if(cacheEntries) {
       if(key == null && userid == null && permissions != null) {
         key = keyPrefix + permissions.encode();
       }
-      logger.debug(String.format("Attempting to find cache with key of '%s'", key));
+      logger.debug("Attempting to find cache with key of '{}'", key);
       currentCache[0] = cacheMap.getOrDefault(key, null);
-      if(currentCache[0] == null ||
-              (System.currentTimeMillis() - currentCache[0].getTimestamp()) / 1000 > 10 ) {
-        logger.debug("Cache expired or not found");
+      boolean found = true;
+      if(currentCache[0] == null) {
+        logger.debug("Cache not found");
+        found = false;
+      } else if((System.currentTimeMillis() - currentCache[0].getTimestamp()) / 1000 > 10 ) {
+        logger.debug("Cache expired");
+        found = false;
+      }
+      if(!found) {    
         currentCache[0] = new CacheEntry();
         if(key != null) {
           cacheMap.put(key, currentCache[0]);
@@ -262,13 +268,14 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
         logger.debug("Cache found");
       }
     }
+    final String finalKey = key;
     Future<PermissionData> future = Future.future();
     Future<JsonArray> userPermsFuture;
     if(cacheEntries && currentCache[0].getPermissions() != null) {
       logger.debug("Using entry from cache for user permissions");
       userPermsFuture = Future.succeededFuture(currentCache[0].getPermissions());
     } else {
-      logger.debug("Retrieving permissions for user");
+      logger.debug("Unable to find user permissions in cache, retrieving permissions for user");
       userPermsFuture = getPermissionsForUser(userid, tenant, requestToken);
     }
     Future<JsonArray> expandedPermsFuture;
@@ -276,7 +283,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       logger.debug("Using entry from cache for expanded permissions");
       expandedPermsFuture = Future.succeededFuture(currentCache[0].getExpandedPermissions());
     } else {
-      logger.debug("Expanding permissions");
+      logger.debug("No expanded permissions in cache, expanding permissions");
       expandedPermsFuture = expandPermissions(permissions, tenant, requestToken);
     }
     CompositeFuture compositeFuture = CompositeFuture.all(userPermsFuture, expandedPermsFuture);
@@ -298,6 +305,9 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
             copiedExpandedPerms.add(p);
           }
           currentCache[0].setExpandedPermissions(copiedExpandedPerms);
+          logger.debug("Setting populated cache with key of {}", finalKey);
+          currentCache[0].resetTime();
+          cacheMap.put(finalKey, currentCache[0]);
         }
         future.complete(permissionData);
       }
@@ -349,5 +359,9 @@ class CacheEntry {
 
   public void setExpandedPermissions(JsonArray expandedPermissions) {
     this.expandedPermissions = expandedPermissions;
+  }
+  
+  public void resetTime() {
+    timestamp = System.currentTimeMillis();
   }
 }
