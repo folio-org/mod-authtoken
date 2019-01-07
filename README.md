@@ -15,7 +15,7 @@ that privileged modules (such as Authentication) may make use of.
 
 # Building
 
-This module requires that the Java Cryptography Extension files be installed, in order to run successfully. For Oracle JDK, they can be located at https://www.oracle.com/technetwork/java/javase/downloads/jce8-download-2133166.html
+This module requires that the Java Cryptography Extension files be installed, in order to run successfully. OpenJDK ships with them [since 8u161](https://bugs.openjdk.java.net/browse/JDK-8189377), for Oracle JDK, they can be located at https://www.oracle.com/technetwork/java/javase/downloads/jce8-download-2133166.html
 
 # Interface
 
