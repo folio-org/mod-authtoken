@@ -245,6 +245,10 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       String tenant, String requestToken, JsonArray permissions, String key) {
     logger.debug("Retrieving permissions for userid "  + userid + " and expanding permissions");
     CacheEntry[] currentCache = new CacheEntry[1];
+    boolean[] gotNewPerms = new boolean[1];
+    boolean[] gotNewExpandedPerms = new boolean[1];
+    gotNewPerms[0] = false;
+    gotNewExpandedPerms[0] = false;
     if(cacheEntries) {
       if(key == null && userid == null && permissions != null) {
         key = keyPrefix + permissions.encode();
@@ -277,6 +281,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     } else {
       logger.debug("Unable to find user permissions in cache, retrieving permissions for user");
       userPermsFuture = getPermissionsForUser(userid, tenant, requestToken);
+      gotNewPerms[0] = true;
     }
     Future<JsonArray> expandedPermsFuture;
     if(cacheEntries && currentCache[0].getExpandedPermissions() != null) {
@@ -285,7 +290,9 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     } else {
       logger.debug("No expanded permissions in cache, expanding permissions");
       expandedPermsFuture = expandPermissions(permissions, tenant, requestToken);
+      gotNewExpandedPerms[0] = true;
     }
+    //final boolean updateCache = gotNewPerms;
     CompositeFuture compositeFuture = CompositeFuture.all(userPermsFuture, expandedPermsFuture);
     compositeFuture.setHandler(compositeRes -> {
       if(compositeFuture.failed()) {
@@ -304,10 +311,13 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
           for(Object p : expandedPermsFuture.result()) {
             copiedExpandedPerms.add(p);
           }
-          currentCache[0].setExpandedPermissions(copiedExpandedPerms);
-          logger.debug("Setting populated cache with key of {}", finalKey);
-          currentCache[0].resetTime();
+          if( (gotNewPerms[0] && copiedUserPerms.size() > 0) || 
+              (gotNewExpandedPerms[0] && copiedExpandedPerms.size() > 0)) {
+            currentCache[0].setExpandedPermissions(copiedExpandedPerms);
+                logger.debug("Setting populated cache with key of {}", finalKey);
+            currentCache[0].resetTime();
           cacheMap.put(finalKey, currentCache[0]);
+          }
         }
         future.complete(permissionData);
       }
