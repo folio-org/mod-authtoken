@@ -1,3 +1,6 @@
+## 2.0.4 2018-01-11
+ * Fix issue with caching permissions (MODAT-42)
+
 ## 2.0.3 2018-12-07
  * Correct version in pom.xml
 
