@@ -19,7 +19,6 @@ import com.jayway.restassured.response.Response;
 import com.jayway.restassured.response.ValidatableResponse;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
-import guru.nidi.ramltester.restassured.RestAssuredClient;
 import io.vertx.core.json.JsonArray;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -197,7 +196,6 @@ public class AuthTokenTest {
     async = context.async();
     logger.debug("AuthToken test1 starting");
 
-    RestAssuredClient c;
     Response r;
 
     logger.info("Beginning tests");
