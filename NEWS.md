@@ -1,4 +1,8 @@
-## 2.0.4 2018-01-11
+## 2.1.0 2019-03-15
+ * No need to include raml-test (not in use)
+ * Update to Vertx 3.5.4
+
+## 2.0.4 2019-01-11
  * Fix issue with caching permissions (MODAT-42)
 
 ## 2.0.3 2018-12-07
