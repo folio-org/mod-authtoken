@@ -259,11 +259,11 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       if(currentCache[0] == null) {
         logger.debug("Cache not found");
         found = false;
-      } else if((System.currentTimeMillis() - currentCache[0].getTimestamp()) / 1000 > 10 ) {
+      } else if((System.currentTimeMillis() - currentCache[0].getTimestamp()) / 1000 > 60 ) {
         logger.debug("Cache expired");
         found = false;
       }
-      if(!found) {    
+      if(!found) {
         currentCache[0] = new CacheEntry();
         if(key != null) {
           cacheMap.put(key, currentCache[0]);
@@ -311,7 +311,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
           for(Object p : expandedPermsFuture.result()) {
             copiedExpandedPerms.add(p);
           }
-          if( (gotNewPerms[0] && copiedUserPerms.size() > 0) || 
+          if( (gotNewPerms[0] && copiedUserPerms.size() > 0) ||
               (gotNewExpandedPerms[0] && copiedExpandedPerms.size() > 0)) {
             currentCache[0].setExpandedPermissions(copiedExpandedPerms);
                 logger.debug("Setting populated cache with key of {}", finalKey);
@@ -370,7 +370,7 @@ class CacheEntry {
   public void setExpandedPermissions(JsonArray expandedPermissions) {
     this.expandedPermissions = expandedPermissions;
   }
-  
+
   public void resetTime() {
     timestamp = System.currentTimeMillis();
   }
