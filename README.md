@@ -27,17 +27,6 @@ In addition to acting as a filter, the module exposes a few endpoints that are a
 
 * /refresh - This endpoint takes a valid refresh token and returns a new access token. It accepts a POST of a JSON object, with required field _refreshToken_ that contains the refresh token. It returns a new access token inside of a JSON object (response code 201), contained in a field called _token_.
 
-# Additional information
-
-The [raml-module-builder](https://github.com/folio-org/raml-module-builder) framework.
-
-See project [MODAT](https://issues.folio.org/browse/MODAT)
-at the [FOLIO issue tracker](https://dev.folio.org/guidelines/issue-tracker/).
-
-Other [modules](https://dev.folio.org/source-code/#server-side).
-
-Other FOLIO Developer documentation is at [dev.folio.org](https://dev.folio.org/)
-
 # Command Line Options
 
 mod-authtoken employs a caching mechanism to avoid repeated lookups to the permissions module for rapid incoming requests. This is enabled by default, though it may be disabled by passing -Dcache.permissions=false to the jar when loading.
@@ -45,3 +34,20 @@ mod-authtoken employs a caching mechanism to avoid repeated lookups to the permi
 # Custom Headers
 
 Passing a value of "true" to the Authtoken-Refresh-Cache header for any request will inform mod-authtoken to delete the permissions cache for that userid and to request fresh permissions, regardless of cache age.
+
+# Additional information
+
+Other [modules](https://dev.folio.org/source-code/#server-side).
+
+Other FOLIO Developer documentation is at [dev.folio.org](https://dev.folio.org/)
+
+### Issue tracker
+
+See project [MODAT](https://issues.folio.org/browse/MODAT)
+at the [FOLIO issue tracker](https://dev.folio.org/guidelines/issue-tracker/).
+
+### ModuleDescriptor
+
+See the built `target/ModuleDescriptor.json` for the interfaces that this module
+requires and provides, the permissions, and the additional module metadata.
+
