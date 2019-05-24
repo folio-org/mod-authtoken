@@ -51,3 +51,13 @@ at the [FOLIO issue tracker](https://dev.folio.org/guidelines/issue-tracker/).
 See the built `target/ModuleDescriptor.json` for the interfaces that this module
 requires and provides, the permissions, and the additional module metadata.
 
+### Code analysis
+
+[SonarQube analysis](https://sonarcloud.io/dashboard?id=org.folio%3Amod-authtoken).
+
+### Download and configuration
+
+The built artifacts for this module are available.
+See [configuration](https://dev.folio.org/download/artifacts) for repository access,
+and the [Docker image](https://hub.docker.com/r/folioorg/mod-authtoken/).
+
