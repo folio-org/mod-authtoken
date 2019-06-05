@@ -786,7 +786,10 @@ public class MainVerticle extends AbstractVerticle {
 
       if(expandedExtraPermissions != null) {
         for (Object o : expandedExtraPermissions) {
-          permissions.add((String) o);
+          String permName = (String) o;
+          if (!permissions.contains(permName)) {
+            permissions.add(permName);
+          }
         }
       }
 
