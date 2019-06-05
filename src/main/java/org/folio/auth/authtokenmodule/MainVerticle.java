@@ -781,15 +781,19 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
 
-      JsonArray permissions = res.result().getUserPermissions();
+      JsonArray permissions = new JsonArray();
+      JsonArray userPermissions = res.result().getUserPermissions();
+      for (Object o : userPermissions) {
+        String permName = (String) o;
+        if (!permissions.contains(permName)) {
+          permissions.add(permName);
+        }
+      }
       JsonArray expandedExtraPermissions = res.result().getExpandedPermissions();
-
-      if(expandedExtraPermissions != null) {
-        for (Object o : expandedExtraPermissions) {
-          String permName = (String) o;
-          if (!permissions.contains(permName)) {
-            permissions.add(permName);
-          }
+      for (Object o : expandedExtraPermissions) {
+        String permName = (String) o;
+        if (!permissions.contains(permName)) {
+          permissions.add(permName);
         }
       }
 
