@@ -21,6 +21,12 @@
       ]
     }
   ],
+  "requires" : [
+    {
+      "id" : "permissions",
+      "version" : "5.2"
+    }
+  ],
   "filters" : [
     {
       "methods" : [ "*" ],
