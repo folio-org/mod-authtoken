@@ -1,3 +1,9 @@
+## 2.2.0 2019-06-11
+ * MODAT-43 Bump up token perm cache from 10s to 60s
+ * MODAT-44 Fix mod-auth requires permissions interface
+ * MODAT-46 checkout-by-barcode returns 500 "HTTP header is larger
+   than 8192 bytes
+
 ## 2.1.0 2019-03-15
  * No need to include raml-test (not in use)
  * Update to Vertx 3.5.4
