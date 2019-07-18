@@ -32,14 +32,14 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private final HttpClient client;
   private LimitedSizeMap<String, CacheEntry> cacheMap;
-  private boolean cacheEntries;
+  private boolean cacheEnabled;
   private final String keyPrefix;
   private final int MAX_CACHE_SIZE = 250;
 
 
   public ModulePermissionsSource(Vertx vertx, int timeout, boolean cache) {
     //permissionsModuleUrl = url;
-    cacheEntries = cache;
+    cacheEnabled = cache;
     this.vertx = vertx;
     HttpClientOptions options = new HttpClientOptions();
     options.setConnectTimeout(timeout * 1000);
@@ -249,7 +249,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     boolean[] gotNewExpandedPerms = new boolean[1];
     gotNewPerms[0] = false;
     gotNewExpandedPerms[0] = false;
-    if(cacheEntries) {
+    if(cacheEnabled) {
       if (key == null) {
         key = keyPrefix;
       }
@@ -278,7 +278,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     final String finalKey = key;
     Future<PermissionData> future = Future.future();
     Future<JsonArray> userPermsFuture;
-    if(cacheEntries && currentCache[0].getPermissions() != null) {
+    if(cacheEnabled && currentCache[0].getPermissions() != null) {
       logger.debug("Using entry from cache for user permissions");
       userPermsFuture = Future.succeededFuture(currentCache[0].getPermissions());
     } else {
@@ -287,7 +287,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       gotNewPerms[0] = true;
     }
     Future<JsonArray> expandedPermsFuture;
-    if(cacheEntries && currentCache[0].getExpandedPermissions() != null) {
+    if(cacheEnabled && currentCache[0].getExpandedPermissions() != null) {
       logger.debug("Using entry from cache for expanded permissions");
       expandedPermsFuture = Future.succeededFuture(currentCache[0].getExpandedPermissions());
     } else {
@@ -304,7 +304,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
         PermissionData permissionData = new PermissionData();
         permissionData.setUserPermissions(userPermsFuture.result());
         permissionData.setExpandedPermissions(expandedPermsFuture.result());
-        if(cacheEntries) {
+        if(cacheEnabled) {
           JsonArray copiedUserPerms = new JsonArray();
           JsonArray copiedExpandedPerms = new JsonArray();
           for(Object p : userPermsFuture.result()) {
