@@ -253,6 +253,9 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       if(key == null && userid == null && permissions != null) {
         key = keyPrefix + permissions.encode();
       }
+      if (permissions != null && !key.endsWith(permissions.encode())) {
+        key += permissions.encode();
+      }
       logger.debug("Attempting to find cache with key of '{}'", key);
       currentCache[0] = cacheMap.getOrDefault(key, null);
       boolean found = true;
@@ -313,7 +316,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
           }
           if( (gotNewPerms[0] && copiedUserPerms.size() > 0) ||
               (gotNewExpandedPerms[0] && copiedExpandedPerms.size() > 0)) {
-            // currentCache[0].setExpandedPermissions(copiedExpandedPerms);
+            currentCache[0].setExpandedPermissions(copiedExpandedPerms);
             logger.debug("Setting populated cache with key of {}", finalKey);
             currentCache[0].resetTime();
             cacheMap.put(finalKey, currentCache[0]);
