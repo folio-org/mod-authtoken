@@ -250,8 +250,8 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     gotNewPerms[0] = false;
     gotNewExpandedPerms[0] = false;
     if(cacheEntries) {
-      if(key == null && userid == null && permissions != null) {
-        key = keyPrefix + permissions.encode();
+      if (key == null) {
+        key = keyPrefix;
       }
       if (permissions != null && !key.endsWith(permissions.encode())) {
         key += permissions.encode();
