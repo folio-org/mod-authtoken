@@ -13,8 +13,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import java.net.URLEncoder;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 import org.folio.auth.authtokenmodule.Cache;
 import org.folio.auth.authtokenmodule.LimitedSizeMap;
@@ -240,6 +238,18 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     return future;
   }
 
+  /**
+   * @return Calculate the key for cacheMap using key, keyPrefix and permissions.
+   */
+  String cacheKey(String key, JsonArray permissions) {
+    String newKey = key == null ? keyPrefix : key;
+    String permissionsString = permissions.encode();
+    if (! newKey.endsWith(permissionsString)) {
+      newKey += permissionsString;
+    }
+    return newKey;
+  }
+
   @Override
   public Future<PermissionData> getUserAndExpandedPermissions(String userid,
       String tenant, String requestToken, JsonArray permissions, String key) {
@@ -247,17 +257,12 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     CacheEntry[] currentCache = new CacheEntry[1];
     boolean[] gotNewPerms = new boolean[1];
     boolean[] gotNewExpandedPerms = new boolean[1];
+    final String finalKey = cacheEntries ? cacheKey(key, permissions) : null;
     gotNewPerms[0] = false;
     gotNewExpandedPerms[0] = false;
-    if(cacheEntries) {
-      if (key == null) {
-        key = keyPrefix;
-      }
-      if (permissions != null && !key.endsWith(permissions.encode())) {
-        key += permissions.encode();
-      }
-      logger.debug("Attempting to find cache with key of '{}'", key);
-      currentCache[0] = cacheMap.getOrDefault(key, null);
+    if (finalKey != null) {
+      logger.debug("Attempting to find cache with key of '{}'", finalKey);
+      currentCache[0] = cacheMap.getOrDefault(finalKey, null);
       boolean found = true;
       if(currentCache[0] == null) {
         logger.debug("Cache not found");
@@ -268,14 +273,11 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       }
       if(!found) {
         currentCache[0] = new CacheEntry();
-        if(key != null) {
-          cacheMap.put(key, currentCache[0]);
-        }
+        cacheMap.put(finalKey, currentCache[0]);
       } else {
         logger.debug("Cache found");
       }
     }
-    final String finalKey = key;
     Future<PermissionData> future = Future.future();
     Future<JsonArray> userPermsFuture;
     if(cacheEntries && currentCache[0].getPermissions() != null) {
