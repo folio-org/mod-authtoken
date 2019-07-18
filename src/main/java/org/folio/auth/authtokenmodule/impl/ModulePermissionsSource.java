@@ -257,7 +257,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     CacheEntry[] currentCache = new CacheEntry[1];
     boolean[] gotNewPerms = new boolean[1];
     boolean[] gotNewExpandedPerms = new boolean[1];
-    final String finalKey = cacheEntries ? cacheKey(key, permissions) : null;
+    final String finalKey = cacheEnabled ? cacheKey(key, permissions) : null;
     gotNewPerms[0] = false;
     gotNewExpandedPerms[0] = false;
     if (finalKey != null) {
