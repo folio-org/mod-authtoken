@@ -159,7 +159,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     }
     try {
       String requestUrl = okapiUrlFinal + "perms/permissions?"
-              + URLEncoder.encode("expandSubs=true&query=" + query, "UTF-8");
+          + "expandSubs=true&query=" + URLEncoder.encode(query, "UTF-8");
       logger.debug("Requesting expanded permissions from URL at " + requestUrl);
       HttpClientRequest req = client.getAbs(requestUrl, res -> {
         res.bodyHandler(body -> {
@@ -250,8 +250,11 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     gotNewPerms[0] = false;
     gotNewExpandedPerms[0] = false;
     if(cacheEntries) {
-      if(key == null && userid == null && permissions != null) {
-        key = keyPrefix + permissions.encode();
+      if (key == null) {
+        key = keyPrefix;
+      }
+      if (permissions != null && !key.endsWith(permissions.encode())) {
+        key += permissions.encode();
       }
       logger.debug("Attempting to find cache with key of '{}'", key);
       currentCache[0] = cacheMap.getOrDefault(key, null);
