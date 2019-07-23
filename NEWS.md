@@ -1,3 +1,8 @@
+## 2.2.1 2019-07-23
+
+* [MODAT-47](https://issues.folio.org/browse/MODAT-47) Incorrect extra permissions handling
+* [MODAT-48](https://issues.folio.org/browse/MODAT-48) groovy-eclipse-compiler fail in Eclipse
+
 ## 2.2.0 2019-06-11
  * MODAT-43 Bump up token perm cache from 10s to 60s
  * MODAT-44 Fix mod-auth requires permissions interface
