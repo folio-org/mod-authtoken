@@ -358,6 +358,7 @@ public class AuthTokenTest {
     logger.info("Test with wildcard permission");
     given()
       .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
       .header("X-Okapi-Token", basicToken2)
       .header("X-Okapi-Url", "http://localhost:" + mockPort)
       .header("X-Okapi-Permissions-Desired", "extra.*bar")
