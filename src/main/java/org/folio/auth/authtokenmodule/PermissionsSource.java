@@ -11,12 +11,14 @@ public interface PermissionsSource {
 
   public void setOkapiUrl(String url);
 
-  Future<JsonArray> getPermissionsForUser(String username, String tenant, String requestToken);
+  Future<JsonArray> getPermissionsForUser(String username, String tenant,
+    String requestToken, String requestId);
 
-  Future<JsonArray> expandPermissions(JsonArray permissions, String tenant, String requestToken);
+  Future<JsonArray> expandPermissions(JsonArray permissions, String tenant,
+    String requestToken, String requestId);
 
   Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant, String requestToken,
-    JsonArray permissions, String key);
+    String requestId, JsonArray permissions, String key);
 
 }
 

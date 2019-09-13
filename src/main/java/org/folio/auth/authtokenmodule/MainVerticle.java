@@ -59,7 +59,6 @@ public class MainVerticle extends AbstractVerticle {
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
 
   PermissionsSource permissionsSource;
-  private String okapiUrl;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
@@ -761,7 +760,7 @@ public class MainVerticle extends AbstractVerticle {
     long startTime = System.currentTimeMillis();
     Future<PermissionData> retrievedPermissionsFuture = usePermissionsSource
             .getUserAndExpandedPermissions(userId, tenant, permissionsRequestToken,
-            extraPermissions, cacheKey);
+            requestId, extraPermissions, cacheKey);
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
       if(res.failed()) {
@@ -862,12 +861,11 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private void updateOkapiUrl(RoutingContext ctx) {
-    if(ctx.request().getHeader(OKAPI_URL_HEADER) != null) {
-      this.okapiUrl = ctx.request().getHeader(OKAPI_URL_HEADER);
+    String okapiUrl = ctx.request().getHeader(OKAPI_URL_HEADER);
+    if (okapiUrl != null) {
       permissionsSource.setOkapiUrl(okapiUrl);
     }
   }
-
 
   public String extractToken(String authorizationHeader) {
     Pattern pattern = null;

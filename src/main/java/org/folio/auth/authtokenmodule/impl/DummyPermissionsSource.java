@@ -14,7 +14,8 @@ import org.folio.auth.authtokenmodule.PermissionData;
 public class DummyPermissionsSource implements PermissionsSource {
 
   @Override
-  public Future<JsonArray> getPermissionsForUser(String username, String tenant, String requestToken) {
+  public Future<JsonArray> getPermissionsForUser(String username, String tenant,
+    String requestToken, String requestId) {
     Future<JsonArray> future = Future.future();
     future.complete(new JsonArray());
     return future;
@@ -26,7 +27,8 @@ public class DummyPermissionsSource implements PermissionsSource {
   }
 
   @Override
-  public Future<JsonArray> expandPermissions(JsonArray permissions, String tenant, String requestToken) {
+  public Future<JsonArray> expandPermissions(JsonArray permissions, String tenant,
+    String requestToken, String requestId) {
     Future<JsonArray> future = Future.future();
     future.complete(permissions);
     return future;
@@ -34,7 +36,7 @@ public class DummyPermissionsSource implements PermissionsSource {
 
   @Override
   public Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant, String requestToken,
-          JsonArray permissions, String key) {
+          String requestId, JsonArray permissions, String key) {
     PermissionData permissionData = new PermissionData();
     permissionData.setExpandedPermissions(permissions);
     return Future.succeededFuture(permissionData);

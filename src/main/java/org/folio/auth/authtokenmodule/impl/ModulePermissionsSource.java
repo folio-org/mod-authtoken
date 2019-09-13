@@ -61,7 +61,8 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   }
 
   @Override
-  public Future<JsonArray> getPermissionsForUser(String userid, String tenant, String requestToken) {
+  public Future<JsonArray> getPermissionsForUser(String userid, String tenant,
+    String requestToken, String requestId) {
     Future<JsonArray> future = Future.future();
     String okapiUrlCandidate = "http://localhost:9130/";
     if (okapiUrl != null) {
@@ -117,29 +118,33 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
           req.exceptionHandler(exception -> {
             future.fail(exception);
           });
-
-          req.headers().add("X-Okapi-Token", requestToken);
-          req.headers().add("X-Okapi-Tenant", tenant);
-          req.headers().add("Content-Type", "application/json");
-          req.headers().add("Accept", "application/json");
-          req.end();
+          endRequest(req, requestToken, tenant, requestId);
         }
       });
       permUserRes.exceptionHandler(e -> {
         future.fail(e);
       });
     });
-    permUserReq.headers()
-            .add("X-Okapi-Token", requestToken)
-            .add("X-Okapi-Tenant", tenant)
-            .add("Content-Type", "application/json")
-            .add("Accept", "application/json");
-    permUserReq.end();
+    endRequest(permUserReq, requestToken, tenant, requestId);
     return future;
   }
 
+  private void endRequest(HttpClientRequest permUserReq, String requestToken,
+    String tenant, String requestId) {
+    if (requestId != null) {
+      permUserReq.headers().add("X-Okapi-Request-Id", requestId);
+    }
+    permUserReq.headers()
+      .add("X-Okapi-Token", requestToken)
+      .add("X-Okapi-Tenant", tenant)
+      .add("Content-Type", "application/json")
+      .add("Accept", "application/json");
+    permUserReq.end();
+  }
+
   @Override
-  public Future<JsonArray> expandPermissions(JsonArray permissions, String tenant, String requestToken) {
+  public Future<JsonArray> expandPermissions(JsonArray permissions, String tenant, String requestToken,
+    String requestId) {
     Future<JsonArray> future = Future.future();
     if (permissions.isEmpty()) {
       future.complete(new JsonArray());
@@ -222,16 +227,10 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
           future.fail(e);
         });
       });
-      req.putHeader("X-Okapi-Token", requestToken)
-              .putHeader("X-Okapi-Tenant", tenant)
-              .putHeader("Content-Type", "application/json")
-              .putHeader("Accept", "application/json");
-
       req.exceptionHandler(e -> {
         future.fail(e);
       });
-
-      req.end();
+      endRequest(req, requestToken, tenant, requestId);
     } catch (Exception e) {
       logger.error(e.getLocalizedMessage(), e);
       future.fail("Unable to expand permissions: " + e.getLocalizedMessage());
@@ -242,7 +241,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
 
   @Override
   public Future<PermissionData> getUserAndExpandedPermissions(String userid,
-      String tenant, String requestToken, JsonArray permissions, String key) {
+      String tenant, String requestToken, String requestId, JsonArray permissions, String key) {
     logger.debug("Retrieving permissions for userid "  + userid + " and expanding permissions");
     CacheEntry[] currentCache = new CacheEntry[1];
     boolean[] gotNewPerms = new boolean[1];
@@ -283,7 +282,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       userPermsFuture = Future.succeededFuture(currentCache[0].getPermissions());
     } else {
       logger.debug("Unable to find user permissions in cache, retrieving permissions for user");
-      userPermsFuture = getPermissionsForUser(userid, tenant, requestToken);
+      userPermsFuture = getPermissionsForUser(userid, tenant, requestToken, requestId);
       gotNewPerms[0] = true;
     }
     Future<JsonArray> expandedPermsFuture;
@@ -292,7 +291,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       expandedPermsFuture = Future.succeededFuture(currentCache[0].getExpandedPermissions());
     } else {
       logger.debug("No expanded permissions in cache, expanding permissions");
-      expandedPermsFuture = expandPermissions(permissions, tenant, requestToken);
+      expandedPermsFuture = expandPermissions(permissions, tenant, requestToken, requestId);
       gotNewExpandedPerms[0] = true;
     }
     //final boolean updateCache = gotNewPerms;
