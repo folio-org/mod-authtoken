@@ -129,17 +129,17 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     return future;
   }
 
-  private void endRequest(HttpClientRequest permUserReq, String requestToken,
+  private void endRequest(HttpClientRequest req, String requestToken,
     String tenant, String requestId) {
     if (requestId != null) {
-      permUserReq.headers().add("X-Okapi-Request-Id", requestId);
+      req.headers().add("X-Okapi-Request-Id", requestId);
     }
-    permUserReq.headers()
+    req.headers()
       .add("X-Okapi-Token", requestToken)
       .add("X-Okapi-Tenant", tenant)
       .add("Content-Type", "application/json")
       .add("Accept", "application/json");
-    permUserReq.end();
+    req.end();
   }
 
   @Override
