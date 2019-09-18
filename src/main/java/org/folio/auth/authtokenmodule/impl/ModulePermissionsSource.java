@@ -1,24 +1,24 @@
 package org.folio.auth.authtokenmodule.impl;
 
 import io.vertx.core.CompositeFuture;
-import java.util.StringJoiner;
-import org.folio.auth.authtokenmodule.PermissionsSource;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
+import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import java.net.URLEncoder;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.StringJoiner;
 import java.util.UUID;
 import org.folio.auth.authtokenmodule.Cache;
 import org.folio.auth.authtokenmodule.LimitedSizeMap;
 import org.folio.auth.authtokenmodule.PermissionData;
+import org.folio.auth.authtokenmodule.PermissionsSource;
 
 /**
  *
@@ -164,65 +164,10 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     }
     try {
       String requestUrl = okapiUrlFinal + "perms/permissions?"
-          + "expandSubs=true&query=" + URLEncoder.encode(query, "UTF-8");
+        + "expandSubs=true&query=" + URLEncoder.encode(query, "UTF-8");
       logger.debug("Requesting expanded permissions from URL at " + requestUrl);
       HttpClientRequest req = client.getAbs(requestUrl, res -> {
-        res.bodyHandler(body -> {
-          try {
-            if (res.statusCode() != 200) {
-              String message = "Expected 200, got result " + res.statusCode()
-                      + " : " + body.toString();
-              future.fail(message);
-              logger.error("Error expanding " + permissions.encode() + ": " + message);
-            } else {
-              logger.debug("Got result from permissions module");
-              JsonObject result = new JsonObject(body.toString());
-              JsonArray expandedPermissions = new JsonArray();
-              for (Object ob : permissions) {
-                String permName = (String) ob;
-                if (!expandedPermissions.contains(permName)) {
-                  expandedPermissions.add(permName);
-                }
-              }
-              for (Object ob : result.getJsonArray("permissions")) {
-                JsonObject permissionObject = (JsonObject) ob;
-                if (!expandedPermissions.contains(permissionObject.getString("permissionName"))) {
-                  expandedPermissions.add(permissionObject.getString("permissionName"));
-                }
-                JsonArray subPermissionArray = permissionObject.getJsonArray("subPermissions");
-                if (subPermissionArray != null) {
-                  for (Object subOb : subPermissionArray) {
-                    if (subOb instanceof String) {
-                      String subPermissionName = (String) subOb;
-                      if (!expandedPermissions.contains(subPermissionName)) {
-                        expandedPermissions.add(subPermissionName);
-                      }
-                    } else {
-                      JsonObject subPermissionObject = (JsonObject) subOb;
-                      String subPermissionName = subPermissionObject.getString("permissionName");
-                      if (!expandedPermissions.contains(subPermissionName)) {
-                        expandedPermissions.add(subPermissionName);
-                      }
-                      JsonArray subSubPermissionArray = subPermissionObject.getJsonArray("subPermissions");
-                      if (subSubPermissionArray != null) {
-                        for (Object subSubOb : subSubPermissionArray) {
-                          String subSubPermissionName = (String) subSubOb;
-                          if (!expandedPermissions.contains(subSubPermissionName)) {
-                            expandedPermissions.add(subSubPermissionName);
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-              future.complete(expandedPermissions);
-            }
-          } catch (Exception e) {
-            logger.error(e.getLocalizedMessage(), e);
-            future.fail("Unable to expand permissions: " + e.getLocalizedMessage());
-          }
-        });
+        res.bodyHandler(body -> handleExpandPermissions(res, body, future, permissions));
         res.exceptionHandler(e -> {
           future.fail(e);
         });
@@ -235,8 +180,66 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       logger.error(e.getLocalizedMessage(), e);
       future.fail("Unable to expand permissions: " + e.getLocalizedMessage());
     }
-
     return future;
+  }
+
+  private void handleExpandPermissions(HttpClientResponse res, Buffer body,
+    Future<JsonArray> future, JsonArray permissions) {
+
+    try {
+      if (res.statusCode() != 200) {
+        String message = "Expected 200, got result " + res.statusCode()
+          + " : " + body.toString();
+        future.fail(message);
+        logger.error("Error expanding " + permissions.encode() + ": " + message);
+        return;
+      }
+      logger.debug("Got result from permissions module");
+      JsonObject result = new JsonObject(body.toString());
+      JsonArray expandedPermissions = new JsonArray();
+      for (Object ob : permissions) {
+        String permName = (String) ob;
+        if (!expandedPermissions.contains(permName)) {
+          expandedPermissions.add(permName);
+        }
+      }
+      for (Object ob : result.getJsonArray("permissions")) {
+        JsonObject permissionObject = (JsonObject) ob;
+        if (!expandedPermissions.contains(permissionObject.getString("permissionName"))) {
+          expandedPermissions.add(permissionObject.getString("permissionName"));
+        }
+        JsonArray subPermissionArray = permissionObject.getJsonArray("subPermissions");
+        if (subPermissionArray != null) {
+          for (Object subOb : subPermissionArray) {
+            if (subOb instanceof String) {
+              String subPermissionName = (String) subOb;
+              if (!expandedPermissions.contains(subPermissionName)) {
+                expandedPermissions.add(subPermissionName);
+              }
+            } else {
+              JsonObject subPermissionObject = (JsonObject) subOb;
+              String subPermissionName = subPermissionObject.getString("permissionName");
+              if (!expandedPermissions.contains(subPermissionName)) {
+                expandedPermissions.add(subPermissionName);
+              }
+              JsonArray subSubPermissionArray = subPermissionObject.getJsonArray("subPermissions");
+              if (subSubPermissionArray != null) {
+                for (Object subSubOb : subSubPermissionArray) {
+                  String subSubPermissionName = (String) subSubOb;
+                  if (!expandedPermissions.contains(subSubPermissionName)) {
+                    expandedPermissions.add(subSubPermissionName);
+                  }
+                }
+              }
+            }
+          }
+        }
+        future.complete(expandedPermissions);
+      }
+    } catch (Exception e) {
+      logger.error(e.getLocalizedMessage(), e);
+      future.fail("Unable to expand permissions: " + e.getLocalizedMessage());
+    }
   }
 
   @Override
