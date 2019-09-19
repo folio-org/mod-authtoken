@@ -38,6 +38,7 @@ public class MainVerticle extends AbstractVerticle {
 
   // TODO - Use header names from Okapi.common
   public static final String PERMISSIONS_HEADER = "X-Okapi-Permissions";
+  private static final String CONTENT_TYPE = "Content-Type";
   private static final String DESIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Desired";
   private static final String REQUIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Required";
   private static final String MODULE_PERMISSIONS_HEADER = "X-Okapi-Module-Permissions";
@@ -55,7 +56,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final String TOKEN_USER_ID_FIELD = "user_id";
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
   private static final String CACHE_KEY_FIELD = "cache_key";
-
+  private static final String MISSING_HEADER = "Missing header: ";
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
 
   PermissionsSource permissionsSource;
@@ -88,13 +89,13 @@ public class MainVerticle extends AbstractVerticle {
 
   private static void endText(RoutingContext ctx, int code, String msg) {
     ctx.response().setStatusCode(code);
-    ctx.response().putHeader("Content-Type", "text/plain");
+    ctx.response().putHeader(CONTENT_TYPE, "text/plain");
     ctx.response().end(msg);
   }
 
   private static void endJson(RoutingContext ctx, int code, String msg) {
     ctx.response().setStatusCode(code);
-    ctx.response().putHeader("Content-Type", "application/json");
+    ctx.response().putHeader(CONTENT_TYPE, "application/json");
     ctx.response().end(msg);
   }
 
@@ -218,7 +219,7 @@ public class MainVerticle extends AbstractVerticle {
       endJson(ctx, 201, responseJson.encode());
     } catch(Exception e) {
       String error = logAndReturnError(e);
-      endText(ctx, 500, String.format("Internal Server Error: %s", error));
+      endText(ctx, 500, error);
     }
   }
 
@@ -269,7 +270,7 @@ public class MainVerticle extends AbstractVerticle {
       endJson(ctx, 201, responseJson.encode());
     } catch(Exception e) {
       String error = logAndReturnError(e);
-      endText(ctx, 500, String.format("Internal Server Error: %s", error));
+      endText(ctx, 500, error);
     }
   }
 
@@ -350,10 +351,10 @@ public class MainVerticle extends AbstractVerticle {
   */
   private void handleSignRefreshToken(RoutingContext ctx) {
     try {
-      if(ctx.request().method() != HttpMethod.POST) {
+      if (ctx.request().method() != HttpMethod.POST) {
         String message = String.format("Invalid method '%s' for this endpoint '%s'",
-            ctx.request().method().toString(),
-            ctx.request().absoluteURI());
+          ctx.request().method().toString(),
+          ctx.request().absoluteURI());
         logger.error(message);
         endText(ctx, 400, message);
         return;
@@ -364,10 +365,10 @@ public class MainVerticle extends AbstractVerticle {
       JsonObject requestJson = null;
       try {
         requestJson = parseJsonObject(content,
-            new String[] {"userId", "sub"});
-      } catch(Exception e) {
+          new String[]{"userId", "sub"});
+      } catch (Exception e) {
         String message = String.format("Unable to parse content: %s",
-            e.getLocalizedMessage());
+          e.getLocalizedMessage());
         logger.error(message);
         endText(ctx, 400, message);
         return;
@@ -377,15 +378,15 @@ public class MainVerticle extends AbstractVerticle {
       String refreshToken = null;
       try {
         refreshToken = generateRefreshToken(tenant, userId, address, sub);
-      } catch(Exception e) {
+      } catch (Exception e) {
         throw e;
       }
       JsonObject responseJson = new JsonObject()
-          .put("refreshToken", refreshToken);
+        .put("refreshToken", refreshToken);
       endJson(ctx, 201, responseJson.encode());
-    } catch(Exception e) {
-       String error = logAndReturnError(e);
-       endText(ctx, 500, String.format("Internal Server Error: %s", error));
+    } catch (Exception e) {
+      String error = logAndReturnError(e);
+      endText(ctx, 500, error);
     }
   }
   
@@ -402,12 +403,12 @@ public class MainVerticle extends AbstractVerticle {
       logger.debug("Token signing request from " +  ctx.request().absoluteURI());
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
       if (tenant == null) {
-        endText(ctx, 400, "Missing header: " + OKAPI_TENANT_HEADER);
+        endText(ctx, 400, MISSING_HEADER + OKAPI_TENANT_HEADER);
         return;
       }
       String okapiUrl = ctx.request().headers().get(OKAPI_URL_HEADER);
       if (okapiUrl == null) {
-        endText(ctx, 400, "Missing header: " + OKAPI_URL_HEADER);
+        endText(ctx, 400, MISSING_HEADER + OKAPI_URL_HEADER);
         return;
       }
       if (ctx.request().method() == HttpMethod.POST) {
@@ -469,12 +470,12 @@ public class MainVerticle extends AbstractVerticle {
     String userId = ctx.request().headers().get(USERID_HEADER);
     String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
     if (tenant == null) {
-      endText(ctx, 400, "Missing header: " + OKAPI_TENANT_HEADER);
+      endText(ctx, 400, MISSING_HEADER + OKAPI_TENANT_HEADER);
       return;
     }
     String okapiUrl = ctx.request().headers().get(OKAPI_URL_HEADER);
     if (okapiUrl == null) {
-      endText(ctx, 400, "Missing header: " + OKAPI_URL_HEADER);
+      endText(ctx, 400, MISSING_HEADER + OKAPI_URL_HEADER);
       return;
     }
     String zapCacheString = ctx.request().headers().get(ZAP_CACHE_HEADER);
@@ -566,24 +567,25 @@ public class MainVerticle extends AbstractVerticle {
  
     final String authToken = candidateToken;
     logger.debug("Final authToken is " + authToken);
+    final String errMsg = "Invalid token";
     try {
       if (!tokenCache.contains(authToken)) {
         tokenCreator.checkJWTToken(authToken);
         tokenCache.add(authToken);
       }
     } catch (ParseException p) {
-        logger.error("Malformed token: " + authToken, p);
-        endText(ctx, 401, "Invalid token");
-        return;
-    } catch(JOSEException j) {
-        logger.error(String.format("Unable to verify token token %s, %s",
-            authToken, j.getLocalizedMessage()));
-        endText(ctx, 401, "Invalid token");
-        return;
-    } catch(BadSignatureException b) {
-        logger.error("Unsupported JWT format", b);
-        endText(ctx, 401, "Invalid token");
-        return;
+      logger.error("Malformed token: " + authToken, p);
+      endText(ctx, 401, errMsg);
+      return;
+    } catch (JOSEException j) {
+      logger.error(String.format("Unable to verify token token %s, %s",
+        authToken, j.getLocalizedMessage()));
+      endText(ctx, 401, errMsg);
+      return;
+    } catch (BadSignatureException b) {
+      logger.error("Unsupported JWT format", b);
+      endText(ctx, 401, errMsg);
+      return;
     }
 
     JsonObject tokenClaims = getClaims(authToken);
@@ -805,7 +807,7 @@ public class MainVerticle extends AbstractVerticle {
       ctx.response()
               .setChunked(true)
               .setStatusCode(202)
-              .putHeader("Content-Type", "text/plain")
+              .putHeader(CONTENT_TYPE, "text/plain")
               .putHeader(PERMISSIONS_HEADER, permissions.encode())
               .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
               .putHeader("Authorization", "Bearer " + token)
