@@ -27,14 +27,13 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-
-
 /**
  *
  * @author heikki
  */
 @RunWith(VertxUnitRunner.class)
 public class AuthTokenTest {
+
   private static final Logger logger = LoggerFactory.getLogger("okapi");
   private static final String LS = System.lineSeparator();
   private static final String tenant = "Roskilde";
@@ -58,7 +57,7 @@ public class AuthTokenTest {
 
   @BeforeClass
   public static void setUpClass(TestContext context) throws NoSuchAlgorithmException,
-      JOSEException, ParseException {
+    JOSEException, ParseException {
     Async async = context.async();
     port = nextFreePort();
     mockPort = nextFreePort();
@@ -108,13 +107,13 @@ public class AuthTokenTest {
         .put("port", mockPort));
     logger.info("Deploying mock permissions module");
     vertx.deployVerticle(PermsMock.class.getName(), mockOptions, mockRes -> {
-      if(mockRes.failed()) {
+      if (mockRes.failed()) {
         mockRes.cause().printStackTrace();
         context.fail(mockRes.cause());
       } else {
         logger.info("Deploying Main Verticle (authtoken)");
         vertx.deployVerticle(MainVerticle.class.getName(), opt, mainRes -> {
-          if(mainRes.failed()) {
+          if (mainRes.failed()) {
             context.fail(mainRes.cause());
           } else {
             async.complete();
@@ -162,15 +161,14 @@ public class AuthTokenTest {
   public void jweTest(TestContext context) throws Exception {
     async = context.async();
     JsonObject ob = new JsonObject()
-        .put("sub", "Ronald McDonald")
-        .put("foo", "bar");
+      .put("sub", "Ronald McDonald")
+      .put("foo", "bar");
     String jweToken = tokenCreator.createJWEToken(ob.encode());
     String reprocessedJson = tokenCreator.decodeJWEToken(jweToken);
     JsonObject reProcOb = new JsonObject(reprocessedJson);
     context.assertTrue(reProcOb.getString("sub").equals("Ronald McDonald"));
     async.complete();
   }
-
 
   @Test
   public void test1(TestContext context) {
@@ -343,6 +341,34 @@ public class AuthTokenTest {
       .statusCode(202)
       .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
 
+    logger.info("POST empty token with no Tenant");
+    given()
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .post("/token")
+      .then()
+      .statusCode(400).body(containsString("Missing header: X-Okapi-Tenant"));
+
+    logger.info("POST empty token with no X-Okapi-URl");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("Content-type", "application/json")
+      .post("/token")
+      .then()
+      .statusCode(400).body(containsString("Missing header: X-Okapi-Url"));
+
+    logger.info("POST empty token with bad method");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .put("/token")
+      .then()
+      .statusCode(401).body(containsString("Missing required module-level permissions for endpoint"));
+
     //post a bad token signing request (no payload)
     logger.info("POST empty token signing request");
     given()
@@ -354,7 +380,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(401);
 
-     //post a bad token signing request
+    //post a bad token signing request
     logger.info("POST bad token signing request");
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -365,7 +391,6 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(403);
-
 
     //get a good token signing request (no payload)
     logger.info("POST signing request with good token, no payload");
@@ -403,42 +428,117 @@ public class AuthTokenTest {
       .header("X-Okapi-Token", basicToken2)
       .header("X-Okapi-Url", "http://localhost:9130")
       .header("Content-type", "application/json")
-      .header("X-Okapi-Permissions", "[\""+ getMagicPermission("/token") +"\"]")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
       .body(new JsonObject().put("payload", payload).encode())
       .post("/token")
       .then()
       .statusCode(201);
 
+    //get a refresh token (bad method)
+    logger.info("PUT signing request for a refresh token");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+      .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
+      .put("/refreshtoken")
+      .then()
+      .statusCode(400).body(containsString("Invalid method"));
+
+    //get a refresh token (bad payload)
+    logger.info("GET signing request for a refresh token (bad payload)");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+      .body("{")
+      .post("/refreshtoken")
+      .then()
+      .statusCode(400).body(containsString("Unable to parse content: "));
+
+    //get a refresh token (bad payload 2)
+    logger.info("GET signing request for a refresh token (bad payload)");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+      .body(new JsonObject().put("sub", "jones").encode())
+      .post("/refreshtoken")
+      .then()
+      .statusCode(400).body(containsString("Unable to parse content: "));
+
     //get a refresh token
     logger.info("POST signing request for a refresh token");
     r = given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", basicToken2)
-        .header("X-Okapi-Url", "http://localhost:9130")
-        .header("Content-type", "application/json")
-        .header("X-Okapi-Permissions", "[\""+ getMagicPermission("/refreshtoken") +"\"]")
-        .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
-        .post("/refreshtoken")
-        .then()
-        .statusCode(201)
-        .header("Content-Type", "application/json")
-        .extract().response();
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+      .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
+      .post("/refreshtoken")
+      .then()
+      .statusCode(201)
+      .header("Content-Type", "application/json")
+      .extract().response();
 
     JsonObject refreshTokenResponse = new JsonObject(r.getBody().asString());
     final String refreshToken = refreshTokenResponse.getString("refreshToken");
 
+    logger.info("PUT /refresh (bad method)");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+      .body(new JsonObject().put("refreshToken", refreshToken).encode())
+      .put("/refresh")
+      .then()
+      .statusCode(400).body(containsString("Invalid method for this endpoint"));
+
+    logger.info("POST /refresh with bad payload");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+      .body("{")
+      .post("/refresh")
+      .then()
+      .statusCode(400).body(containsString("Unable to parse content: "));
+
+    logger.info("POST /refresh with bad refreshToken");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+      .body(new JsonObject().put("refreshToken", basicBadToken).encode())
+      .post("/refresh")
+      .then()
+      .statusCode(400).body(containsString("Invalid token format"));
+
     logger.info("POST refresh token to get a new access token");
     r = given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", basicToken2)
-        .header("X-Okapi-Url", "http://localhost:9130")
-        .header("Content-type", "application/json")
-        .header("X-Okapi-Permissions", "[\""+ getMagicPermission("/refresh") +"\"]")
-        .body(new JsonObject().put("refreshToken", refreshToken).encode())
-        .post("/refresh")
-        .then()
-        .statusCode(201)
-        .extract().response();
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+      .body(new JsonObject().put("refreshToken", refreshToken).encode())
+      .post("/refresh")
+      .then()
+      .statusCode(201)
+      .extract().response();
 
     JsonObject refreshResponse = new JsonObject(r.getBody().asString());
     final String accessToken = refreshResponse.getString("token");
@@ -456,19 +556,41 @@ public class AuthTokenTest {
     logger.info("Get an encrypted token as a service");
     String secretWord = "kamehameha";
     JsonObject tokenPayload = new JsonObject()
-        .put("type", "resetToken")
-        .put("secret", secretWord);
+      .put("type", "resetToken")
+      .put("secret", secretWord);
     String secret = "THEYRECOMINGTOTAKEMEAWAYHAHATHEYRECOMINGTOTAKEMEAWAY";
     r = given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", basicToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions", "[\""+ getMagicPermission("/encrypted-token/create") +"\"]")
-        .body(new JsonObject().put("passPhrase", secret).put("payload", tokenPayload).encode())
-        .post("/encrypted-token/create")
-        .then()
-        .statusCode(201)
-        .extract().response();
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/encrypted-token/create") + "\"]")
+      .body(new JsonObject().put("passPhrase", secret).put("payload", tokenPayload).encode())
+      .post("/encrypted-token/create")
+      .then()
+      .statusCode(201)
+      .extract().response();
+
+    logger.info("Bad method for encrypted token as a service");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/encrypted-token/create") + "\"]")
+      .body(new JsonObject().put("passPhrase", secret).put("payload", tokenPayload).encode())
+      .put("/encrypted-token/create")
+      .then()
+      .statusCode(400).body(containsString("Invalid method for this endpoint"));
+
+    logger.info("Bad payload for encrypted token as a service");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/encrypted-token/create") + "\"]")
+      .body("{")
+      .post("/encrypted-token/create")
+      .then()
+      .statusCode(400).body(containsString("Unable to parse content: "));
 
     String encryptedTokenResponse = r.getBody().asString();
     JsonObject encryptedTokenJson = new JsonObject(encryptedTokenResponse);
@@ -476,15 +598,15 @@ public class AuthTokenTest {
 
     logger.info(String.format("Attempting to decrypt token %s", encryptedToken));
     r = given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", basicToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions", "[\""+ getMagicPermission("/encrypted-token/decode") +"\"]")
-        .body(new JsonObject().put("passPhrase", secret).put("token", encryptedToken).encode())
-        .post("/encrypted-token/decode")
-        .then()
-        .statusCode(201)
-        .extract().response();
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/encrypted-token/decode") + "\"]")
+      .body(new JsonObject().put("passPhrase", secret).put("token", encryptedToken).encode())
+      .post("/encrypted-token/decode")
+      .then()
+      .statusCode(201)
+      .extract().response();
 
     JsonObject decodedJson = new JsonObject(r.body().asString());
     context.assertTrue(decodedJson.getJsonObject("payload").getString("secret").equals(secretWord));
