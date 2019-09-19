@@ -1,8 +1,5 @@
 package org.folio.auth.authtokenmodule;
 
-import org.folio.auth.authtokenmodule.MainVerticle;
-import org.folio.auth.authtokenmodule.TokenCreator;
-import org.folio.auth.authtokenmodule.Util;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
@@ -16,20 +13,16 @@ import com.jayway.restassured.RestAssured;
 import static com.jayway.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
 import com.jayway.restassured.response.Response;
-import com.jayway.restassured.response.ValidatableResponse;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
 import io.vertx.core.json.JsonArray;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.text.ParseException;
 import java.util.concurrent.ThreadLocalRandom;
 import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
 import org.junit.runner.RunWith;
-import org.junit.Before;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -131,18 +124,6 @@ public class AuthTokenTest {
     });
   }
 
-  /*
-  @Before
-  public void setUp(TestContext context) {
-
-  }
-
-  @After
-  public void tearDown(TestContext context) {
-
-  }
-  */
-
   @AfterClass
   public static void tearDownClass(TestContext context) {
     Async async = context.async();
@@ -209,19 +190,14 @@ public class AuthTokenTest {
       .statusCode(400)
       .body(containsString("Missing header: X-Okapi-Tenant"));
 
-
-    // A request without X-Okapi-Url header.
-    // This succeeds (after fixing Folio-476).
-    // Not quite sure if it should - without the ability to call back to
-    // Okapi, we can not do much. Then again, Okapi always sets this header
-    // before calling auth, so the whole thing is a bit theoretical. And the
-    // module falls back to localhost:9130, which is not a bad guess...
+    // A request without X-Okapi-Url header; this fails with 400 error
     logger.info("Test request sans okapi-url header");
     given()
       .header("X-Okapi-Tenant", tenant)
       .get("/foo")
       .then()
-      .statusCode(202);
+      .statusCode(400)
+      .body(containsString("Missing header: X-Okapi-Url"));
 
     // A request that should succeed
     // Even without any credentials in the request, we get back the whole lot,
@@ -402,6 +378,23 @@ public class AuthTokenTest {
       .then()
       .statusCode(202);
 
+    logger.info("POST sign without X-Okapi-Url");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken3)
+      .header("Content-type", "application/json")
+      .post("/token")
+      .then()
+      .statusCode(400).body(containsString("Missing header: X-Okapi-Url"));
+
+    logger.info("POST sign without Tenant");
+    given()
+      .header("X-Okapi-Token", basicToken3)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .post("/token")
+      .then()
+      .statusCode(400).body(containsString("Missing header: X-Okapi-Tenant"));
 
     //get a good token signing request
     logger.info("POST signing request with good token, good payload");
@@ -454,7 +447,6 @@ public class AuthTokenTest {
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", accessToken)
-      //.header("X-Okapi-Token", basicToken)
       .header("X-Okapi-Url", "http://localhost:" + mockPort)
       .header("X-Okapi-User-Id", userUUID)
       .get("/bar")
@@ -470,6 +462,7 @@ public class AuthTokenTest {
     r = given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", basicToken)
+        .header("X-Okapi-Url", "http://localhost:" + mockPort)
         .header("X-Okapi-Permissions", "[\""+ getMagicPermission("/encrypted-token/create") +"\"]")
         .body(new JsonObject().put("passPhrase", secret).put("payload", tokenPayload).encode())
         .post("/encrypted-token/create")
@@ -485,6 +478,7 @@ public class AuthTokenTest {
     r = given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", basicToken)
+        .header("X-Okapi-Url", "http://localhost:" + mockPort)
         .header("X-Okapi-Permissions", "[\""+ getMagicPermission("/encrypted-token/decode") +"\"]")
         .body(new JsonObject().put("passPhrase", secret).put("token", encryptedToken).encode())
         .post("/encrypted-token/decode")

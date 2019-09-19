@@ -9,16 +9,11 @@ import io.vertx.core.json.JsonArray;
  */
 public interface PermissionsSource {
 
-  public void setOkapiUrl(String url);
-
-  Future<JsonArray> getPermissionsForUser(String username, String tenant,
+  Future<JsonArray> getPermissionsForUser(String username, String tenant, String okapiUrl,
     String requestToken, String requestId);
 
-  Future<JsonArray> expandPermissions(JsonArray permissions, String tenant,
-    String requestToken, String requestId);
-
-  Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant, String requestToken,
-    String requestId, JsonArray permissions, String key);
+  Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant, String okapiUrl,
+      String requestToken, String requestId, JsonArray permissions, String key);
 
 }
 

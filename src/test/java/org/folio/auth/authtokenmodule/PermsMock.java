@@ -17,6 +17,8 @@ import io.vertx.core.logging.LoggerFactory;
 public class PermsMock extends AbstractVerticle {
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
 
+  public static int statusCode = 200;
+
   public void start(Future<Void> future) {
     final int port = context.config().getInteger("port");
 
@@ -49,7 +51,7 @@ public class PermsMock extends AbstractVerticle {
     );
 
     context.response()
-      .setStatusCode(200)
+      .setStatusCode(statusCode)
       .putHeader("Content-Type", "application/json")
       .end(output.encode());
 
@@ -64,7 +66,7 @@ public class PermsMock extends AbstractVerticle {
       .put("totalRecords", 1);
 
     context.response()
-      .setStatusCode(200)
+      .setStatusCode(statusCode)
       .end(output.encode());
   }
 
@@ -77,7 +79,7 @@ public class PermsMock extends AbstractVerticle {
     );
 
     context.response()
-            .setStatusCode(200)
+            .setStatusCode(statusCode)
             .putHeader("Content-type", "application/json")
             .end(output.encode());
   }

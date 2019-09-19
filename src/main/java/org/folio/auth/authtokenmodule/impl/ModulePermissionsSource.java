@@ -27,7 +27,6 @@ import org.folio.auth.authtokenmodule.PermissionsSource;
 
 public class ModulePermissionsSource implements PermissionsSource, Cache {
 
-  private String okapiUrl = null;
   private Vertx vertx;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private final HttpClient client;
@@ -53,23 +52,11 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   }
 
   @Override
-  public void setOkapiUrl(String url) {
-    okapiUrl = url;
-    if (!okapiUrl.endsWith("/")) {
-      okapiUrl = okapiUrl + "/";
-    }
-  }
-
-  @Override
-  public Future<JsonArray> getPermissionsForUser(String userid, String tenant,
+  public Future<JsonArray> getPermissionsForUser(String userid, String tenant, String okapiUrl,
     String requestToken, String requestId) {
+    logger.info("gerPermissionsForUser userid=" + userid);
     Future<JsonArray> future = Future.future();
-    String okapiUrlCandidate = "http://localhost:9130/";
-    if (okapiUrl != null) {
-      okapiUrlCandidate = okapiUrl;
-    }
-    final String okapiUrlFinal = okapiUrlCandidate;
-    String permUserRequestUrl = okapiUrlFinal + "perms/users?query=userId==" + userid;
+    String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userid;
     logger.debug("Requesting permissions user object from URL at " + permUserRequestUrl);
     HttpClientRequest permUserReq = client.getAbs(permUserRequestUrl, permUserRes -> {
       permUserRes.bodyHandler(permUserBody -> {
@@ -81,7 +68,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
         } else {
           JsonObject permUserResults = new JsonObject(permUserBody.toString());
           JsonObject permUser = permUserResults.getJsonArray("permissionUsers").getJsonObject(0);
-          final String requestUrl = okapiUrlFinal + "perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
+          final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
           logger.debug("Requesting permissions from URL at " + requestUrl);
           HttpClientRequest req = client.getAbs(requestUrl, res -> {
             if (res.statusCode() == 200) {
@@ -142,8 +129,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     req.end();
   }
 
-  @Override
-  public Future<JsonArray> expandPermissions(JsonArray permissions, String tenant, String requestToken,
+  private Future<JsonArray> expandPermissions(JsonArray permissions, String tenant, String okapiUrl, String requestToken,
     String requestId) {
     Future<JsonArray> future = Future.future();
     if (permissions.isEmpty()) {
@@ -158,12 +144,8 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       joiner.add("permissionName==" + permissionName + "");
     }
     query = query + joiner.toString() + ")";
-    String okapiUrlFinal = "http://localhost:9130/"; //Fallback
-    if (okapiUrl != null) {
-      okapiUrlFinal = okapiUrl;
-    }
     try {
-      String requestUrl = okapiUrlFinal + "perms/permissions?"
+      String requestUrl = okapiUrl + "/perms/permissions?"
         + "expandSubs=true&query=" + URLEncoder.encode(query, "UTF-8");
       logger.debug("Requesting expanded permissions from URL at " + requestUrl);
       HttpClientRequest req = client.getAbs(requestUrl, res -> {
@@ -195,7 +177,6 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
         return;
       }
       logger.debug("Got result from permissions module");
-      JsonObject result = new JsonObject(body.toString());
       JsonArray expandedPermissions = new JsonArray();
       for (Object ob : permissions) {
         String permName = (String) ob;
@@ -203,49 +184,55 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
           expandedPermissions.add(permName);
         }
       }
-      for (Object ob : result.getJsonArray("permissions")) {
-        JsonObject permissionObject = (JsonObject) ob;
-        if (!expandedPermissions.contains(permissionObject.getString("permissionName"))) {
-          expandedPermissions.add(permissionObject.getString("permissionName"));
-        }
-        JsonArray subPermissionArray = permissionObject.getJsonArray("subPermissions");
-        if (subPermissionArray != null) {
-          for (Object subOb : subPermissionArray) {
-            if (subOb instanceof String) {
-              String subPermissionName = (String) subOb;
-              if (!expandedPermissions.contains(subPermissionName)) {
-                expandedPermissions.add(subPermissionName);
-              }
-            } else {
-              JsonObject subPermissionObject = (JsonObject) subOb;
-              String subPermissionName = subPermissionObject.getString("permissionName");
-              if (!expandedPermissions.contains(subPermissionName)) {
-                expandedPermissions.add(subPermissionName);
-              }
-              JsonArray subSubPermissionArray = subPermissionObject.getJsonArray("subPermissions");
-              if (subSubPermissionArray != null) {
-                for (Object subSubOb : subSubPermissionArray) {
-                  String subSubPermissionName = (String) subSubOb;
-                  if (!expandedPermissions.contains(subSubPermissionName)) {
-                    expandedPermissions.add(subSubPermissionName);
-                  }
-                }
-              }
-            }
-          }
-        }
-        future.complete(expandedPermissions);
-      }
+      JsonObject result = new JsonObject(body.toString());
+      parseExpandedPermissions(result, expandedPermissions);
+      future.complete(expandedPermissions);
     } catch (Exception e) {
       logger.error(e.getLocalizedMessage(), e);
       future.fail("Unable to expand permissions: " + e.getLocalizedMessage());
     }
   }
 
+  private void parseExpandedPermissions(JsonObject result, JsonArray expandedPermissions) {
+    for (Object ob : result.getJsonArray("permissions")) {
+      JsonObject permissionObject = (JsonObject) ob;
+      if (!expandedPermissions.contains(permissionObject.getString("permissionName"))) {
+        expandedPermissions.add(permissionObject.getString("permissionName"));
+      }
+      JsonArray subPermissionArray = permissionObject.getJsonArray("subPermissions");
+      if (subPermissionArray != null) {
+        for (Object subOb : subPermissionArray) {
+          if (subOb instanceof String) {
+            String subPermissionName = (String) subOb;
+            if (!expandedPermissions.contains(subPermissionName)) {
+              expandedPermissions.add(subPermissionName);
+            }
+          } else {
+            JsonObject subPermissionObject = (JsonObject) subOb;
+            String subPermissionName = subPermissionObject.getString("permissionName");
+            if (!expandedPermissions.contains(subPermissionName)) {
+              expandedPermissions.add(subPermissionName);
+            }
+            JsonArray subSubPermissionArray = subPermissionObject.getJsonArray("subPermissions");
+            if (subSubPermissionArray != null) {
+              for (Object subSubOb : subSubPermissionArray) {
+                String subSubPermissionName = (String) subSubOb;
+                if (!expandedPermissions.contains(subSubPermissionName)) {
+                  expandedPermissions.add(subSubPermissionName);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   @Override
   public Future<PermissionData> getUserAndExpandedPermissions(String userid,
-      String tenant, String requestToken, String requestId, JsonArray permissions, String key) {
-    logger.debug("Retrieving permissions for userid "  + userid + " and expanding permissions");
+      String tenant, String okapiUrl, String requestToken, String requestId,
+      JsonArray permissions, String key) {
+    logger.info("Retrieving permissions for userid "  + userid + " and expanding permissions");
     CacheEntry[] currentCache = new CacheEntry[1];
     boolean[] gotNewPerms = new boolean[1];
     boolean[] gotNewExpandedPerms = new boolean[1];
@@ -285,7 +272,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       userPermsFuture = Future.succeededFuture(currentCache[0].getPermissions());
     } else {
       logger.debug("Unable to find user permissions in cache, retrieving permissions for user");
-      userPermsFuture = getPermissionsForUser(userid, tenant, requestToken, requestId);
+      userPermsFuture = getPermissionsForUser(userid, tenant, okapiUrl, requestToken, requestId);
       gotNewPerms[0] = true;
     }
     Future<JsonArray> expandedPermsFuture;
@@ -294,7 +281,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
       expandedPermsFuture = Future.succeededFuture(currentCache[0].getExpandedPermissions());
     } else {
       logger.debug("No expanded permissions in cache, expanding permissions");
-      expandedPermsFuture = expandPermissions(permissions, tenant, requestToken, requestId);
+      expandedPermsFuture = expandPermissions(permissions, tenant, okapiUrl, requestToken, requestId);
       gotNewExpandedPerms[0] = true;
     }
     //final boolean updateCache = gotNewPerms;
