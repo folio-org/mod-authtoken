@@ -218,13 +218,12 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
           expandedPermissions.add(subPermissionName);
         }
         JsonArray subSubPermissionArray = subPermissionObject.getJsonArray("subPermissions");
-        if (subSubPermissionArray == null) {
-          continue;
-        }
-        for (Object subSubOb : subSubPermissionArray) {
-          String subSubPermissionName = (String) subSubOb;
-          if (!expandedPermissions.contains(subSubPermissionName)) {
-            expandedPermissions.add(subSubPermissionName);
+        if (subSubPermissionArray != null) {
+          for (Object subSubOb : subSubPermissionArray) {
+            String subSubPermissionName = (String) subSubOb;
+            if (!expandedPermissions.contains(subSubPermissionName)) {
+              expandedPermissions.add(subSubPermissionName);
+            }
           }
         }
       }
@@ -233,9 +232,9 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
 
   @Override
   public Future<PermissionData> getUserAndExpandedPermissions(String userid,
-      String tenant, String okapiUrl, String requestToken, String requestId,
-      JsonArray permissions, String key) {
-    logger.info("Retrieving permissions for userid "  + userid + " and expanding permissions");
+    String tenant, String okapiUrl, String requestToken, String requestId,
+    JsonArray permissions, String key) {
+    logger.info("Retrieving permissions for userid " + userid + " and expanding permissions");
     CacheEntry[] currentCache = new CacheEntry[1];
     boolean[] gotNewPerms = new boolean[1];
     boolean[] gotNewExpandedPerms = new boolean[1];
