@@ -240,11 +240,11 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     boolean[] gotNewExpandedPerms = new boolean[1];
     gotNewPerms[0] = false;
     gotNewExpandedPerms[0] = false;
-    if(cacheEntries) {
+    if (cacheEntries) {
       if (key == null) {
         key = keyPrefix;
       }
-      if (permissions != null && !key.endsWith(permissions.encode())) {
+      if (!key.endsWith(permissions.encode())) { // permissions is never null
         key += permissions.encode();
       }
       logger.debug("Attempting to find cache with key of '{}'", key);
