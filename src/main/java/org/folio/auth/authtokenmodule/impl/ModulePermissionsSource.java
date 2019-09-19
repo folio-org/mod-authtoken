@@ -196,32 +196,35 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   private void parseExpandedPermissions(JsonObject result, JsonArray expandedPermissions) {
     for (Object ob : result.getJsonArray("permissions")) {
       JsonObject permissionObject = (JsonObject) ob;
-      if (!expandedPermissions.contains(permissionObject.getString("permissionName"))) {
-        expandedPermissions.add(permissionObject.getString("permissionName"));
+      String permissionName = permissionObject.getString("permissionName");
+      if (!expandedPermissions.contains(permissionName)) {
+        expandedPermissions.add(permissionName);
       }
       JsonArray subPermissionArray = permissionObject.getJsonArray("subPermissions");
-      if (subPermissionArray != null) {
-        for (Object subOb : subPermissionArray) {
-          if (subOb instanceof String) {
-            String subPermissionName = (String) subOb;
-            if (!expandedPermissions.contains(subPermissionName)) {
-              expandedPermissions.add(subPermissionName);
-            }
-          } else {
-            JsonObject subPermissionObject = (JsonObject) subOb;
-            String subPermissionName = subPermissionObject.getString("permissionName");
-            if (!expandedPermissions.contains(subPermissionName)) {
-              expandedPermissions.add(subPermissionName);
-            }
-            JsonArray subSubPermissionArray = subPermissionObject.getJsonArray("subPermissions");
-            if (subSubPermissionArray != null) {
-              for (Object subSubOb : subSubPermissionArray) {
-                String subSubPermissionName = (String) subSubOb;
-                if (!expandedPermissions.contains(subSubPermissionName)) {
-                  expandedPermissions.add(subSubPermissionName);
-                }
-              }
-            }
+      if (subPermissionArray == null) {
+        continue;
+      }
+      for (Object subOb : subPermissionArray) {
+        if (subOb instanceof String) {
+          String subPermissionName = (String) subOb;
+          if (!expandedPermissions.contains(subPermissionName)) {
+            expandedPermissions.add(subPermissionName);
+          }
+          continue;
+        }
+        JsonObject subPermissionObject = (JsonObject) subOb;
+        String subPermissionName = subPermissionObject.getString("permissionName");
+        if (!expandedPermissions.contains(subPermissionName)) {
+          expandedPermissions.add(subPermissionName);
+        }
+        JsonArray subSubPermissionArray = subPermissionObject.getJsonArray("subPermissions");
+        if (subSubPermissionArray == null) {
+          continue;
+        }
+        for (Object subSubOb : subSubPermissionArray) {
+          String subSubPermissionName = (String) subSubOb;
+          if (!expandedPermissions.contains(subSubPermissionName)) {
+            expandedPermissions.add(subSubPermissionName);
           }
         }
       }
