@@ -382,7 +382,6 @@ public class MainVerticle extends AbstractVerticle {
       logger.debug("Token signing request from " +  ctx.request().absoluteURI());
       // tenant and okapiUrl are already checked in handleAuthorize
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
-      String okapiUrl = ctx.request().headers().get(OKAPI_URL_HEADER);
       if (ctx.request().method() != HttpMethod.POST) {
         endText(ctx, 400, "Unsupported operation: " + ctx.request().method().toString());
         return;
