@@ -380,63 +380,48 @@ public class MainVerticle extends AbstractVerticle {
   private void handleSignToken(RoutingContext ctx) {
     try {
       logger.debug("Token signing request from " +  ctx.request().absoluteURI());
+      // tenant and okapiUrl are already checked in handleAuthorize
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
-      if (tenant == null) {
-        endText(ctx, 400, MISSING_HEADER + OKAPI_TENANT_HEADER);
-        return;
-      }
       String okapiUrl = ctx.request().headers().get(OKAPI_URL_HEADER);
-      if (okapiUrl == null) {
-        endText(ctx, 400, MISSING_HEADER + OKAPI_URL_HEADER);
-        return;
-      }
-      if (ctx.request().method() == HttpMethod.POST) {
-        final String postContent = ctx.getBodyAsString();
-        JsonObject json = null;
-        JsonObject payload = null;
-        try {
-          json = new JsonObject(postContent);
-        } catch(DecodeException dex) {
-          endText(ctx, 400, "Unable to decode '" + postContent + "' as valid JSON");
-          return;
-        }
-        try {
-          payload = json.getJsonObject("payload");
-        } catch(Exception e) {
-          endText(ctx, 400, "Unable to find valid 'payload' field in: " + json.encode());
-          return;
-        }
-        if (payload == null) {
-          endText(ctx, 400, "Valid 'payload' field is required");
-          return;
-        }
-        logger.debug("Payload to create token from is " + payload.encode());
-
-        if (!payload.containsKey("sub")) {
-          endText(ctx, 400, "Payload must contain a 'sub' field");
-          return;
-        }
-
-        payload.put("tenant", tenant);
-
-        if (!payload.containsKey(CACHE_KEY_FIELD)) {
-          payload.put(CACHE_KEY_FIELD, UUID.randomUUID().toString());
-        }
-
-        //Set "time issued" claim on token
-        Instant instant = Instant.now();
-        payload.put("iat", instant.getEpochSecond());
-        String token = tokenCreator.createJWTToken(payload.encode());
-
-        JsonObject responseObject = new JsonObject().put("token", token);
-        endJson(ctx, 201, responseObject.encode());
-        return;
-
-      } else {
+      if (ctx.request().method() != HttpMethod.POST) {
         endText(ctx, 400, "Unsupported operation: " + ctx.request().method().toString());
         return;
       }
-    } catch(Exception e) {
+      final String postContent = ctx.getBodyAsString();
+      JsonObject json = null;
+      JsonObject payload = null;
+      try {
+        json = new JsonObject(postContent);
+      } catch (DecodeException dex) {
+        endText(ctx, 400, "Unable to decode '" + postContent + "' as valid JSON");
+        return;
+      }
+      payload = json.getJsonObject("payload");
+      if (payload == null) {
+        endText(ctx, 400, "Valid 'payload' field is required");
+        return;
+      }
+      logger.debug("Payload to create token from is " + payload.encode());
+
+      if (!payload.containsKey("sub")) {
+        endText(ctx, 400, "Payload must contain a 'sub' field");
+        return;
+      }
+
+      payload.put("tenant", tenant);
+
+      if (!payload.containsKey(CACHE_KEY_FIELD)) {
+        payload.put(CACHE_KEY_FIELD, UUID.randomUUID().toString());
+      }
+
+      //Set "time issued" claim on token
+      Instant instant = Instant.now();
+      payload.put("iat", instant.getEpochSecond());
+      String token = tokenCreator.createJWTToken(payload.encode());
+
+      JsonObject responseObject = new JsonObject().put("token", token);
+      endJson(ctx, 201, responseObject.encode());
+    } catch (Exception e) {
       String message = e.getLocalizedMessage();
       logger.error(message, e);
       endText(ctx, 400, message);
@@ -469,7 +454,7 @@ public class MainVerticle extends AbstractVerticle {
     String candidateToken = null;
     if(okapiTokenHeader != null && authHeader != null) {
       String authToken = extractToken(authHeader);
-      if(authToken.equals(okapiTokenHeader)) {
+      if(okapiTokenHeader.equals(authToken)) { // authToken may be null
         candidateToken = authToken;
       } else {
         logger.error("Conflict between different auth headers");

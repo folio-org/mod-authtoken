@@ -260,6 +260,20 @@ public class AuthTokenTest {
     JsonObject modtoks = new JsonObject(modTokens);
     String barToken = modtoks.getString("bar");
 
+    // Conflicting Authorize and X-Okapi-Token
+    logger.info("Test with conflicting Authorize and X-Okapi-Token");
+    given()
+      .header("Authorization", "guf")
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", barToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("X-Okapi-Permissions-Desired", "bar.first")
+      .header("X-Okapi-Permissions-Required", "bar.second")
+      .get("/bar")
+      .then()
+      .statusCode(400)
+      .body(containsString("Conflicting token information in Authorization and "));
+
     // Make a request to bar, with the modulePermissions
     logger.info("Test with bar token and module permissions");
     given()
@@ -403,24 +417,6 @@ public class AuthTokenTest {
       .then()
       .statusCode(202);
 
-    logger.info("POST sign without X-Okapi-Url");
-    given()
-      .header("X-Okapi-Tenant", tenant)
-      .header("X-Okapi-Token", basicToken3)
-      .header("Content-type", "application/json")
-      .post("/token")
-      .then()
-      .statusCode(400).body(containsString("Missing header: X-Okapi-Url"));
-
-    logger.info("POST sign without Tenant");
-    given()
-      .header("X-Okapi-Token", basicToken3)
-      .header("X-Okapi-Url", "http://localhost:9130")
-      .header("Content-type", "application/json")
-      .post("/token")
-      .then()
-      .statusCode(400).body(containsString("Missing header: X-Okapi-Tenant"));
-
     //get a good token signing request
     logger.info("POST signing request with good token, good payload");
     given()
@@ -433,6 +429,42 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(201);
+
+    logger.info("POST signing request with good token, bad payload");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body("{")
+      .post("/token")
+      .then()
+      .statusCode(400).body(containsString("Unable to decode "));
+
+    logger.info("POST signing request with good token, bad payload 2");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("noload", payload).encode())
+      .post("/token")
+      .then()
+      .statusCode(400).body(containsString("Valid 'payload' field is required"));
+
+    logger.info("POST signing request with good token, bad payload 3");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("payload", new JsonObject().put("x", 1)).encode())
+      .post("/token")
+      .then()
+      .statusCode(400).body(containsString("Payload must contain a 'sub' field"));
 
     //get a refresh token (bad method)
     logger.info("PUT signing request for a refresh token");
