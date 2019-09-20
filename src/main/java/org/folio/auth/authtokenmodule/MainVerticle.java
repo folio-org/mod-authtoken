@@ -92,8 +92,13 @@ public class MainVerticle extends AbstractVerticle {
     ctx.response().end(msg);
   }
 
+  private static void endText(RoutingContext ctx, int code, String lead, Throwable t) {
+    logger.error(lead, t);
+    endText(ctx, code, lead + t.getLocalizedMessage());
+  }
+
   private static void endText(RoutingContext ctx, int code, Throwable t) {
-    endText(ctx, code, "Error: " + t.getLocalizedMessage());
+    endText(ctx, code, "Error: ", t);
   }
 
   @Override
@@ -263,8 +268,7 @@ public class MainVerticle extends AbstractVerticle {
     try {
       logger.debug("Token refresh request from " + ctx.request().absoluteURI());
       if (ctx.request().method() != HttpMethod.POST) {
-        String message = "Invalid method for this endpoint";
-        endText(ctx, 400, message);
+        endText(ctx, 400, "Invalid method for this endpoint");
         return;
       }
       String content = ctx.getBodyAsString();
@@ -273,10 +277,7 @@ public class MainVerticle extends AbstractVerticle {
         requestJson = parseJsonObject(content,
           new String[]{"refreshToken"});
       } catch (Exception e) {
-        String message = String.format("Unable to parse content: %s",
-          e.getLocalizedMessage());
-        logger.error(message);
-        endText(ctx, 400, message);
+        endText(ctx, 400, "Unable to parse content: ", e);
         return;
       }
       String token = requestJson.getString("refreshToken");
@@ -326,7 +327,6 @@ public class MainVerticle extends AbstractVerticle {
         String message = String.format("Invalid method '%s' for this endpoint '%s'",
           ctx.request().method().toString(),
           ctx.request().absoluteURI());
-        logger.error(message);
         endText(ctx, 400, message);
         return;
       }
@@ -338,10 +338,7 @@ public class MainVerticle extends AbstractVerticle {
         requestJson = parseJsonObject(content,
           new String[]{"userId", "sub"});
       } catch (Exception e) {
-        String message = String.format("Unable to parse content: %s",
-          e.getLocalizedMessage());
-        logger.error(message);
-        endText(ctx, 400, message);
+        endText(ctx, 400, "Unable to parse content: ", e);
         return;
       }
       String userId = requestJson.getString("userId");
@@ -407,9 +404,7 @@ public class MainVerticle extends AbstractVerticle {
       JsonObject responseObject = new JsonObject().put("token", token);
       endJson(ctx, 201, responseObject.encode());
     } catch (Exception e) {
-      String message = e.getLocalizedMessage();
-      logger.error(message, e);
-      endText(ctx, 400, message);
+      endText(ctx, 400, e);
     }
   }
 
@@ -439,7 +434,6 @@ public class MainVerticle extends AbstractVerticle {
       if(okapiTokenHeader.equals(authToken)) { // authToken may be null
         candidateToken = authToken;
       } else {
-        logger.error("Conflict between different auth headers");
         endText(ctx, 400, "Conflicting token information in Authorization and " +
                 OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header " +
                 " and use " + OKAPI_TOKEN_HEADER + " in the future");
@@ -475,9 +469,8 @@ public class MainVerticle extends AbstractVerticle {
       try {
         permissionsRequestToken = tokenCreator.createJWTToken(permissionRequestPayload.encode());
       } catch(Exception e) {
-        String errStr = "Error creating permission request token: " + e.getMessage();
-        logger.error(errStr);
-        endText(ctx, 500, errStr);
+        String errStr = "Error creating permission request token: ";
+        endText(ctx, 500, errStr, e);
         return;
       }
     }
@@ -496,17 +489,15 @@ public class MainVerticle extends AbstractVerticle {
                 .put("request_id", requestId)
                 .put("dummy", true);
       } catch(Exception e) {
-        String errStr = "Error creating dummy token: " + e.getMessage();
-        logger.error(errStr);
-        endText(ctx, 500, errStr);
+        String errStr = "Error creating dummy token: ";
+        endText(ctx, 500, errStr, e);
         return;
       }
       try {
         candidateToken = tokenCreator.createJWTToken(dummyPayload.encode());
       } catch(Exception e) {
-        String errStr = "Error creating candidate token: " + e.getMessage();
-        logger.error(errStr);
-        endText(ctx, 500, errStr);
+        String errStr = "Error creating candidate token: ";
+        endText(ctx, 500, errStr, e);
         return;
       }
     }
@@ -677,9 +668,7 @@ public class MainVerticle extends AbstractVerticle {
         logger.error("Unable to retrieve permissions for " + username + ": "
           + res.cause().getMessage() + " request took "
           + (stopTime - startTime) + " ms");
-        ctx.response()
-          .setStatusCode(500)
-          .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
+        ctx.response().putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
         endText(ctx, 400, "Unable to retrieve permissions for user with id'"
           + finalUserId + "': " + res.cause().getLocalizedMessage());
         return;
