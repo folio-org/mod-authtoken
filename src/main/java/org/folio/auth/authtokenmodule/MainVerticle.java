@@ -165,7 +165,16 @@ public class MainVerticle extends AbstractVerticle {
 
   }
 
- /*
+  private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {
+    if (clientTokenCreatorMap.containsKey(passPhrase)) {
+      return clientTokenCreatorMap.get(passPhrase);
+    }
+    TokenCreator localTokenCreator = new TokenCreator(passPhrase);
+    clientTokenCreatorMap.put(passPhrase, localTokenCreator);
+    return localTokenCreator;
+  }
+
+  /*
   Sign a provided JSON object into an encrypted token as a service
   The content of the request should look like:
   {
@@ -176,7 +185,6 @@ public class MainVerticle extends AbstractVerticle {
   */
   private void handleSignEncryptedToken(RoutingContext ctx) {
     try {
-      TokenCreator localTokenCreator = null;
       logger.debug("Encrypted token signing request from " + ctx.request().absoluteURI());
       if (ctx.request().method() != HttpMethod.POST) {
         String message = "Invalid method for this endpoint";
@@ -195,12 +203,7 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       String passPhrase = requestJson.getString("passPhrase");
-      if (clientTokenCreatorMap.containsKey(passPhrase)) {
-        localTokenCreator = clientTokenCreatorMap.get(passPhrase);
-      } else {
-        localTokenCreator = new TokenCreator(passPhrase);
-        clientTokenCreatorMap.put(passPhrase, localTokenCreator);
-      }
+      TokenCreator localTokenCreator = lookupTokenCreator(passPhrase);
       String token = localTokenCreator.createJWEToken(requestJson.getJsonObject("payload")
         .encode());
       JsonObject responseJson = new JsonObject()
@@ -223,8 +226,7 @@ public class MainVerticle extends AbstractVerticle {
   */
   private void handleDecodeEncryptedToken(RoutingContext ctx) {
     try {
-      TokenCreator localTokenCreator = null;
-      if(ctx.request().method() != HttpMethod.POST) {
+      if (ctx.request().method() != HttpMethod.POST) {
         String message = "Invalid method for this endpoint";
         endText(ctx, 400, message);
         return;
@@ -241,12 +243,7 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       String passPhrase = requestJson.getString("passPhrase");
-      if (clientTokenCreatorMap.containsKey(passPhrase)) {
-        localTokenCreator = clientTokenCreatorMap.get(passPhrase);
-      } else {
-        localTokenCreator = new TokenCreator(passPhrase);
-        clientTokenCreatorMap.put(passPhrase, localTokenCreator);
-      }
+      TokenCreator localTokenCreator = lookupTokenCreator(passPhrase);
       String token = requestJson.getString("token");
       String encodedJson = localTokenCreator.decodeJWEToken(token);
       JsonObject responseJson = new JsonObject()
