@@ -389,6 +389,17 @@ public class AuthTokenTest {
       .then()
       .statusCode(401);
 
+    logger.info("Test with wildcard permission - bad X-Okapi-Url");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + (mockPort + 1))
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(400).body(containsString("Connection refused"));
+
     //pass a desired permission through as a wildcard
     logger.info("Test with wildcard permission");
     given()
@@ -401,6 +412,31 @@ public class AuthTokenTest {
       .then()
       .statusCode(202)
       .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+
+    logger.info("Test with wildcard permission - from cache");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + (mockPort + 1))
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(202);
+
+    // the test below gives 202, while I would have expected 400 due to
+    // bad X-Okapi-Url and refresh-cache .. which does not really fully refresh
+    logger.info("Test with wildcard permission - zap cache");
+    given()
+      .header("Authtoken-Refresh-Cache", "true")
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + (mockPort + 1))
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(202); // don't understand why this does not issue 400
 
     logger.info("POST empty token with no Tenant");
     given()
