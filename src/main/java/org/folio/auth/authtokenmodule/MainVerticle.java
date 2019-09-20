@@ -63,7 +63,6 @@ public class MainVerticle extends AbstractVerticle {
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
-  private boolean suppressErrorResponse = false;
   private boolean cachePermissions = true;
 
   private TokenCreator tokenCreator;
