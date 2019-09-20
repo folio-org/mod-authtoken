@@ -124,9 +124,6 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
 
-    String suppressString = System.getProperty("suppress.error.response", "false");
-    suppressErrorResponse = suppressString.equals("true");
-
     String cachePermsString = System.getProperty("cache.permissions", "true");
     cachePermissions = cachePermsString.equals("true");
 
@@ -439,10 +436,7 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
     String zapCacheString = ctx.request().headers().get(ZAP_CACHE_HEADER);
-    boolean zapCache = false;
-    if(zapCacheString != null && zapCacheString.equals("true")) {
-      zapCache = true;
-    }
+    boolean zapCache = "true".equals(zapCacheString);
 
     //String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
@@ -682,8 +676,8 @@ public class MainVerticle extends AbstractVerticle {
             userId + ")");
     long startTime = System.currentTimeMillis();
     Future<PermissionData> retrievedPermissionsFuture = usePermissionsSource
-            .getUserAndExpandedPermissions(userId, tenant, okapiUrl, permissionsRequestToken,
-            requestId, extraPermissions, cacheKey);
+      .getUserAndExpandedPermissions(userId, tenant, okapiUrl, permissionsRequestToken,
+        requestId, extraPermissions, cacheKey);
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
       if (res.failed()) {
@@ -694,12 +688,8 @@ public class MainVerticle extends AbstractVerticle {
         ctx.response()
           .setStatusCode(500)
           .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
-        if (suppressErrorResponse) {
-          ctx.response().end();
-        } else {
-          endText(ctx, 400, "Unable to retrieve permissions for user with id'"
-            + finalUserId + "': " + res.cause().getLocalizedMessage());
-        }
+        endText(ctx, 400, "Unable to retrieve permissions for user with id'"
+          + finalUserId + "': " + res.cause().getLocalizedMessage());
         return;
       }
 
@@ -721,11 +711,11 @@ public class MainVerticle extends AbstractVerticle {
 
       //Check that for all required permissions, we have them
       for (Object o : permissionsRequired) {
-        if (!permissions.contains(o) &&
-                !extraPermissions.contains(o)) {
+        if (!permissions.contains(o)
+          && !extraPermissions.contains(o)) {
           logger.error(permissions.encode() + "(user permissions) nor "
-                  + extraPermissions.encode() + "(module permissions) do not contain "
-                  + (String) o);
+            + extraPermissions.encode() + "(module permissions) do not contain "
+            + (String) o);
           ctx.response().putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
           endText(ctx, 403, "Access requires permission: " + (String) o);
           return;
@@ -878,28 +868,24 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private JsonObject parseJsonObject(String encoded, String[] requiredMembers)
-      throws AuthtokenException {
+    throws AuthtokenException {
     JsonObject json = null;
     try {
       json = new JsonObject(encoded);
-    } catch(Exception e) {
+    } catch (Exception e) {
       throw new AuthtokenException(String.format("Unable to parse JSON %s: %s", encoded,
-          e.getLocalizedMessage()));
+        e.getLocalizedMessage()));
     }
-    if(json == null) {
-      throw new AuthtokenException(String.format("Unable to parse %s into valid JSON", encoded));
-    }
-    for(String s : requiredMembers) {
-      if(!json.containsKey(s)) {
+    for (String s : requiredMembers) {
+      if (!json.containsKey(s)) {
         throw new AuthtokenException(String.format("Missing required member: '%s'", s));
       }
-      if(json.getValue(s) == null) {
+      if (json.getValue(s) == null) {
         throw new AuthtokenException(String.format("Null value for required member: '%s'", s));
       }
     }
     return json;
   }
-
 }
 
 

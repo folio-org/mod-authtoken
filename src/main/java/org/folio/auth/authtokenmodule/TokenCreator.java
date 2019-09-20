@@ -18,7 +18,6 @@ import java.security.SecureRandom;
 import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Date;
-import org.folio.auth.authtokenmodule.BadSignatureException;
 
 public class TokenCreator {
   private MACSigner macSigner;
@@ -85,7 +84,7 @@ public class TokenCreator {
     if(!jwt.verify(macVerifier)) {
       String message = String.format("Could not verify token %s", token);
       throw(new BadSignatureException(message));
-    };
+    }
   }
 
   public String createJWEToken(String payloadString) throws JOSEException {

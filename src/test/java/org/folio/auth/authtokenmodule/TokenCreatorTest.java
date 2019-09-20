@@ -1,11 +1,8 @@
 package org.folio.auth.authtokenmodule;
 
-import java.text.ParseException;
-
-import org.folio.auth.authtokenmodule.TokenCreator;
-import org.junit.Test;
-
 import com.nimbusds.jose.JOSEException;
+import java.text.ParseException;
+import org.junit.Test;
 
 public class TokenCreatorTest {
   @Test

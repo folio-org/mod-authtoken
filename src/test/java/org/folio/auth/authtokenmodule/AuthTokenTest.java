@@ -732,6 +732,17 @@ public class AuthTokenTest {
       .then()
       .statusCode(400).body(containsString("Unable to parse content: "));
 
+    logger.info("/encrypted-token/decode with bad payload (null value for passPhrase)");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/encrypted-token/decode") + "\"]")
+      .body(new JsonObject().putNull("passPhrase").put("token", encryptedToken).encode())
+      .post("/encrypted-token/decode")
+      .then()
+      .statusCode(400).body(containsString("Unable to parse content: "));
+
     logger.info(String.format("/encrypted-token/decode token %s", encryptedToken));
     r = given()
       .header("X-Okapi-Tenant", tenant)
