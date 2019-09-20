@@ -60,7 +60,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
 
   PermissionsSource permissionsSource;
-  private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+  private static final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
   private boolean cachePermissions = true;
@@ -74,19 +74,13 @@ public class MainVerticle extends AbstractVerticle {
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
 
-
-  private String logAndReturnError(Throwable t) {
-    String message = String.format("Error: %s", t.getLocalizedMessage());
-    logger.error(message, t);
-    return message;
-  }
-
   TokenCreator getTokenCreator() throws JOSEException {
     String keySetting = System.getProperty("jwt.signing.key");
     return new TokenCreator(keySetting);
   }
 
   private static void endText(RoutingContext ctx, int code, String msg) {
+    logger.error(msg);
     ctx.response().setStatusCode(code);
     ctx.response().putHeader(CONTENT_TYPE, "text/plain");
     ctx.response().end(msg);
@@ -96,6 +90,10 @@ public class MainVerticle extends AbstractVerticle {
     ctx.response().setStatusCode(code);
     ctx.response().putHeader(CONTENT_TYPE, "application/json");
     ctx.response().end(msg);
+  }
+
+  private static void endText(RoutingContext ctx, int code, Throwable t) {
+    endText(ctx, code, "Error: " + t.getLocalizedMessage());
   }
 
   @Override
@@ -206,8 +204,7 @@ public class MainVerticle extends AbstractVerticle {
         .put("token", token);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
-      String error = logAndReturnError(e);
-      endText(ctx, 500, error);
+      endText(ctx, 400, e);
     }
   }
 
@@ -246,8 +243,7 @@ public class MainVerticle extends AbstractVerticle {
         .put("payload", new JsonObject(encodedJson));
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
-      String error = logAndReturnError(e);
-      endText(ctx, 500, error);
+      endText(ctx, 500, e);
     }
   }
 
@@ -301,8 +297,7 @@ public class MainVerticle extends AbstractVerticle {
       String newAuthToken = mintNewAuthToken(tenant, tokenClaims);
       validateRefreshToken(tokenClaims, ctx).setHandler(res -> {
         if (res.failed()) {
-          String message = logAndReturnError(res.cause());
-          endText(ctx, 500, message);
+          endText(ctx, 500, res.cause());
           return;
         }
         if (!res.result()) {
@@ -314,8 +309,7 @@ public class MainVerticle extends AbstractVerticle {
         endJson(ctx, 201, responseObject.encode());
       });
     } catch (Exception e) {
-      String message = logAndReturnError(e);
-      endText(ctx, 500, message);
+      endText(ctx, 500, e);
     }
   }
 
@@ -357,8 +351,7 @@ public class MainVerticle extends AbstractVerticle {
         .put("refreshToken", refreshToken);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
-      String error = logAndReturnError(e);
-      endText(ctx, 500, error);
+      endText(ctx, 500, e);
     }
   }
   
@@ -841,7 +834,6 @@ public class MainVerticle extends AbstractVerticle {
       }
       checkRefreshTokenRevoked(tokenClaims).setHandler(res -> {
         if(res.failed()) {
-          logAndReturnError(res.cause());
           future.fail(res.cause());
         } else {
           if(res.result()) {
@@ -853,7 +845,6 @@ public class MainVerticle extends AbstractVerticle {
         }
       });
     } catch(Exception e) {
-      logAndReturnError(e);
       future.fail(e);
     }
     return future;

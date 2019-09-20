@@ -695,16 +695,27 @@ public class AuthTokenTest {
       .then()
       .statusCode(400).body(containsString("Invalid method for this endpoint"));
 
+    logger.info("Bad body for encrypted token as a service");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/encrypted-token/create") + "\"]")
+      .body("{") // invalid JSON
+      .post("/encrypted-token/create")
+      .then()
+      .statusCode(400).body(containsString("Unable to parse content: "));
+
     logger.info("Bad payload for encrypted token as a service");
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken)
       .header("X-Okapi-Url", "http://localhost:" + mockPort)
       .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/encrypted-token/create") + "\"]")
-      .body("{")
+      .body(new JsonObject().put("passPhrase", secret).put("payload", "gyf").encode())
       .post("/encrypted-token/create")
       .then()
-      .statusCode(400).body(containsString("Unable to parse content: "));
+      .statusCode(400).body(containsString("java.lang.String cannot be cast to io.vertx.core.json.JsonObject"));
 
     String encryptedTokenResponse = r.getBody().asString();
     JsonObject encryptedTokenJson = new JsonObject(encryptedTokenResponse);
