@@ -469,8 +469,7 @@ public class MainVerticle extends AbstractVerticle {
       try {
         permissionsRequestToken = tokenCreator.createJWTToken(permissionRequestPayload.encode());
       } catch(Exception e) {
-        String errStr = "Error creating permission request token: ";
-        endText(ctx, 500, errStr, e);
+        endText(ctx, 500, "Error creating permission request token: ", e);
         return;
       }
     }
@@ -489,15 +488,13 @@ public class MainVerticle extends AbstractVerticle {
                 .put("request_id", requestId)
                 .put("dummy", true);
       } catch(Exception e) {
-        String errStr = "Error creating dummy token: ";
-        endText(ctx, 500, errStr, e);
+        endText(ctx, 500,  "Error creating dummy token: ", e);
         return;
       }
       try {
         candidateToken = tokenCreator.createJWTToken(dummyPayload.encode());
       } catch(Exception e) {
-        String errStr = "Error creating candidate token: ";
-        endText(ctx, 500, errStr, e);
+        endText(ctx, 500, "Error creating candidate token: ", e);
         return;
       }
     }
