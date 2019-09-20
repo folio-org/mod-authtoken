@@ -260,8 +260,7 @@ public class AuthTokenTest {
     JsonObject modtoks = new JsonObject(modTokens);
     String barToken = modtoks.getString("bar");
 
-    // Conflicting Authorize and X-Okapi-Token
-    logger.info("Test with conflicting Authorize and X-Okapi-Token");
+    logger.info("Test with conflicting Authorization and X-Okapi-Token");
     given()
       .header("Authorization", "guf")
       .header("X-Okapi-Tenant", tenant)
@@ -273,6 +272,54 @@ public class AuthTokenTest {
       .then()
       .statusCode(400)
       .body(containsString("Conflicting token information in Authorization and "));
+
+    logger.info("Test with conflicting Authorization and X-Okapi-Token (2)");
+    given()
+      .header("Authorization", "Bearer guf")
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", barToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("X-Okapi-Permissions-Desired", "bar.first")
+      .header("X-Okapi-Permissions-Required", "bar.second")
+      .get("/bar")
+      .then()
+      .statusCode(400)
+      .body(containsString("Conflicting token information in Authorization and "));
+
+    logger.info("Test with Authorization=X-Okapi-Token");
+    given()
+      .header("Authorization", "Bearer " + barToken)
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", barToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("X-Okapi-Permissions-Desired", "bar.first")
+      .header("X-Okapi-Permissions-Required", "bar.second")
+      .get("/bar")
+      .then()
+      .statusCode(202);
+
+    logger.info("Test with Authorization and no X-Okapi-Token");
+    given()
+      .header("Authorization", "Bearer " + barToken)
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("X-Okapi-Permissions-Desired", "bar.first")
+      .header("X-Okapi-Permissions-Required", "bar.second")
+      .get("/bar")
+      .then()
+      .statusCode(202);
+
+    logger.info("Test with conflicting token and tenant not in sync");
+    given()
+      .header("X-Okapi-Tenant", "guf")
+      .header("X-Okapi-Token", barToken)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("X-Okapi-Permissions-Desired", "bar.first")
+      .header("X-Okapi-Permissions-Required", "bar.second")
+      .get("/bar")
+      .then()
+      .statusCode(403)
+      .body(containsString("Invalid token for access"));
 
     // Make a request to bar, with the modulePermissions
     logger.info("Test with bar token and module permissions");
@@ -373,16 +420,6 @@ public class AuthTokenTest {
       .then()
       .statusCode(400).body(containsString("Missing header: X-Okapi-Url"));
 
-    logger.info("POST empty token with bad method");
-    given()
-      .header("X-Okapi-Tenant", tenant)
-      .header("X-Okapi-Token", basicToken)
-      .header("X-Okapi-Url", "http://localhost:9130")
-      .header("Content-type", "application/json")
-      .put("/token")
-      .then()
-      .statusCode(401).body(containsString("Missing required module-level permissions for endpoint"));
-
     //post a bad token signing request (no payload)
     logger.info("POST empty token signing request");
     given()
@@ -392,7 +429,7 @@ public class AuthTokenTest {
       .header("Content-type", "application/json")
       .post("/token")
       .then()
-      .statusCode(401);
+      .statusCode(401).body(containsString("Missing required module-level permissions for endpoint"));
 
     //post a bad token signing request
     logger.info("POST bad token signing request");
@@ -406,7 +443,6 @@ public class AuthTokenTest {
       .then()
       .statusCode(403);
 
-    //get a good token signing request (no payload)
     logger.info("POST signing request with good token, no payload");
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -429,6 +465,18 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(201);
+
+    logger.info("PUT signing request with good token, good payload");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:9130")
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("payload", payload).encode())
+      .put("/token")
+      .then()
+      .statusCode(400).body(containsString("Unsupported operation: PUT"));
 
     logger.info("POST signing request with good token, bad payload");
     given()
@@ -628,7 +676,29 @@ public class AuthTokenTest {
     JsonObject encryptedTokenJson = new JsonObject(encryptedTokenResponse);
     String encryptedToken = encryptedTokenJson.getString("token");
 
-    logger.info(String.format("Attempting to decrypt token %s", encryptedToken));
+    logger.info("/encrypted-token/decode with bad method");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/encrypted-token/decode") + "\"]")
+      .body(new JsonObject().put("passPhrase", secret).put("token", encryptedToken).encode())
+      .put("/encrypted-token/decode")
+      .then()
+      .statusCode(400).body(containsString("Invalid method for this endpoint"));
+
+    logger.info("/encrypted-token/decode with bad payload");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/encrypted-token/decode") + "\"]")
+      .body("{")
+      .post("/encrypted-token/decode")
+      .then()
+      .statusCode(400).body(containsString("Unable to parse content: "));
+
+    logger.info(String.format("/encrypted-token/decode token %s", encryptedToken));
     r = given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken)
