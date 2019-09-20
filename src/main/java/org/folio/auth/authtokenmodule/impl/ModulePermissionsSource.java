@@ -112,6 +112,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
         future.fail(e);
       });
     });
+    permUserReq.exceptionHandler(e -> future.fail(e));
     endRequest(permUserReq, requestToken, tenant, requestId);
     return future;
   }
