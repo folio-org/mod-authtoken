@@ -675,9 +675,9 @@ public class MainVerticle extends AbstractVerticle {
       usePermissionsSource = permissionsSource;
     }
 
-    if(zapCache && usePermissionsSource instanceof Cache) {
+    if (zapCache && usePermissionsSource instanceof Cache) {
       logger.info("Requesting cleared cache for authToken '" + authToken + "'");
-      ((Cache)usePermissionsSource).clearCache(cacheKey);
+      ((Cache) usePermissionsSource).clearCache(cacheKey);
     }
 
     //Retrieve the user permissions and populate the permissions header
@@ -689,19 +689,19 @@ public class MainVerticle extends AbstractVerticle {
             requestId, extraPermissions, cacheKey);
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
-      if(res.failed()) {
+      if (res.failed()) {
         long stopTime = System.currentTimeMillis();
         logger.error("Unable to retrieve permissions for " + username + ": "
-                + res.cause().getMessage() + " request took " +
-                (stopTime - startTime) + " ms");
+          + res.cause().getMessage() + " request took "
+          + (stopTime - startTime) + " ms");
         ctx.response()
-                .setStatusCode(500)
-                .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
+          .setStatusCode(500)
+          .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
         if (suppressErrorResponse) {
           ctx.response().end();
         } else {
-          endText(ctx, 500, "Unable to retrieve permissions for user with id'"
-                  + finalUserId + "': " +  res.cause().getLocalizedMessage());
+          endText(ctx, 400, "Unable to retrieve permissions for user with id'"
+            + finalUserId + "': " + res.cause().getLocalizedMessage());
         }
         return;
       }
