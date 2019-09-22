@@ -6,6 +6,6 @@ package org.folio.auth.authtokenmodule;
  */
 public interface Cache {
 
-  public void clearCache(String key);
+  public void clearCache();
 
 }

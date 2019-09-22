@@ -320,10 +320,8 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   }
 
   @Override
-  public void clearCache(String key) {
-    if (cacheMap != null && cacheMap.containsKey(key)) {
-      cacheMap.remove(key);
-    }
+  public void clearCache() {
+    cacheMap.clear();
   }
 
 }

@@ -422,18 +422,6 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(400);
-
-    logger.info("Test with wildcard 404 /perms/users/id/permissions");
-    PermsMock.handlePermsUsersPermissionsStatusCode = 404;
-    given()
-      .header("X-Okapi-Tenant", tenant)
-      .header("X-Okapi-Request-Id", "1234")
-      .header("X-Okapi-Token", basicToken2)
-      .header("X-Okapi-Url", "http://localhost:" + mockPort)
-      .header("X-Okapi-Permissions-Desired", "extra.*bar")
-      .get("/bar")
-      .then()
-      .statusCode(202);
     PermsMock.handlePermsUsersPermissionsStatusCode = 200;
 
     logger.info("Test with wildcard / bad /perms/users/id/permissions");
@@ -449,9 +437,23 @@ public class AuthTokenTest {
       .statusCode(400);
     PermsMock.handlePermsUsersPermissionsFail = false;
 
+    logger.info("Test with wildcard 404 /perms/users/id/permissions");
+    PermsMock.handlePermsUsersPermissionsStatusCode = 404;
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Desired", "xxxxx")
+      .get("/bar")
+      .then()
+      .statusCode(202);
+    PermsMock.handlePermsUsersPermissionsStatusCode = 200;
+
     //pass a desired permission through as a wildcard
     logger.info("Test with wildcard permission");
     given()
+      .header("Authtoken-Refresh-Cache", "true")
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Request-Id", "1234")
       .header("X-Okapi-Token", basicToken2)
@@ -523,8 +525,6 @@ public class AuthTokenTest {
       .statusCode(202)
       .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
 
-    // the test below gives 202, while I would have expected 400 due to bad
-    // X-Okapi-Url and refresh-cache .. which does not really fully refresh
     logger.info("Test with wildcard permission - zap cache");
     given()
       .header("Authtoken-Refresh-Cache", "true")
@@ -535,7 +535,7 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Desired", "extra.*bar")
       .get("/bar")
       .then()
-      .statusCode(202); // don't understand why this does not issue 400
+      .statusCode(400);
 
     logger.info("POST empty token with no Tenant");
     given()
