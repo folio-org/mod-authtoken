@@ -69,7 +69,6 @@ public class MainVerticle extends AbstractVerticle {
 
   private LimitedSizeQueue<String> tokenCache;
 
-  private Map<String, String> permissionsRequestTokenMap;
   private List<AuthRoutingEntry> authRoutingEntryList;
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
@@ -129,7 +128,6 @@ public class MainVerticle extends AbstractVerticle {
     String cachePermsString = System.getProperty("cache.permissions", "true");
     cachePermissions = cachePermsString.equals("true");
 
-    permissionsRequestTokenMap = new HashMap<>();
     clientTokenCreatorMap = new HashMap<>();
 
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
@@ -454,24 +452,21 @@ public class MainVerticle extends AbstractVerticle {
       ugly 'lookup loop'
     */
     String permissionsRequestToken;
-    if (permissionsRequestTokenMap.containsKey(tenant)) {
-      permissionsRequestToken = permissionsRequestTokenMap.get(tenant);
-    } else {
-      JsonObject permissionRequestPayload = new JsonObject()
-              .put("sub", "_AUTHZ_MODULE_")
-              .put("tenant", tenant)
-              .put("dummy", true)
-              .put("request_id", "PERMISSIONS_REQUEST_TOKEN")
-              .put("extra_permissions", new JsonArray()
-                      .add(PERMISSIONS_PERMISSION_READ_BIT)
-                      .add(PERMISSIONS_USER_READ_BIT));
+    logger.info("permissionsRequestTokenMap create");
+    JsonObject permissionRequestPayload = new JsonObject()
+      .put("sub", "_AUTHZ_MODULE_")
+      .put("tenant", tenant)
+      .put("dummy", true)
+      .put("request_id", "PERMISSIONS_REQUEST_TOKEN")
+      .put("extra_permissions", new JsonArray()
+        .add(PERMISSIONS_PERMISSION_READ_BIT)
+        .add(PERMISSIONS_USER_READ_BIT));
 
-      try {
-        permissionsRequestToken = tokenCreator.createJWTToken(permissionRequestPayload.encode());
-      } catch(Exception e) {
-        endText(ctx, 500, "Error creating permission request token: ", e);
-        return;
-      }
+    try {
+      permissionsRequestToken = tokenCreator.createJWTToken(permissionRequestPayload.encode());
+    } catch (Exception e) {
+      endText(ctx, 500, "Error creating permission request token: ", e);
+      return;
     }
 
     if (candidateToken == null) {
