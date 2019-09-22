@@ -18,7 +18,9 @@ public class PermsMock extends AbstractVerticle {
 
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
 
-  public static int statusCode = 200;
+  public static int handlePermsUsersStatusCode = 200;
+  public static int handlePermsPermissionsStatusCode = 200;
+  public static boolean handlePermsPermissionsFail = false;
 
   public void start(Future<Void> future) {
     final int port = context.config().getInteger("port");
@@ -52,7 +54,7 @@ public class PermsMock extends AbstractVerticle {
     );
 
     context.response()
-      .setStatusCode(statusCode)
+      .setStatusCode(handlePermsUsersStatusCode)
       .putHeader("Content-Type", "application/json")
       .end(output.encode());
 
@@ -67,29 +69,36 @@ public class PermsMock extends AbstractVerticle {
       .put("totalRecords", 1);
 
     context.response()
-      .setStatusCode(statusCode)
+      .setStatusCode(handlePermsUsersStatusCode)
       .end(output.encode());
   }
 
   private void handlePermsPermissions(RoutingContext context) {
+    if (handlePermsPermissionsFail) {
+      context.response()
+        .setStatusCode(handlePermsPermissionsStatusCode)
+        .putHeader("Content-type", "application/json")
+        .end("{");
+      return;
+    }
     JsonObject sub = new JsonObject()
-        .put("permissionName", "bar.second")
-        .put("subPermissions", new JsonArray()
-          .add("bar.sub")
-          .add(new JsonObject()
-            .put("permissionName", "bar.sub2")
-            .put("subPermissions", new JsonArray()
-              .add("bar.sub.sub")
-            )
+      .put("permissionName", "bar.second")
+      .put("subPermissions", new JsonArray()
+        .add("bar.sub")
+        .add(new JsonObject()
+          .put("permissionName", "bar.sub2")
+          .put("subPermissions", new JsonArray()
+            .add("bar.sub.sub")
           )
-        );    
+        )
+      );
     JsonObject output = new JsonObject().put("permissions", new JsonArray()
       .add(new JsonObject()
         .put("permissionName", "bar.first"))
-      .add(sub).add(sub)     // same permissions twice on purpose
+      .add(sub).add(sub) // same permissions twice on purpose
     );
     context.response()
-      .setStatusCode(statusCode)
+      .setStatusCode(handlePermsPermissionsStatusCode)
       .putHeader("Content-type", "application/json")
       .end(output.encode());
   }

@@ -398,6 +398,19 @@ public class AuthTokenTest {
       .then()
       .statusCode(400).body(containsString("Connection refused"));
 
+    logger.info("Test with wildcard / bad /perms/users");
+    PermsMock.handlePermsUsersStatusCode = 400;
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(400);
+    PermsMock.handlePermsUsersStatusCode = 200;
+
     //pass a desired permission through as a wildcard
     logger.info("Test with wildcard permission");
     given()
@@ -421,6 +434,32 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(202);
+
+    logger.info("Test with extra /perms/permissions status failure");
+    PermsMock.handlePermsPermissionsStatusCode = 400;
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken3)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(400);
+    PermsMock.handlePermsPermissionsStatusCode = 200;
+
+    logger.info("Test with extra /perms/permissions response error");
+    PermsMock.handlePermsPermissionsFail = true;
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken3)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(400);
+    PermsMock.handlePermsPermissionsFail = false;
 
     logger.info("Test with extra permissions");
     given()
