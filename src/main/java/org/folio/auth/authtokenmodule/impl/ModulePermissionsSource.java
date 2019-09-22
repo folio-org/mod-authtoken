@@ -235,10 +235,6 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     String tenant, String okapiUrl, String requestToken, String requestId,
     JsonArray permissions, String key) {
     logger.info("Retrieving permissions for userid " + userid + " and expanding permissions");
-    if (!permissions.isEmpty()) {
-      logger.info("getUserAndExpandedPermissions tenant=" + tenant + " userId=" + userid + " permissions=" +
-        permissions.encodePrettily());
-    }
     CacheEntry[] currentCache = new CacheEntry[1];
     boolean[] gotNewPerms = new boolean[1];
     boolean[] gotNewExpandedPerms = new boolean[1];
