@@ -20,6 +20,7 @@ public class PermsMock extends AbstractVerticle {
 
   public static int handlePermsUsersStatusCode = 200;
   public static int handlePermsPermissionsStatusCode = 200;
+  public static int handlePermsUsersPermissionsStatusCode = 200;
   public static boolean handlePermsPermissionsFail = false;
 
   public void start(Future<Void> future) {
@@ -69,7 +70,7 @@ public class PermsMock extends AbstractVerticle {
       .put("totalRecords", 1);
 
     context.response()
-      .setStatusCode(handlePermsUsersStatusCode)
+      .setStatusCode(handlePermsUsersPermissionsStatusCode)
       .end(output.encode());
   }
 
