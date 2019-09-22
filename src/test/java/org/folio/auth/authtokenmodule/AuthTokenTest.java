@@ -411,7 +411,7 @@ public class AuthTokenTest {
       .statusCode(400);
     PermsMock.handlePermsUsersStatusCode = 200;
 
-    logger.info("Test with wildcard / bad /perms/users/id/permissions");
+    logger.info("Test with wildcard 400 /perms/users/id/permissions");
     PermsMock.handlePermsUsersPermissionsStatusCode = 400;
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -422,6 +422,18 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(400);
+
+    logger.info("Test with wildcard 404 /perms/users/id/permissions");
+    PermsMock.handlePermsUsersPermissionsStatusCode = 404;
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(202);
     PermsMock.handlePermsUsersPermissionsStatusCode = 200;
 
     logger.info("Test with wildcard / bad /perms/users/id/permissions");
