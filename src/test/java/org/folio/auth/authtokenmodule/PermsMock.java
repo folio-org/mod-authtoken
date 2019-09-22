@@ -72,10 +72,7 @@ public class PermsMock extends AbstractVerticle {
   }
 
   private void handlePermsPermissions(RoutingContext context) {
-    JsonObject output = new JsonObject().put("permissions", new JsonArray()
-      .add(new JsonObject()
-        .put("permissionName", "bar.first"))
-      .add(new JsonObject()
+    JsonObject sub = new JsonObject()
         .put("permissionName", "bar.second")
         .put("subPermissions", new JsonArray()
           .add("bar.sub")
@@ -85,8 +82,11 @@ public class PermsMock extends AbstractVerticle {
               .add("bar.sub.sub")
             )
           )
-        )
-      )
+        );    
+    JsonObject output = new JsonObject().put("permissions", new JsonArray()
+      .add(new JsonObject()
+        .put("permissionName", "bar.first"))
+      .add(sub).add(sub)     // same permissions twice on purpose
     );
     context.response()
       .setStatusCode(statusCode)
