@@ -643,10 +643,10 @@ public class AuthTokenTest {
       .statusCode(400).body(containsString("Invalid token format"));
 
     String tokenContent = tokenCreator.decodeJWEToken(refreshToken);
-    JsonObject payloadRefresh = new JsonObject(tokenContent);
 
     logger.info("POST refresh token with bad tenant");
-    String refreshTokenBadTenant = tokenCreator.createJWEToken(payloadRefresh.put("tenant", "foo").encode());
+    String refreshTokenBadTenant = tokenCreator.createJWEToken(
+      new JsonObject(tokenContent).put("tenant", "foo").encode());
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
@@ -659,7 +659,9 @@ public class AuthTokenTest {
       .statusCode(401).body(containsString("Invalid refresh token"));
 
     logger.info("POST refresh token with bad address");
-    String refreshTokenBadAddress = tokenCreator.createJWEToken(payloadRefresh.put("address", "foo").encode());
+
+    String refreshTokenBadAddress = tokenCreator.createJWEToken(
+      new JsonObject(tokenContent).put("address", "foo").encode());
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
@@ -672,7 +674,8 @@ public class AuthTokenTest {
       .statusCode(401).body(containsString("Invalid refresh token"));
 
     logger.info("POST refresh token with bad expiry");
-    String refreshTokenBadExpiry = tokenCreator.createJWEToken(payloadRefresh.put("exp", 0L).encode());
+    String refreshTokenBadExpiry = tokenCreator.createJWEToken(
+      new JsonObject(tokenContent).put("exp", 0L).encode());
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
