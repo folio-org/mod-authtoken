@@ -30,7 +30,7 @@ import org.junit.Test;
 @RunWith(VertxUnitRunner.class)
 public class AuthTokenTest {
 
-  private static final Logger logger = LoggerFactory.getLogger("okapi");
+  private static final Logger logger = LoggerFactory.getLogger("AuthTokenTest");
   private static final String LS = System.lineSeparator();
   private static final String tenant = "Roskilde";
   private static HttpClient httpClient;
@@ -169,7 +169,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void test1(TestContext context) {
+  public void test1(TestContext context) throws JOSEException, ParseException {
     async = context.async();
     logger.debug("AuthToken test1 starting");
 
@@ -604,6 +604,7 @@ public class AuthTokenTest {
 
     JsonObject refreshTokenResponse = new JsonObject(r.getBody().asString());
     final String refreshToken = refreshTokenResponse.getString("refreshToken");
+    logger.info("refreshToken=" + refreshToken);
 
     logger.info("PUT /refresh (bad method)");
     given()
@@ -640,6 +641,48 @@ public class AuthTokenTest {
       .post("/refresh")
       .then()
       .statusCode(400).body(containsString("Invalid token format"));
+
+    String tokenContent = tokenCreator.decodeJWEToken(refreshToken);
+    JsonObject payloadRefresh = new JsonObject(tokenContent);
+
+    logger.info("POST refresh token with bad tenant");
+    String refreshTokenBadTenant = tokenCreator.createJWEToken(payloadRefresh.put("tenant", "foo").encode());
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+      .body(new JsonObject().put("refreshToken", refreshTokenBadTenant).encode())
+      .post("/refresh")
+      .then()
+      .statusCode(401).body(containsString("Invalid refresh token"));
+
+    logger.info("POST refresh token with bad address");
+    String refreshTokenBadAddress = tokenCreator.createJWEToken(payloadRefresh.put("address", "foo").encode());
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+      .body(new JsonObject().put("refreshToken", refreshTokenBadAddress).encode())
+      .post("/refresh")
+      .then()
+      .statusCode(401).body(containsString("Invalid refresh token"));
+
+    logger.info("POST refresh token with bad expiry");
+    String refreshTokenBadExpiry = tokenCreator.createJWEToken(payloadRefresh.put("exp", 0L).encode());
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+      .body(new JsonObject().put("refreshToken", refreshTokenBadExpiry).encode())
+      .post("/refresh")
+      .then()
+      .statusCode(401).body(containsString("Invalid refresh token"));
 
     logger.info("POST refresh token to get a new access token");
     r = given()

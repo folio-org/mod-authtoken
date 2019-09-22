@@ -74,7 +74,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
 
-  TokenCreator getTokenCreator() throws JOSEException {
+  static TokenCreator getTokenCreator() throws JOSEException {
     String keySetting = System.getProperty("jwt.signing.key");
     return new TokenCreator(keySetting);
   }
@@ -800,29 +800,29 @@ public class MainVerticle extends AbstractVerticle {
     Future<Boolean> future = Future.future();
     try {
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
-      if(!tenant.equals(tokenClaims.getString("tenant"))) {
+      if (!tenant.equals(tokenClaims.getString("tenant"))) {
         logger.error("Tenant mismatch for refresh token");
         future.complete(Boolean.FALSE);
         return future;
       }
       String address = ctx.request().remoteAddress().host();
-      if(!address.equals(tokenClaims.getString("address"))) {
+      if (!address.equals(tokenClaims.getString("address"))) {
         logger.error("Issuing address does not match for refresh token");
         future.complete(Boolean.FALSE);
         return future;
       }
       Long nowTime = Instant.now().getEpochSecond();
       Long expiration = tokenClaims.getLong("exp");
-      if(expiration < nowTime) {
+      if (expiration < nowTime) {
         logger.error("Attempt to refresh with expired refresh token");
         future.complete(Boolean.FALSE);
         return future;
       }
       checkRefreshTokenRevoked(tokenClaims).setHandler(res -> {
-        if(res.failed()) {
+        if (res.failed()) {
           future.fail(res.cause());
         } else {
-          if(res.result()) {
+          if (res.result()) {
             logger.error("Attempt to refresh with revoked token");
             future.complete(Boolean.FALSE);
           } else {
@@ -830,7 +830,7 @@ public class MainVerticle extends AbstractVerticle {
           }
         }
       });
-    } catch(Exception e) {
+    } catch (Exception e) {
       future.fail(e);
     }
     return future;
@@ -863,7 +863,6 @@ public class MainVerticle extends AbstractVerticle {
     return json;
   }
 }
-
 
 class LimitedSizeQueue<K> extends ArrayList<K> {
 
