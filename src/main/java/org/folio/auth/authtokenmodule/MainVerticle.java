@@ -74,7 +74,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
 
-  static TokenCreator getTokenCreator() throws JOSEException {
+  TokenCreator getTokenCreator() throws JOSEException {
     String keySetting = System.getProperty("jwt.signing.key");
     return new TokenCreator(keySetting);
   }
