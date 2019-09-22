@@ -22,6 +22,7 @@ public class PermsMock extends AbstractVerticle {
   public static int handlePermsPermissionsStatusCode = 200;
   public static int handlePermsUsersPermissionsStatusCode = 200;
   public static boolean handlePermsPermissionsFail = false;
+  public static boolean handlePermsUsersPermissionsFail = false;
 
   public void start(Future<Void> future) {
     final int port = context.config().getInteger("port");
@@ -62,6 +63,13 @@ public class PermsMock extends AbstractVerticle {
   }
 
   private void handlePermUsersPermissions(RoutingContext context) {
+    if (handlePermsUsersPermissionsFail) {
+      context.response()
+        .setStatusCode(handlePermsUsersPermissionsStatusCode)
+        .putHeader("Content-type", "application/json")
+        .end("{");
+      return;
+    }
     JsonObject output = new JsonObject().put("permissionNames",
       new JsonArray()
         .add("extra.foobar")
@@ -71,6 +79,7 @@ public class PermsMock extends AbstractVerticle {
 
     context.response()
       .setStatusCode(handlePermsUsersPermissionsStatusCode)
+      .putHeader("Content-type", "application/json")
       .end(output.encode());
   }
 
