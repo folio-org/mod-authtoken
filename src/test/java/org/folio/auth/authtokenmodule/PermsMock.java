@@ -19,10 +19,11 @@ public class PermsMock extends AbstractVerticle {
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
 
   public static int handlePermsUsersStatusCode = 200;
-  public static int handlePermsPermissionsStatusCode = 200;
   public static int handlePermsUsersPermissionsStatusCode = 200;
-  public static boolean handlePermsPermissionsFail = false;
+  public static int handlePermsPermissionsStatusCode = 200;
+  public static boolean handlePermsUsersFail = false;
   public static boolean handlePermsUsersPermissionsFail = false;
+  public static boolean handlePermsPermissionsFail = false;
 
   public void start(Future<Void> future) {
     final int port = context.config().getInteger("port");
@@ -44,6 +45,13 @@ public class PermsMock extends AbstractVerticle {
   }
 
   private void handlePermsUsers(RoutingContext context) {
+    if (handlePermsUsersFail) {
+      context.response()
+        .setStatusCode(handlePermsUsersStatusCode)
+        .putHeader("Content-type", "application/json")
+        .end("{");
+      return;
+    }
     JsonObject output = new JsonObject().put("permissionUsers", new JsonArray()
       .add(new JsonObject()
         .put("id", "773cb9d1-1e4f-416f-ba16-686ddeb6c789")
