@@ -427,19 +427,19 @@ public class MainVerticle extends AbstractVerticle {
     String authHeader = ctx.request().headers().get("Authorization");
     String okapiTokenHeader = ctx.request().headers().get(OKAPI_TOKEN_HEADER);
     String candidateToken = null;
-    if(okapiTokenHeader != null && authHeader != null) {
+    if (okapiTokenHeader != null && authHeader != null) {
       String authToken = extractToken(authHeader);
-      if(okapiTokenHeader.equals(authToken)) { // authToken may be null
+      if (okapiTokenHeader.equals(authToken)) { // authToken may be null
         candidateToken = authToken;
       } else {
-        endText(ctx, 400, "Conflicting token information in Authorization and " +
-                OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header " +
-                " and use " + OKAPI_TOKEN_HEADER + " in the future");
+        endText(ctx, 400, "Conflicting token information in Authorization and "
+          + OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header "
+          + " and use " + OKAPI_TOKEN_HEADER + " in the future");
         return;
       }
-    } else if(okapiTokenHeader != null) {
+    } else if (okapiTokenHeader != null) {
       candidateToken = okapiTokenHeader;
-    } else if(authHeader != null) {
+    } else if (authHeader != null) {
       candidateToken = extractToken(authHeader);
     } else {
       candidateToken = null;
@@ -523,7 +523,6 @@ public class MainVerticle extends AbstractVerticle {
     String jwtTenant = tokenClaims.getString("tenant");
     String cacheKey = getClaims(candidateToken).getString(CACHE_KEY_FIELD);
 
-    
     if (jwtTenant == null || !jwtTenant.equals(tenant)) {
       logger.error("Expected tenant: " + tenant + ", got tenant: " + jwtTenant);
       endText(ctx, 403, "Invalid token for access");
@@ -747,7 +746,6 @@ public class MainVerticle extends AbstractVerticle {
     Pattern pattern = null;
     Matcher matcher = null;
     String authToken = null;
-    if(authorizationHeader == null) { return null; }
     pattern = Pattern.compile("Bearer\\s+(.+)"); // Grab anything after 'Bearer' and whitespace
     matcher = pattern.matcher(authorizationHeader);
     if(matcher.find() && matcher.groupCount() > 0) {
