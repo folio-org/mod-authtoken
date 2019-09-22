@@ -422,6 +422,30 @@ public class AuthTokenTest {
       .then()
       .statusCode(202);
 
+    logger.info("Test with extra permissions");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken3)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(202)
+      .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+
+    logger.info("Test with extra permissions cached");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken3)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(202)
+      .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+
     // the test below gives 202, while I would have expected 400 due to bad
     // X-Okapi-Url and refresh-cache .. which does not really fully refresh
     logger.info("Test with wildcard permission - zap cache");

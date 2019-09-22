@@ -51,8 +51,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     }
   }
 
-  @Override
-  public Future<JsonArray> getPermissionsForUser(String userid, String tenant, String okapiUrl,
+  private Future<JsonArray> getPermissionsForUser(String userid, String tenant, String okapiUrl,
     String requestToken, String requestId) {
     logger.info("gerPermissionsForUser userid=" + userid);
     Future<JsonArray> future = Future.future();
@@ -236,6 +235,10 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     String tenant, String okapiUrl, String requestToken, String requestId,
     JsonArray permissions, String key) {
     logger.info("Retrieving permissions for userid " + userid + " and expanding permissions");
+    if (!permissions.isEmpty()) {
+      logger.info("getUserAndExpandedPermissions tenant=" + tenant + " userId=" + userid + " permissions=" +
+        permissions.encodePrettily());
+    }
     CacheEntry[] currentCache = new CacheEntry[1];
     boolean[] gotNewPerms = new boolean[1];
     boolean[] gotNewExpandedPerms = new boolean[1];

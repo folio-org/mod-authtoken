@@ -15,6 +15,7 @@ import io.vertx.core.logging.LoggerFactory;
  * @author kurt
  */
 public class PermsMock extends AbstractVerticle {
+
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
 
   public static int statusCode = 200;
@@ -30,7 +31,7 @@ public class PermsMock extends AbstractVerticle {
     router.route("/perms/permissions").handler(this::handlePermsPermissions);
     logger.info("Running PermsMock on port " + port);
     server.requestHandler(router::accept).listen(port, result -> {
-      if(result.failed()) {
+      if (result.failed()) {
         future.fail(result.cause());
       } else {
         future.complete();
@@ -79,9 +80,9 @@ public class PermsMock extends AbstractVerticle {
     );
 
     context.response()
-            .setStatusCode(statusCode)
-            .putHeader("Content-type", "application/json")
-            .end(output.encode());
+      .setStatusCode(statusCode)
+      .putHeader("Content-type", "application/json")
+      .end(output.encode());
   }
 
 }
