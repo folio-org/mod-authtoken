@@ -57,7 +57,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     logger.info("gerPermissionsForUser userid=" + userid);
     Future<JsonArray> future = Future.future();
     String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userid;
-    logger.debug("Requesting permissions user object from URL at " + permUserRequestUrl);
+    logger.info("Requesting permissions user object from URL at " + permUserRequestUrl);
     HttpClientRequest permUserReq = client.getAbs(permUserRequestUrl, permUserRes -> {
       permUserRes.bodyHandler(permUserBody -> {
         if (permUserRes.statusCode() != 200) {
@@ -69,7 +69,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
           JsonObject permUserResults = new JsonObject(permUserBody.toString());
           JsonObject permUser = permUserResults.getJsonArray("permissionUsers").getJsonObject(0);
           final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
-          logger.debug("Requesting permissions from URL at " + requestUrl);
+          logger.info("Requesting permissions from URL at " + requestUrl);
           HttpClientRequest req = client.getAbs(requestUrl, res -> {
             if (res.statusCode() == 200) {
               res.bodyHandler(res2 -> {
@@ -148,7 +148,7 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     try {
       String requestUrl = okapiUrl + "/perms/permissions?"
         + "expandSubs=true&query=" + URLEncoder.encode(query, "UTF-8");
-      logger.debug("Requesting expanded permissions from URL at " + requestUrl);
+      logger.info("Requesting expanded permissions from URL at " + requestUrl);
       HttpClientRequest req = client.getAbs(requestUrl, res -> {
         res.bodyHandler(body -> handleExpandPermissions(res, body, future, permissions));
         res.exceptionHandler(e -> {
@@ -271,19 +271,19 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
     Future<PermissionData> future = Future.future();
     Future<JsonArray> userPermsFuture;
     if (cacheEntries && currentCache[0].getPermissions() != null) {
-      logger.debug("Using entry from cache for user permissions");
+      logger.info("Using entry from cache for user permissions");
       userPermsFuture = Future.succeededFuture(currentCache[0].getPermissions());
     } else {
-      logger.debug("Unable to find user permissions in cache, retrieving permissions for user");
+      logger.info("Unable to find user permissions in cache, retrieving permissions for user");
       userPermsFuture = getPermissionsForUser(userid, tenant, okapiUrl, requestToken, requestId);
       gotNewPerms[0] = true;
     }
     Future<JsonArray> expandedPermsFuture;
     if (cacheEntries && currentCache[0].getExpandedPermissions() != null) {
-      logger.debug("Using entry from cache for expanded permissions");
+      logger.info("Using entry from cache for expanded permissions");
       expandedPermsFuture = Future.succeededFuture(currentCache[0].getExpandedPermissions());
     } else {
-      logger.debug("No expanded permissions in cache, expanding permissions");
+      logger.info("No expanded permissions in cache, expanding permissions");
       expandedPermsFuture = expandPermissions(permissions, tenant, okapiUrl, requestToken, requestId);
       gotNewExpandedPerms[0] = true;
     }
