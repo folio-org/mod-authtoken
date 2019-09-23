@@ -63,7 +63,6 @@ public class MainVerticle extends AbstractVerticle {
   private static final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
-  private boolean cachePermissions = true;
 
   private TokenCreator tokenCreator;
 
@@ -126,7 +125,7 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     String cachePermsString = System.getProperty("cache.permissions", "true");
-    cachePermissions = cachePermsString.equals("true");
+    boolean cachePermissions = cachePermsString.equals("true");
 
     clientTokenCreatorMap = new HashMap<>();
 
@@ -171,15 +170,6 @@ public class MainVerticle extends AbstractVerticle {
     return localTokenCreator;
   }
 
-  /*
-  Sign a provided JSON object into an encrypted token as a service
-  The content of the request should look like:
-  {
-      "passPhrase" : "",
-      "payload" : {
-      }
-  }
-  */
   private void handleSignEncryptedToken(RoutingContext ctx) {
     try {
       logger.debug("Encrypted token signing request from " + ctx.request().absoluteURI());
