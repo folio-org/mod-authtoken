@@ -17,6 +17,7 @@ import java.util.StringJoiner;
 import java.util.UUID;
 import org.folio.auth.authtokenmodule.Cache;
 import org.folio.auth.authtokenmodule.LimitedSizeMap;
+import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.PermissionData;
 import org.folio.auth.authtokenmodule.PermissionsSource;
 
@@ -119,13 +120,13 @@ public class ModulePermissionsSource implements PermissionsSource, Cache {
   private void endRequest(HttpClientRequest req, String requestToken,
     String tenant, String requestId) {
     if (requestId != null) {
-      req.headers().add("X-Okapi-Request-Id", requestId);
+      req.headers().add(MainVerticle.REQUESTID_HEADER, requestId);
     }
     req.headers()
-      .add("X-Okapi-Token", requestToken)
-      .add("X-Okapi-Tenant", tenant)
-      .add("Content-Type", "application/json")
-      .add("Accept", "application/json");
+      .add(MainVerticle.OKAPI_TOKEN_HEADER, requestToken)
+      .add(MainVerticle.OKAPI_TENANT_HEADER, tenant)
+      .add(MainVerticle.CONTENT_TYPE, MainVerticle.APPLICATION_JSON)
+      .add(MainVerticle.ACCEPT, MainVerticle.APPLICATION_JSON);
     req.end();
   }
 

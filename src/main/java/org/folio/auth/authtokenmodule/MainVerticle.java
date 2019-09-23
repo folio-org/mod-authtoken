@@ -38,18 +38,20 @@ public class MainVerticle extends AbstractVerticle {
 
   // TODO - Use header names from Okapi.common
   public static final String PERMISSIONS_HEADER = "X-Okapi-Permissions";
-  private static final String CONTENT_TYPE = "Content-Type";
+  public static final String APPLICATION_JSON = "application/json";
+  public static final String CONTENT_TYPE = "Content-Type";
+  public static final String ACCEPT = "Accept";
   private static final String DESIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Desired";
   private static final String REQUIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Required";
   private static final String MODULE_PERMISSIONS_HEADER = "X-Okapi-Module-Permissions";
   private static final String EXTRA_PERMISSIONS_HEADER = "X-Okapi-Extra-Permissions";
   private static final String CALLING_MODULE_HEADER = "X-Okapi-Calling-Module";
   private static final String USERID_HEADER = "X-Okapi-User-Id";
-  private static final String REQUESTID_HEADER = "X-Okapi-Request-Id";
+  public static final String REQUESTID_HEADER = "X-Okapi-Request-Id";
   public static final String MODULE_TOKENS_HEADER = "X-Okapi-Module-Tokens";
-  private static final String OKAPI_URL_HEADER = "X-Okapi-Url";
+  public static final String OKAPI_URL_HEADER = "X-Okapi-Url";
   public static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
-  private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
+  public static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
   public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
@@ -86,7 +88,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private static void endJson(RoutingContext ctx, int code, String msg) {
     ctx.response().setStatusCode(code);
-    ctx.response().putHeader(CONTENT_TYPE, "application/json");
+    ctx.response().putHeader(CONTENT_TYPE, APPLICATION_JSON);
     ctx.response().end(msg);
   }
 
