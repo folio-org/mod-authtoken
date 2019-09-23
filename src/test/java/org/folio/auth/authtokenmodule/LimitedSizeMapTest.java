@@ -11,6 +11,7 @@ public class LimitedSizeMapTest {
     LimitedSizeMap<String, String> map2a = new LimitedSizeMap<>(2);
     LimitedSizeMap<String, String> map1 = new LimitedSizeMap<>(1);
 
+    Assert.assertFalse(map2.equals(null));
     Assert.assertTrue(map2.equals(map2));
     Assert.assertTrue(map2.equals(map2a));
     Assert.assertEquals(map2.hashCode(), map2a.hashCode());
