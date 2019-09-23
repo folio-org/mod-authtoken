@@ -35,24 +35,8 @@ public class AuthRoutingEntry {
   private void init(String endpoint, List<String> requiredPermissions,
     Handler<RoutingContext> handler) {
     this.endpoint = endpoint;
-    if (requiredPermissions == null) {
-      this.requiredPermissions = new ArrayList<>();
-    } else {
-      this.requiredPermissions = requiredPermissions;
-    }
+    this.requiredPermissions = requiredPermissions;
     this.handler = handler;
-  }
-
-  public String getEndpoint() {
-    return endpoint;
-  }
-
-  public List<String> getRequiredPermissions() {
-    return requiredPermissions;
-  }
-
-  public Handler<RoutingContext> getHandler() {
-    return handler;
   }
 
   /*
