@@ -733,12 +733,10 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   public String extractToken(String authorizationHeader) {
-    Pattern pattern = null;
-    Matcher matcher = null;
-    String authToken = null;
-    pattern = Pattern.compile("Bearer\\s+(.+)"); // Grab anything after 'Bearer' and whitespace
-    matcher = pattern.matcher(authorizationHeader);
-    if(matcher.find() && matcher.groupCount() > 0) {
+    // Grab anything after 'Bearer' and whitespace
+    Pattern pattern = Pattern.compile("Bearer\\s+(.+)");
+    Matcher matcher = pattern.matcher(authorizationHeader);
+    if (matcher.find() && matcher.groupCount() > 0) {
       return matcher.group(1);
     }
     return null;
