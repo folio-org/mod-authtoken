@@ -444,7 +444,6 @@ public class MainVerticle extends AbstractVerticle {
       ugly 'lookup loop'
     */
     String permissionsRequestToken;
-    logger.info("permissionsRequestTokenMap create");
     JsonObject permissionRequestPayload = new JsonObject()
       .put("sub", "_AUTHZ_MODULE_")
       .put("tenant", tenant)
