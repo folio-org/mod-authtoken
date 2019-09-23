@@ -863,12 +863,4 @@ class LimitedSizeQueue<K> extends ArrayList<K> {
     }
     return r;
   }
-
-  public K getYoungest() {
-    return get(size() - 1);
-  }
-
-  public K getOldest() {
-    return get(0);
-  }
 }
