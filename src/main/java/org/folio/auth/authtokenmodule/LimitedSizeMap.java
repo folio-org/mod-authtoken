@@ -3,13 +3,14 @@ package org.folio.auth.authtokenmodule;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-
 /**
  *
  * @author kurt
  */
-public class LimitedSizeMap<K,V> extends LinkedHashMap<K, V> {
-  final private int maxSize;
+public class LimitedSizeMap<K, V> extends LinkedHashMap<K, V> {
+
+  private final int maxSize;
+
   public LimitedSizeMap(int maxSize) {
     this.maxSize = maxSize;
   }
@@ -19,4 +20,17 @@ public class LimitedSizeMap<K,V> extends LinkedHashMap<K, V> {
     return size() > maxSize;
   }
 
+  @Override
+  public boolean equals(Object obj) {
+    if (!super.equals(obj)) {
+      return false;
+    }
+    LimitedSizeMap fobj = (LimitedSizeMap) obj;
+    return fobj.maxSize == maxSize;
+  }
+
+  @Override
+  public int hashCode() {
+    return super.hashCode() + maxSize;
+  }
 }

@@ -15,7 +15,15 @@ import io.vertx.core.logging.LoggerFactory;
  * @author kurt
  */
 public class PermsMock extends AbstractVerticle {
+
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+
+  public static int handlePermsUsersStatusCode = 200;
+  public static int handlePermsUsersPermissionsStatusCode = 200;
+  public static int handlePermsPermissionsStatusCode = 200;
+  public static boolean handlePermsUsersFail = false;
+  public static boolean handlePermsUsersPermissionsFail = false;
+  public static boolean handlePermsPermissionsFail = false;
 
   public void start(Future<Void> future) {
     final int port = context.config().getInteger("port");
@@ -28,7 +36,7 @@ public class PermsMock extends AbstractVerticle {
     router.route("/perms/permissions").handler(this::handlePermsPermissions);
     logger.info("Running PermsMock on port " + port);
     server.requestHandler(router::accept).listen(port, result -> {
-      if(result.failed()) {
+      if (result.failed()) {
         future.fail(result.cause());
       } else {
         future.complete();
@@ -37,6 +45,13 @@ public class PermsMock extends AbstractVerticle {
   }
 
   private void handlePermsUsers(RoutingContext context) {
+    if (handlePermsUsersFail) {
+      context.response()
+        .setStatusCode(handlePermsUsersStatusCode)
+        .putHeader("Content-type", "application/json")
+        .end("{");
+      return;
+    }
     JsonObject output = new JsonObject().put("permissionUsers", new JsonArray()
       .add(new JsonObject()
         .put("id", "773cb9d1-1e4f-416f-ba16-686ddeb6c789")
@@ -49,13 +64,20 @@ public class PermsMock extends AbstractVerticle {
     );
 
     context.response()
-      .setStatusCode(200)
+      .setStatusCode(handlePermsUsersStatusCode)
       .putHeader("Content-Type", "application/json")
       .end(output.encode());
 
   }
 
   private void handlePermUsersPermissions(RoutingContext context) {
+    if (handlePermsUsersPermissionsFail) {
+      context.response()
+        .setStatusCode(handlePermsUsersPermissionsStatusCode)
+        .putHeader("Content-type", "application/json")
+        .end("{");
+      return;
+    }
     JsonObject output = new JsonObject().put("permissionNames",
       new JsonArray()
         .add("extra.foobar")
@@ -64,22 +86,39 @@ public class PermsMock extends AbstractVerticle {
       .put("totalRecords", 1);
 
     context.response()
-      .setStatusCode(200)
+      .setStatusCode(handlePermsUsersPermissionsStatusCode)
+      .putHeader("Content-type", "application/json")
       .end(output.encode());
   }
 
   private void handlePermsPermissions(RoutingContext context) {
+    if (handlePermsPermissionsFail) {
+      context.response()
+        .setStatusCode(handlePermsPermissionsStatusCode)
+        .putHeader("Content-type", "application/json")
+        .end("{");
+      return;
+    }
+    JsonObject sub = new JsonObject()
+      .put("permissionName", "bar.second")
+      .put("subPermissions", new JsonArray()
+        .add("bar.sub")
+        .add(new JsonObject()
+          .put("permissionName", "bar.sub2")
+          .put("subPermissions", new JsonArray()
+            .add("bar.sub.sub")
+          )
+        )
+      );
     JsonObject output = new JsonObject().put("permissions", new JsonArray()
       .add(new JsonObject()
         .put("permissionName", "bar.first"))
-      .add(new JsonObject()
-        .put("permissionName", "bar.second"))
+      .add(sub).add(sub) // same permissions twice on purpose
     );
-
     context.response()
-            .setStatusCode(200)
-            .putHeader("Content-type", "application/json")
-            .end(output.encode());
+      .setStatusCode(handlePermsPermissionsStatusCode)
+      .putHeader("Content-type", "application/json")
+      .end(output.encode());
   }
 
 }

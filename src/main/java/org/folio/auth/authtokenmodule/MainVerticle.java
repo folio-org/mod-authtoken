@@ -38,6 +38,7 @@ public class MainVerticle extends AbstractVerticle {
 
   // TODO - Use header names from Okapi.common
   public static final String PERMISSIONS_HEADER = "X-Okapi-Permissions";
+  private static final String CONTENT_TYPE = "Content-Type";
   private static final String DESIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Desired";
   private static final String REQUIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Required";
   private static final String MODULE_PERMISSIONS_HEADER = "X-Okapi-Module-Permissions";
@@ -55,36 +56,47 @@ public class MainVerticle extends AbstractVerticle {
   private static final String TOKEN_USER_ID_FIELD = "user_id";
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
   private static final String CACHE_KEY_FIELD = "cache_key";
-
+  private static final String MISSING_HEADER = "Missing header: ";
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
 
   PermissionsSource permissionsSource;
-  private String okapiUrl;
-  private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+  private static final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
-  private boolean suppressErrorResponse = false;
-  private boolean cachePermissions = true;
 
   private TokenCreator tokenCreator;
 
   private LimitedSizeQueue<String> tokenCache;
 
-  private Map<String, String> permissionsRequestTokenMap;
   private List<AuthRoutingEntry> authRoutingEntryList;
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
 
-
-  private String logAndReturnError(Throwable t) {
-    String message = String.format("Error: %s", t.getLocalizedMessage());
-    logger.error(message, t);
-    return message;
-  }
-
   TokenCreator getTokenCreator() throws JOSEException {
     String keySetting = System.getProperty("jwt.signing.key");
     return new TokenCreator(keySetting);
+  }
+
+  private static void endText(RoutingContext ctx, int code, String msg) {
+    logger.error(msg);
+    ctx.response().setStatusCode(code);
+    ctx.response().putHeader(CONTENT_TYPE, "text/plain");
+    ctx.response().end(msg);
+  }
+
+  private static void endJson(RoutingContext ctx, int code, String msg) {
+    ctx.response().setStatusCode(code);
+    ctx.response().putHeader(CONTENT_TYPE, "application/json");
+    ctx.response().end(msg);
+  }
+
+  private static void endText(RoutingContext ctx, int code, String lead, Throwable t) {
+    logger.error(lead, t);
+    endText(ctx, code, lead + t.getLocalizedMessage());
+  }
+
+  private static void endText(RoutingContext ctx, int code, Throwable t) {
+    endText(ctx, code, "Error: ", t);
   }
 
   @Override
@@ -112,19 +124,9 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
 
-    String suppressString = System.getProperty("suppress.error.response", "false");
-    if(suppressString.equals("true")) {
-      suppressErrorResponse = true;
-    }
-
     String cachePermsString = System.getProperty("cache.permissions", "true");
-    if(cachePermsString.equals("true")) {
-      cachePermissions = true;
-    } else {
-      cachePermissions = false;
-    }
+    boolean cachePermissions = cachePermsString.equals("true");
 
-    permissionsRequestTokenMap = new HashMap<>();
     clientTokenCreatorMap = new HashMap<>();
 
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
@@ -159,63 +161,43 @@ public class MainVerticle extends AbstractVerticle {
 
   }
 
- /*
-  Sign a provided JSON object into an encrypted token as a service
-  The content of the request should look like:
-  {
-      "passPhrase" : "",
-      "payload" : {
-      }
+  private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {
+    if (clientTokenCreatorMap.containsKey(passPhrase)) {
+      return clientTokenCreatorMap.get(passPhrase);
+    }
+    TokenCreator localTokenCreator = new TokenCreator(passPhrase);
+    clientTokenCreatorMap.put(passPhrase, localTokenCreator);
+    return localTokenCreator;
   }
-  */
+
   private void handleSignEncryptedToken(RoutingContext ctx) {
     try {
-      TokenCreator localTokenCreator = null;
-      logger.debug("Encrypted token signing request from " +  ctx.request().absoluteURI());
-      if(ctx.request().method() != HttpMethod.POST) {
+      logger.debug("Encrypted token signing request from " + ctx.request().absoluteURI());
+      if (ctx.request().method() != HttpMethod.POST) {
         String message = "Invalid method for this endpoint";
-        ctx.response()
-            .setStatusCode(400)
-            .end(message);
+        endText(ctx, 400, message);
         return;
       }
       String content = ctx.getBodyAsString();
       JsonObject requestJson = null;
       try {
         requestJson = parseJsonObject(content,
-            new String[] {"passPhrase", "payload"});
-      } catch(Exception e) {
+          new String[]{"passPhrase", "payload"});
+      } catch (Exception e) {
         String message = String.format("Unable to parse content: %s",
-            e.getLocalizedMessage());
-        ctx.response()
-            .setStatusCode(400)
-            .end(message);
+          e.getLocalizedMessage());
+        endText(ctx, 400, message);
         return;
       }
       String passPhrase = requestJson.getString("passPhrase");
-      if(clientTokenCreatorMap.containsKey(passPhrase)) {
-        localTokenCreator = clientTokenCreatorMap.get(passPhrase);
-      } else {
-        localTokenCreator = new TokenCreator(passPhrase);
-        clientTokenCreatorMap.put(passPhrase, localTokenCreator);
-      }
-      String token = null;
-      try {
-        token = localTokenCreator.createJWEToken(requestJson.getJsonObject("payload")
-            .encode());
-      } catch(Exception e) {
-        throw new AuthtokenException(e.getLocalizedMessage()); //Go ahead and just pass it up for now
-      }
+      TokenCreator localTokenCreator = lookupTokenCreator(passPhrase);
+      String token = localTokenCreator.createJWEToken(requestJson.getJsonObject("payload")
+        .encode());
       JsonObject responseJson = new JsonObject()
-          .put("token", token);
-      ctx.response()
-          .setStatusCode(201)
-          .putHeader("Content-Type", "application/json")
-          .end(responseJson.encode());
-    } catch(Exception e) {
-      String error = logAndReturnError(e);
-      ctx.response().setStatusCode(500)
-          .end(String.format("Internal Server Error: %s", error));
+        .put("token", token);
+      endJson(ctx, 201, responseJson.encode());
+    } catch (Exception e) {
+      endText(ctx, 400, e);
     }
   }
 
@@ -230,51 +212,31 @@ public class MainVerticle extends AbstractVerticle {
   */
   private void handleDecodeEncryptedToken(RoutingContext ctx) {
     try {
-      TokenCreator localTokenCreator = null;
-      if(ctx.request().method() != HttpMethod.POST) {
+      if (ctx.request().method() != HttpMethod.POST) {
         String message = "Invalid method for this endpoint";
-        ctx.response()
-            .setStatusCode(400)
-            .end(message);
+        endText(ctx, 400, message);
         return;
       }
       String content = ctx.getBodyAsString();
       JsonObject requestJson = null;
       try {
         requestJson = parseJsonObject(content,
-            new String[] {"passPhrase", "token"});
-      } catch(Exception e) {
+          new String[]{"passPhrase", "token"});
+      } catch (Exception e) {
         String message = String.format("Unable to parse content: %s",
-            e.getLocalizedMessage());
-        ctx.response()
-            .setStatusCode(400)
-            .end(message);
+          e.getLocalizedMessage());
+        endText(ctx, 400, message);
         return;
       }
       String passPhrase = requestJson.getString("passPhrase");
-      if(clientTokenCreatorMap.containsKey(passPhrase)) {
-        localTokenCreator = clientTokenCreatorMap.get(passPhrase);
-      } else {
-        localTokenCreator = new TokenCreator(passPhrase);
-        clientTokenCreatorMap.put(passPhrase, localTokenCreator);
-      }
+      TokenCreator localTokenCreator = lookupTokenCreator(passPhrase);
       String token = requestJson.getString("token");
-      String encodedJson = null;
-      try {
-        encodedJson = localTokenCreator.decodeJWEToken(token);
-      } catch(Exception e) {
-        throw e;
-      }
+      String encodedJson = localTokenCreator.decodeJWEToken(token);
       JsonObject responseJson = new JsonObject()
-          .put("payload", new JsonObject(encodedJson));
-      ctx.response()
-          .setStatusCode(201)
-          .putHeader("Content-Type", "application/json")
-          .end(responseJson.encode());
-    } catch(Exception e) {
-      String error = logAndReturnError(e);
-      ctx.response().setStatusCode(500)
-          .end(String.format("Internal Server Error: %s", error));
+        .put("payload", new JsonObject(encodedJson));
+      endJson(ctx, 201, responseJson.encode());
+    } catch (Exception e) {
+      endText(ctx, 500, e);
     }
   }
 
@@ -292,26 +254,18 @@ public class MainVerticle extends AbstractVerticle {
   */
   private void handleRefresh(RoutingContext ctx) {
     try {
-      logger.debug("Token refresh request from " +  ctx.request().absoluteURI());
-      if(ctx.request().method() != HttpMethod.POST) {
-        String message = "Invalid method for this endpoint";
-        ctx.response()
-            .setStatusCode(400)
-            .end(message);
+      logger.debug("Token refresh request from " + ctx.request().absoluteURI());
+      if (ctx.request().method() != HttpMethod.POST) {
+        endText(ctx, 400, "Invalid method for this endpoint");
         return;
       }
       String content = ctx.getBodyAsString();
       JsonObject requestJson = null;
       try {
         requestJson = parseJsonObject(content,
-            new String[] {"refreshToken"});
-      } catch(Exception e) {
-        String message = String.format("Unable to parse content: %s",
-            e.getLocalizedMessage());
-        logger.error(message);
-        ctx.response()
-            .setStatusCode(400)
-            .end(message);
+          new String[]{"refreshToken"});
+      } catch (Exception e) {
+        endText(ctx, 400, "Unable to parse content: ", e);
         return;
       }
       String token = requestJson.getString("refreshToken");
@@ -320,43 +274,31 @@ public class MainVerticle extends AbstractVerticle {
       try {
         tokenContent = tokenCreator.decodeJWEToken(token);
         tokenClaims = new JsonObject(tokenContent);
-      } catch(Exception e) {
+      } catch (Exception e) {
         String message = String.format("Unable to decode token %s: %s",
-            token, e.getLocalizedMessage());
+          token, e.getLocalizedMessage());
         logger.error(message);
-        ctx.response()
-            .setStatusCode(400)
-            .end("Invalid token format");
+        endText(ctx, 400, "Invalid token format");
         return;
       }
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
       //Go ahead and make the new request token
       String newAuthToken = mintNewAuthToken(tenant, tokenClaims);
       validateRefreshToken(tokenClaims, ctx).setHandler(res -> {
-        if(res.failed()) {
-          String message = logAndReturnError(res.cause());
-          ctx.response()
-              .setStatusCode(500)
-              .end(message);
-        } else {
-          if(!res.result()) {
-            ctx.response()
-            .setStatusCode(401)
-            .end("Invalid refresh token");
-          } else {
-            JsonObject responseObject = new JsonObject()
-                .put("token", newAuthToken);
-            ctx.response()
-                .setStatusCode(201)
-                .putHeader("Content-Type", "application/json")
-                .end(responseObject.encode());
-          }
+        if (res.failed()) {
+          endText(ctx, 500, res.cause());
+          return;
         }
+        if (!res.result()) {
+          endText(ctx, 401, "Invalid refresh token");
+          return;
+        }
+        JsonObject responseObject = new JsonObject()
+          .put("token", newAuthToken);
+        endJson(ctx, 201, responseObject.encode());
       });
-    } catch(Exception e) {
-      String message = logAndReturnError(e);
-      ctx.response().setStatusCode(500)
-          .end(message);
+    } catch (Exception e) {
+      endText(ctx, 500, e);
     }
   }
 
@@ -369,14 +311,11 @@ public class MainVerticle extends AbstractVerticle {
   */
   private void handleSignRefreshToken(RoutingContext ctx) {
     try {
-      if(ctx.request().method() != HttpMethod.POST) {
+      if (ctx.request().method() != HttpMethod.POST) {
         String message = String.format("Invalid method '%s' for this endpoint '%s'",
-            ctx.request().method().toString(),
-            ctx.request().absoluteURI());
-        logger.error(message);
-        ctx.response()
-            .setStatusCode(400)
-            .end(message);
+          ctx.request().method().toString(),
+          ctx.request().absoluteURI());
+        endText(ctx, 400, message);
         return;
       }
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
@@ -385,36 +324,22 @@ public class MainVerticle extends AbstractVerticle {
       JsonObject requestJson = null;
       try {
         requestJson = parseJsonObject(content,
-            new String[] {"userId", "sub"});
-      } catch(Exception e) {
-        String message = String.format("Unable to parse content: %s",
-            e.getLocalizedMessage());
-        logger.error(message);
-        ctx.response()
-            .setStatusCode(400)
-            .end(message);
+          new String[]{"userId", "sub"});
+      } catch (Exception e) {
+        endText(ctx, 400, "Unable to parse content: ", e);
         return;
       }
       String userId = requestJson.getString("userId");
       String sub = requestJson.getString("sub");
-      String refreshToken = null;
-      try {
-        refreshToken = generateRefreshToken(tenant, userId, address, sub);
-      } catch(Exception e) {
-        throw e;
-      }
+      String refreshToken = generateRefreshToken(tenant, userId, address, sub);
       JsonObject responseJson = new JsonObject()
-          .put("refreshToken", refreshToken);
-      ctx.response()
-          .setStatusCode(201)
-          .putHeader("Content-Type", "application/json")
-          .end(responseJson.encode());
-    } catch(Exception e) {
-       String error = logAndReturnError(e);
-       ctx.response().setStatusCode(500)
-          .end(String.format("Internal Server Error: %s", error));
+        .put("refreshToken", refreshToken);
+      endJson(ctx, 201, responseJson.encode());
+    } catch (Exception e) {
+      endText(ctx, 500, e);
     }
   }
+  
   /*
    * Handle a request to sign a new token
    * (Typically used by login module)
@@ -426,72 +351,48 @@ public class MainVerticle extends AbstractVerticle {
   private void handleSignToken(RoutingContext ctx) {
     try {
       logger.debug("Token signing request from " +  ctx.request().absoluteURI());
+      // tenant and okapiUrl are already checked in handleAuthorize
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
-      if(tenant == null) {
-        ctx.response().setStatusCode(400);
-        ctx.response().end("Missing header: " + OKAPI_TENANT_HEADER);
+      if (ctx.request().method() != HttpMethod.POST) {
+        endText(ctx, 400, "Unsupported operation: " + ctx.request().method().toString());
+        return;
+      }
+      final String postContent = ctx.getBodyAsString();
+      JsonObject json = null;
+      JsonObject payload = null;
+      try {
+        json = new JsonObject(postContent);
+      } catch (DecodeException dex) {
+        endText(ctx, 400, "Unable to decode '" + postContent + "' as valid JSON");
+        return;
+      }
+      payload = json.getJsonObject("payload");
+      if (payload == null) {
+        endText(ctx, 400, "Valid 'payload' field is required");
+        return;
+      }
+      logger.debug("Payload to create token from is " + payload.encode());
+
+      if (!payload.containsKey("sub")) {
+        endText(ctx, 400, "Payload must contain a 'sub' field");
         return;
       }
 
-      updateOkapiUrl(ctx);
-      if(ctx.request().method() == HttpMethod.POST) {
-        final String postContent = ctx.getBodyAsString();
-        JsonObject json = null;
-        JsonObject payload = null;
-        try {
-          json = new JsonObject(postContent);
-        } catch(DecodeException dex) {
-          ctx.response().setStatusCode(400);
-          ctx.response().end("Unable to decode '" + postContent + "' as valid JSON");
-          return;
-        }
-        try {
-          payload = json.getJsonObject("payload");
-        } catch(Exception e) {
-          ctx.response().setStatusCode(400);
-          ctx.response().end("Unable to find valid 'payload' field in: " + json.encode());
-          return;
-        }
-        if(payload == null) {
-          ctx.response().setStatusCode(400)
-                  .end("Valid 'payload' field is required");
-          return;
-        }
-        logger.debug("Payload to create token from is " + payload.encode());
+      payload.put("tenant", tenant);
 
-        if(!payload.containsKey("sub")) {
-          ctx.response().setStatusCode(400)
-                  .end("Payload must contain a 'sub' field");
-          return;
-        }
-
-        payload.put("tenant", tenant);
-        
-        if(!payload.containsKey(CACHE_KEY_FIELD)) {
-          payload.put(CACHE_KEY_FIELD, UUID.randomUUID().toString());
-        }
-
-        //Set "time issued" claim on token
-        Instant instant = Instant.now();
-        payload.put("iat", instant.getEpochSecond());
-        String token = tokenCreator.createJWTToken(payload.encode());
-
-        JsonObject responseObject = new JsonObject().put("token", token);
-        ctx.response().setStatusCode(201)
-                .putHeader("Content-Type", "application/json")
-                .end(responseObject.encode());
-        return;
-
-      } else {
-        ctx.response().setStatusCode(400)
-                .end("Unsupported operation: " + ctx.request().method().toString());
-        return;
+      if (!payload.containsKey(CACHE_KEY_FIELD)) {
+        payload.put(CACHE_KEY_FIELD, UUID.randomUUID().toString());
       }
-    } catch(Exception e) {
-      String message = e.getLocalizedMessage();
-      logger.error(message, e);
-      ctx.response().setStatusCode(500)
-              .end(message);
+
+      //Set "time issued" claim on token
+      Instant instant = Instant.now();
+      payload.put("iat", instant.getEpochSecond());
+      String token = tokenCreator.createJWTToken(payload.encode());
+
+      JsonObject responseObject = new JsonObject().put("token", token);
+      endJson(ctx, 201, responseObject.encode());
+    } catch (Exception e) {
+      endText(ctx, 400, e);
     }
   }
 
@@ -500,37 +401,35 @@ public class MainVerticle extends AbstractVerticle {
     String requestId = ctx.request().headers().get(REQUESTID_HEADER);
     String userId = ctx.request().headers().get(USERID_HEADER);
     String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
-    if(tenant == null) {
-      ctx.response().setStatusCode(400);
-      ctx.response().end("Missing header: " + OKAPI_TENANT_HEADER);
+    if (tenant == null) {
+      endText(ctx, 400, MISSING_HEADER + OKAPI_TENANT_HEADER);
+      return;
+    }
+    String okapiUrl = ctx.request().headers().get(OKAPI_URL_HEADER);
+    if (okapiUrl == null) {
+      endText(ctx, 400, MISSING_HEADER + OKAPI_URL_HEADER);
       return;
     }
     String zapCacheString = ctx.request().headers().get(ZAP_CACHE_HEADER);
-    boolean zapCache = false;
-    if(zapCacheString != null && zapCacheString.equals("true")) {
-      zapCache = true;
-    }
+    boolean zapCache = "true".equals(zapCacheString);
 
-    updateOkapiUrl(ctx);
     //String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
     String okapiTokenHeader = ctx.request().headers().get(OKAPI_TOKEN_HEADER);
     String candidateToken = null;
-    if(okapiTokenHeader != null && authHeader != null) {
+    if (okapiTokenHeader != null && authHeader != null) {
       String authToken = extractToken(authHeader);
-      if(authToken.equals(okapiTokenHeader)) {
+      if (okapiTokenHeader.equals(authToken)) { // authToken may be null
         candidateToken = authToken;
       } else {
-        logger.error("Conflict between different auth headers");
-        ctx.response().setStatusCode(400);
-        ctx.response().end("Conflicting token information in Authorization and " +
-                OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header " +
-                " and use " + OKAPI_TOKEN_HEADER + " in the future");
+        endText(ctx, 400, "Conflicting token information in Authorization and "
+          + OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header "
+          + " and use " + OKAPI_TOKEN_HEADER + " in the future");
         return;
       }
-    } else if(okapiTokenHeader != null) {
+    } else if (okapiTokenHeader != null) {
       candidateToken = okapiTokenHeader;
-    } else if(authHeader != null) {
+    } else if (authHeader != null) {
       candidateToken = extractToken(authHeader);
     } else {
       candidateToken = null;
@@ -543,27 +442,21 @@ public class MainVerticle extends AbstractVerticle {
       ugly 'lookup loop'
     */
     String permissionsRequestToken;
-    if (permissionsRequestTokenMap.containsKey(tenant)) {
-      permissionsRequestToken = permissionsRequestTokenMap.get(tenant);
-    } else {
-      JsonObject permissionRequestPayload = new JsonObject()
-              .put("sub", "_AUTHZ_MODULE_")
-              .put("tenant", tenant)
-              .put("dummy", true)
-              .put("request_id", "PERMISSIONS_REQUEST_TOKEN")
-              .put("extra_permissions", new JsonArray()
-                      .add(PERMISSIONS_PERMISSION_READ_BIT)
-                      .add(PERMISSIONS_USER_READ_BIT));
+    logger.info("permissionsRequestTokenMap create");
+    JsonObject permissionRequestPayload = new JsonObject()
+      .put("sub", "_AUTHZ_MODULE_")
+      .put("tenant", tenant)
+      .put("dummy", true)
+      .put("request_id", "PERMISSIONS_REQUEST_TOKEN")
+      .put("extra_permissions", new JsonArray()
+        .add(PERMISSIONS_PERMISSION_READ_BIT)
+        .add(PERMISSIONS_USER_READ_BIT));
 
-      try {
-        permissionsRequestToken = tokenCreator.createJWTToken(permissionRequestPayload.encode());
-      } catch(Exception e) {
-        String errStr = "Error creating permission request token: " + e.getMessage();
-        logger.error(errStr);
-        ctx.response().setStatusCode(500)
-                .end(errStr);
-        return;
-      }
+    try {
+      permissionsRequestToken = tokenCreator.createJWTToken(permissionRequestPayload.encode());
+    } catch (Exception e) {
+      endText(ctx, 500, "Error creating permission request token: ", e);
+      return;
     }
 
     if (candidateToken == null) {
@@ -580,46 +473,38 @@ public class MainVerticle extends AbstractVerticle {
                 .put("request_id", requestId)
                 .put("dummy", true);
       } catch(Exception e) {
-        String errStr = "Error creating dummy token: " + e.getMessage();
-        logger.error(errStr);
-        ctx.response().setStatusCode(500)
-                .end(errStr);
+        endText(ctx, 500,  "Error creating dummy token: ", e);
         return;
       }
       try {
         candidateToken = tokenCreator.createJWTToken(dummyPayload.encode());
       } catch(Exception e) {
-        String errStr = "Error creating candidate token: " + e.getMessage();
-        logger.error(errStr);
-        ctx.response().setStatusCode(500)
-                .end(errStr);
+        endText(ctx, 500, "Error creating candidate token: ", e);
         return;
       }
     }
  
     final String authToken = candidateToken;
     logger.debug("Final authToken is " + authToken);
+    final String errMsg = "Invalid token";
     try {
       if (!tokenCache.contains(authToken)) {
         tokenCreator.checkJWTToken(authToken);
         tokenCache.add(authToken);
       }
     } catch (ParseException p) {
-        logger.error("Malformed token: " + authToken, p);
-        ctx.response().setStatusCode(401)
-                .end("Invalid token");
-        return;
-    } catch(JOSEException j) {
-        logger.error(String.format("Unable to verify token token %s, %s",
-            authToken, j.getLocalizedMessage()));
-        ctx.response().setStatusCode(401)
-                .end("Invalid token");
-        return;
-    } catch(BadSignatureException b) {
-        logger.error("Unsupported JWT format", b);
-        ctx.response().setStatusCode(401)
-                .end("Invalid token");
-        return;
+      logger.error("Malformed token: " + authToken, p);
+      endText(ctx, 401, errMsg);
+      return;
+    } catch (JOSEException j) {
+      logger.error(String.format("Unable to verify token token %s, %s",
+        authToken, j.getLocalizedMessage()));
+      endText(ctx, 401, errMsg);
+      return;
+    } catch (BadSignatureException b) {
+      logger.error("Unsupported JWT format", b);
+      endText(ctx, 401, errMsg);
+      return;
     }
 
     JsonObject tokenClaims = getClaims(authToken);
@@ -628,12 +513,9 @@ public class MainVerticle extends AbstractVerticle {
     String jwtTenant = tokenClaims.getString("tenant");
     String cacheKey = getClaims(candidateToken).getString(CACHE_KEY_FIELD);
 
-    
     if (jwtTenant == null || !jwtTenant.equals(tenant)) {
       logger.error("Expected tenant: " + tenant + ", got tenant: " + jwtTenant);
-      ctx.response()
-              .setStatusCode(403)
-              .end("Invalid token for access");
+      endText(ctx, 403, "Invalid token for access");
       return;
     }
 
@@ -641,9 +523,8 @@ public class MainVerticle extends AbstractVerticle {
     if(tokenUserId != null) {
       if (userId != null) {
         if (!userId.equals(tokenUserId)) {
-          ctx.response().setStatusCode(403)
-          .end("Payload user id of '" + tokenUserId
-          + " does not match expected value.");
+          endText(ctx, 403, 
+           "Payload user id of '" + tokenUserId + " does not match expected value.");
           return;
         }
       } else {
@@ -678,7 +559,7 @@ public class MainVerticle extends AbstractVerticle {
 
     JsonObject moduleTokens = new JsonObject();
     /* TODO get module permissions (if they exist) */
-    if(ctx.request().headers().contains(MODULE_PERMISSIONS_HEADER)) {
+    if (ctx.request().headers().contains(MODULE_PERMISSIONS_HEADER)) {
       JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(MODULE_PERMISSIONS_HEADER));
       for(String moduleName : modulePermissions.fieldNames()) {
         JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
@@ -697,8 +578,7 @@ public class MainVerticle extends AbstractVerticle {
           String message = String.format("Error creating moduleToken: %s",
               e.getLocalizedMessage());
           logger.error(message);
-          ctx.response().setStatusCode(500)
-              .end("Error generating module permissions token");
+          endText(ctx, 500, "Error generating module permissions token");
           return;
         }
         moduleTokens.put(moduleName, moduleToken);
@@ -750,9 +630,9 @@ public class MainVerticle extends AbstractVerticle {
       usePermissionsSource = permissionsSource;
     }
 
-    if(zapCache && usePermissionsSource instanceof Cache) {
+    if (zapCache && usePermissionsSource instanceof Cache) {
       logger.info("Requesting cleared cache for authToken '" + authToken + "'");
-      ((Cache)usePermissionsSource).clearCache(cacheKey);
+      ((Cache) usePermissionsSource).clearCache();
     }
 
     //Retrieve the user permissions and populate the permissions header
@@ -760,24 +640,18 @@ public class MainVerticle extends AbstractVerticle {
             userId + ")");
     long startTime = System.currentTimeMillis();
     Future<PermissionData> retrievedPermissionsFuture = usePermissionsSource
-            .getUserAndExpandedPermissions(userId, tenant, permissionsRequestToken,
-            extraPermissions, cacheKey);
+      .getUserAndExpandedPermissions(userId, tenant, okapiUrl, permissionsRequestToken,
+        requestId, extraPermissions, cacheKey);
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
-      if(res.failed()) {
+      if (res.failed()) {
         long stopTime = System.currentTimeMillis();
         logger.error("Unable to retrieve permissions for " + username + ": "
-                + res.cause().getMessage() + " request took " +
-                (stopTime - startTime) + " ms");
-        ctx.response()
-                .setStatusCode(500)
-                .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
-        if(suppressErrorResponse) {
-          ctx.response().end();
-        } else {
-          ctx.response().end("Unable to retrieve permissions for user with id'"
-                  + finalUserId + "': " +  res.cause().getLocalizedMessage());
-        }
+          + res.cause().getMessage() + " request took "
+          + (stopTime - startTime) + " ms");
+        ctx.response().putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
+        endText(ctx, 400, "Unable to retrieve permissions for user with id'"
+          + finalUserId + "': " + res.cause().getLocalizedMessage());
         return;
       }
 
@@ -799,15 +673,13 @@ public class MainVerticle extends AbstractVerticle {
 
       //Check that for all required permissions, we have them
       for (Object o : permissionsRequired) {
-        if (!permissions.contains(o) &&
-                !extraPermissions.contains(o)) {
+        if (!permissions.contains(o)
+          && !extraPermissions.contains(o)) {
           logger.error(permissions.encode() + "(user permissions) nor "
-                  + extraPermissions.encode() + "(module permissions) do not contain "
-                  + (String) o);
-          ctx.response()
-                  .setStatusCode(403)
-                  .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
-                  .end("Access requires permission: " + (String) o);
+            + extraPermissions.encode() + "(module permissions) do not contain "
+            + (String) o);
+          ctx.response().putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
+          endText(ctx, 403, "Access requires permission: " + (String) o);
           return;
         }
       }
@@ -838,10 +710,8 @@ public class MainVerticle extends AbstractVerticle {
         String message = String.format("Error creating access token: %s",
             e.getLocalizedMessage());
         logger.error(message);
-        ctx.response()
-            .setStatusCode(500)
-            .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
-            .end("Error creating access token");
+        ctx.response().putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
+        endText(ctx, 500, "Error creating access token");
         return;
       }
 
@@ -849,6 +719,7 @@ public class MainVerticle extends AbstractVerticle {
       ctx.response()
               .setChunked(true)
               .setStatusCode(202)
+              .putHeader(CONTENT_TYPE, "text/plain")
               .putHeader(PERMISSIONS_HEADER, permissions.encode())
               .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
               .putHeader("Authorization", "Bearer " + token)
@@ -861,22 +732,11 @@ public class MainVerticle extends AbstractVerticle {
     });
   }
 
-  private void updateOkapiUrl(RoutingContext ctx) {
-    if(ctx.request().getHeader(OKAPI_URL_HEADER) != null) {
-      this.okapiUrl = ctx.request().getHeader(OKAPI_URL_HEADER);
-      permissionsSource.setOkapiUrl(okapiUrl);
-    }
-  }
-
-
   public String extractToken(String authorizationHeader) {
-    Pattern pattern = null;
-    Matcher matcher = null;
-    String authToken = null;
-    if(authorizationHeader == null) { return null; }
-    pattern = Pattern.compile("Bearer\\s+(.+)"); // Grab anything after 'Bearer' and whitespace
-    matcher = pattern.matcher(authorizationHeader);
-    if(matcher.find() && matcher.groupCount() > 0) {
+    // Grab anything after 'Bearer' and whitespace
+    Pattern pattern = Pattern.compile("Bearer\\s+(.+)");
+    Matcher matcher = pattern.matcher(authorizationHeader);
+    if (matcher.find() && matcher.groupCount() > 0) {
       return matcher.group(1);
     }
     return null;
@@ -886,15 +746,6 @@ public class MainVerticle extends AbstractVerticle {
     String encodedJson = jwt.split("\\.")[1];
     String decodedJson = new String(Base64.getDecoder().decode(encodedJson));
     return new JsonObject(decodedJson);
-  }
-
-  private String getRequestToken(RoutingContext ctx) {
-    String token = ctx.request().headers().get(OKAPI_TOKEN_HEADER);
-    logger.debug("Module request token from Okapi is: " + token);
-    if(token == null) {
-      return "";
-    }
-    return token;
   }
 
   private String mintNewAuthToken(String tenant, JsonObject refreshTokenClaims)
@@ -930,30 +781,29 @@ public class MainVerticle extends AbstractVerticle {
     Future<Boolean> future = Future.future();
     try {
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
-      if(!tenant.equals(tokenClaims.getString("tenant"))) {
+      if (!tenant.equals(tokenClaims.getString("tenant"))) {
         logger.error("Tenant mismatch for refresh token");
         future.complete(Boolean.FALSE);
         return future;
       }
       String address = ctx.request().remoteAddress().host();
-      if(!address.equals(tokenClaims.getString("address"))) {
+      if (!address.equals(tokenClaims.getString("address"))) {
         logger.error("Issuing address does not match for refresh token");
         future.complete(Boolean.FALSE);
         return future;
       }
       Long nowTime = Instant.now().getEpochSecond();
       Long expiration = tokenClaims.getLong("exp");
-      if(expiration < nowTime) {
+      if (expiration < nowTime) {
         logger.error("Attempt to refresh with expired refresh token");
         future.complete(Boolean.FALSE);
         return future;
       }
       checkRefreshTokenRevoked(tokenClaims).setHandler(res -> {
-        if(res.failed()) {
-          logAndReturnError(res.cause());
+        if (res.failed()) {
           future.fail(res.cause());
         } else {
-          if(res.result()) {
+          if (res.result()) {
             logger.error("Attempt to refresh with revoked token");
             future.complete(Boolean.FALSE);
           } else {
@@ -961,8 +811,7 @@ public class MainVerticle extends AbstractVerticle {
           }
         }
       });
-    } catch(Exception e) {
-      logAndReturnError(e);
+    } catch (Exception e) {
       future.fail(e);
     }
     return future;
@@ -976,30 +825,25 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private JsonObject parseJsonObject(String encoded, String[] requiredMembers)
-      throws AuthtokenException {
+    throws AuthtokenException {
     JsonObject json = null;
     try {
       json = new JsonObject(encoded);
-    } catch(Exception e) {
+    } catch (Exception e) {
       throw new AuthtokenException(String.format("Unable to parse JSON %s: %s", encoded,
-          e.getLocalizedMessage()));
+        e.getLocalizedMessage()));
     }
-    if(json == null) {
-      throw new AuthtokenException(String.format("Unable to parse %s into valid JSON", encoded));
-    }
-    for(String s : requiredMembers) {
-      if(!json.containsKey(s)) {
+    for (String s : requiredMembers) {
+      if (!json.containsKey(s)) {
         throw new AuthtokenException(String.format("Missing required member: '%s'", s));
       }
-      if(json.getValue(s) == null) {
+      if (json.getValue(s) == null) {
         throw new AuthtokenException(String.format("Null value for required member: '%s'", s));
       }
     }
     return json;
   }
-
 }
-
 
 class LimitedSizeQueue<K> extends ArrayList<K> {
 
@@ -1016,13 +860,5 @@ class LimitedSizeQueue<K> extends ArrayList<K> {
       removeRange(0, size() - maxSize - 1);
     }
     return r;
-  }
-
-  public K getYoungest() {
-    return get(size() - 1);
-  }
-
-  public K getOldest() {
-    return get(0);
   }
 }
