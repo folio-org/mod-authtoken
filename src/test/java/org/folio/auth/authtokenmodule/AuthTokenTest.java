@@ -541,8 +541,7 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
 
     logger.info("Test with extra permissions - timeout = 0");
-    ModulePermissionsSource.permissionsForUserTimeout = 0;
-    ModulePermissionsSource.expandPermissionsTimeout = 0;
+    ModulePermissionsSource.setCacheTimeout(0);
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Request-Id", "1234")
@@ -553,8 +552,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(202)
       .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
-    ModulePermissionsSource.permissionsForUserTimeout = 60;
-    ModulePermissionsSource.expandPermissionsTimeout = 300;
+    ModulePermissionsSource.setCacheTimeout(60);
 
     logger.info("Test with wildcard permission - zap cache");
     given()

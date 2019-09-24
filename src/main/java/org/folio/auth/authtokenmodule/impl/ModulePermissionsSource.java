@@ -33,8 +33,8 @@ public class ModulePermissionsSource implements PermissionsSource {
   private final HttpClient client;
   private final Map<String,CacheEntry<JsonArray>> expandPermissionsMap = new HashMap<>();
   private final Map<String,CacheEntry<JsonArray>> permissionsForUserMap = new HashMap<>();
-  public static int expandPermissionsTimeout = 300;
-  public static int permissionsForUserTimeout = 60;
+  private static int expandPermissionsTimeout = 300;
+  private static int permissionsForUserTimeout = 60;
 
   public ModulePermissionsSource(Vertx vertx, int timeout) {
     this.vertx = vertx;
@@ -47,6 +47,10 @@ public class ModulePermissionsSource implements PermissionsSource {
   public void clearCache() {
     expandPermissionsMap.clear();
     permissionsForUserMap.clear();
+  }
+
+  public static void setCacheTimeout(int sec) {
+    expandPermissionsTimeout = permissionsForUserTimeout = sec;
   }
 
   private Future<JsonArray> getPermissionsForUserCached(String userId, String tenant,
