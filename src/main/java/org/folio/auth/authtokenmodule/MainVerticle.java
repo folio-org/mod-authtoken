@@ -126,9 +126,6 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
 
-    String cachePermsString = System.getProperty("cache.permissions", "true");
-    boolean cachePermissions = cachePermsString.equals("true");
-
     clientTokenCreatorMap = new HashMap<>();
 
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
@@ -142,7 +139,7 @@ public class MainVerticle extends AbstractVerticle {
         logger.error("Unable to set log level: " + e.getMessage());
       }
     }
-    permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout, cachePermissions);
+    permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
@@ -608,16 +605,16 @@ public class MainVerticle extends AbstractVerticle {
     JsonArray permissionsRequired = new JsonArray();
     JsonArray permissionsDesired = new JsonArray();
 
-    if(ctx.request().headers().contains(REQUIRED_PERMISSIONS_HEADER)) {
+    if (ctx.request().headers().contains(REQUIRED_PERMISSIONS_HEADER)) {
       String permissionsString = ctx.request().headers().get(REQUIRED_PERMISSIONS_HEADER);
-      for(String entry : permissionsString.split(",")) {
+      for (String entry : permissionsString.split(",")) {
         permissionsRequired.add(entry);
       }
     }
 
-    if(ctx.request().headers().contains(DESIRED_PERMISSIONS_HEADER)) {
+    if (ctx.request().headers().contains(DESIRED_PERMISSIONS_HEADER)) {
       String permString = ctx.request().headers().get(DESIRED_PERMISSIONS_HEADER);
-      for(String entry : permString.split(",")) {
+      for (String entry : permString.split(",")) {
         permissionsDesired.add(entry);
       }
     }
@@ -631,9 +628,8 @@ public class MainVerticle extends AbstractVerticle {
       usePermissionsSource = permissionsSource;
     }
 
-    if (zapCache && usePermissionsSource instanceof Cache) {
-      logger.info("Requesting cleared cache for authToken '" + authToken + "'");
-      ((Cache) usePermissionsSource).clearCache();
+    if (zapCache) {
+      usePermissionsSource.clearCache();
     }
 
     //Retrieve the user permissions and populate the permissions header
@@ -642,7 +638,7 @@ public class MainVerticle extends AbstractVerticle {
     long startTime = System.currentTimeMillis();
     Future<PermissionData> retrievedPermissionsFuture = usePermissionsSource
       .getUserAndExpandedPermissions(userId, tenant, okapiUrl, permissionsRequestToken,
-        requestId, extraPermissions, cacheKey);
+        requestId, extraPermissions);
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
       if (res.failed()) {
