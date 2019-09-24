@@ -15,7 +15,7 @@ public class CacheEntry<E> {
   }
 
   public Long getAge() {
-    return System.currentTimeMillis() - createTime;
+    return (System.currentTimeMillis() - createTime) / 1000;
   }
 
 }
