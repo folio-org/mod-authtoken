@@ -21,6 +21,7 @@ public class DummyPermissionsSource implements PermissionsSource {
 
   @Override
   public void clearCache() {
+    // has no notion of cache, so does nothing
   }
 
 }
