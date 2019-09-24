@@ -57,7 +57,6 @@ public class MainVerticle extends AbstractVerticle {
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   private static final String TOKEN_USER_ID_FIELD = "user_id";
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
-  private static final String CACHE_KEY_FIELD = "cache_key";
   private static final String MISSING_HEADER = "Missing header: ";
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
 
@@ -379,10 +378,6 @@ public class MainVerticle extends AbstractVerticle {
 
       payload.put("tenant", tenant);
 
-      if (!payload.containsKey(CACHE_KEY_FIELD)) {
-        payload.put(CACHE_KEY_FIELD, UUID.randomUUID().toString());
-      }
-
       //Set "time issued" claim on token
       Instant instant = Instant.now();
       payload.put("iat", instant.getEpochSecond());
@@ -509,7 +504,6 @@ public class MainVerticle extends AbstractVerticle {
 
     String username = tokenClaims.getString("sub");
     String jwtTenant = tokenClaims.getString("tenant");
-    String cacheKey = getClaims(candidateToken).getString(CACHE_KEY_FIELD);
 
     if (jwtTenant == null || !jwtTenant.equals(tenant)) {
       logger.error("Expected tenant: " + tenant + ", got tenant: " + jwtTenant);
@@ -568,7 +562,6 @@ public class MainVerticle extends AbstractVerticle {
         tokenPayload.put("extra_permissions", permissionList);
         tokenPayload.put("request_id", requestId);
         tokenPayload.put("user_id", finalUserId);
-        tokenPayload.put(CACHE_KEY_FIELD, cacheKey);
         String moduleToken = null;
         try {
           moduleToken = tokenCreator.createJWTToken(tokenPayload.encode());
