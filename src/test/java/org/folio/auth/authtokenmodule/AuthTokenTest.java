@@ -22,6 +22,7 @@ import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.util.concurrent.ThreadLocalRandom;
 import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
+import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.junit.runner.RunWith;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -457,10 +458,11 @@ public class AuthTokenTest {
       .header("X-Okapi-Request-Id", "1234")
       .header("X-Okapi-Token", basicToken2)
       .header("X-Okapi-Url", "http://localhost:" + mockPort)
-      .header("X-Okapi-Permissions-Desired", "xxxxx")
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
       .get("/bar")
       .then()
-      .statusCode(202);
+      .statusCode(202)
+      .header("X-Okapi-Permissions", "[]");
     PermsMock.handlePermsUsersPermissionsStatusCode = 200;
 
     //pass a desired permission through as a wildcard
@@ -537,6 +539,20 @@ public class AuthTokenTest {
       .then()
       .statusCode(202)
       .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+
+    logger.info("Test with extra permissions - timeout = 0");
+    ModulePermissionsSource.setCacheTimeout(0);
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", basicToken3)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Desired", "extra.*bar")
+      .get("/bar")
+      .then()
+      .statusCode(202)
+      .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+    ModulePermissionsSource.setCacheTimeout(60);
 
     logger.info("Test with wildcard permission - zap cache");
     given()

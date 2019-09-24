@@ -38,24 +38,25 @@ public class MainVerticle extends AbstractVerticle {
 
   // TODO - Use header names from Okapi.common
   public static final String PERMISSIONS_HEADER = "X-Okapi-Permissions";
-  private static final String CONTENT_TYPE = "Content-Type";
+  public static final String APPLICATION_JSON = "application/json";
+  public static final String CONTENT_TYPE = "Content-Type";
+  public static final String ACCEPT = "Accept";
   private static final String DESIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Desired";
   private static final String REQUIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Required";
   private static final String MODULE_PERMISSIONS_HEADER = "X-Okapi-Module-Permissions";
   private static final String EXTRA_PERMISSIONS_HEADER = "X-Okapi-Extra-Permissions";
   private static final String CALLING_MODULE_HEADER = "X-Okapi-Calling-Module";
   private static final String USERID_HEADER = "X-Okapi-User-Id";
-  private static final String REQUESTID_HEADER = "X-Okapi-Request-Id";
+  public static final String REQUESTID_HEADER = "X-Okapi-Request-Id";
   public static final String MODULE_TOKENS_HEADER = "X-Okapi-Module-Tokens";
-  private static final String OKAPI_URL_HEADER = "X-Okapi-Url";
+  public static final String OKAPI_URL_HEADER = "X-Okapi-Url";
   public static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
-  private static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
+  public static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
   public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   private static final String TOKEN_USER_ID_FIELD = "user_id";
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
-  private static final String CACHE_KEY_FIELD = "cache_key";
   private static final String MISSING_HEADER = "Missing header: ";
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
 
@@ -86,7 +87,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private static void endJson(RoutingContext ctx, int code, String msg) {
     ctx.response().setStatusCode(code);
-    ctx.response().putHeader(CONTENT_TYPE, "application/json");
+    ctx.response().putHeader(CONTENT_TYPE, APPLICATION_JSON);
     ctx.response().end(msg);
   }
 
@@ -124,9 +125,6 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
 
-    String cachePermsString = System.getProperty("cache.permissions", "true");
-    boolean cachePermissions = cachePermsString.equals("true");
-
     clientTokenCreatorMap = new HashMap<>();
 
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
@@ -140,7 +138,7 @@ public class MainVerticle extends AbstractVerticle {
         logger.error("Unable to set log level: " + e.getMessage());
       }
     }
-    permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout, cachePermissions);
+    permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
@@ -380,10 +378,6 @@ public class MainVerticle extends AbstractVerticle {
 
       payload.put("tenant", tenant);
 
-      if (!payload.containsKey(CACHE_KEY_FIELD)) {
-        payload.put(CACHE_KEY_FIELD, UUID.randomUUID().toString());
-      }
-
       //Set "time issued" claim on token
       Instant instant = Instant.now();
       payload.put("iat", instant.getEpochSecond());
@@ -442,7 +436,6 @@ public class MainVerticle extends AbstractVerticle {
       ugly 'lookup loop'
     */
     String permissionsRequestToken;
-    logger.info("permissionsRequestTokenMap create");
     JsonObject permissionRequestPayload = new JsonObject()
       .put("sub", "_AUTHZ_MODULE_")
       .put("tenant", tenant)
@@ -511,7 +504,6 @@ public class MainVerticle extends AbstractVerticle {
 
     String username = tokenClaims.getString("sub");
     String jwtTenant = tokenClaims.getString("tenant");
-    String cacheKey = getClaims(candidateToken).getString(CACHE_KEY_FIELD);
 
     if (jwtTenant == null || !jwtTenant.equals(tenant)) {
       logger.error("Expected tenant: " + tenant + ", got tenant: " + jwtTenant);
@@ -570,7 +562,6 @@ public class MainVerticle extends AbstractVerticle {
         tokenPayload.put("extra_permissions", permissionList);
         tokenPayload.put("request_id", requestId);
         tokenPayload.put("user_id", finalUserId);
-        tokenPayload.put(CACHE_KEY_FIELD, cacheKey);
         String moduleToken = null;
         try {
           moduleToken = tokenCreator.createJWTToken(tokenPayload.encode());
@@ -607,16 +598,16 @@ public class MainVerticle extends AbstractVerticle {
     JsonArray permissionsRequired = new JsonArray();
     JsonArray permissionsDesired = new JsonArray();
 
-    if(ctx.request().headers().contains(REQUIRED_PERMISSIONS_HEADER)) {
+    if (ctx.request().headers().contains(REQUIRED_PERMISSIONS_HEADER)) {
       String permissionsString = ctx.request().headers().get(REQUIRED_PERMISSIONS_HEADER);
-      for(String entry : permissionsString.split(",")) {
+      for (String entry : permissionsString.split(",")) {
         permissionsRequired.add(entry);
       }
     }
 
-    if(ctx.request().headers().contains(DESIRED_PERMISSIONS_HEADER)) {
+    if (ctx.request().headers().contains(DESIRED_PERMISSIONS_HEADER)) {
       String permString = ctx.request().headers().get(DESIRED_PERMISSIONS_HEADER);
-      for(String entry : permString.split(",")) {
+      for (String entry : permString.split(",")) {
         permissionsDesired.add(entry);
       }
     }
@@ -630,9 +621,8 @@ public class MainVerticle extends AbstractVerticle {
       usePermissionsSource = permissionsSource;
     }
 
-    if (zapCache && usePermissionsSource instanceof Cache) {
-      logger.info("Requesting cleared cache for authToken '" + authToken + "'");
-      ((Cache) usePermissionsSource).clearCache();
+    if (zapCache) {
+      usePermissionsSource.clearCache();
     }
 
     //Retrieve the user permissions and populate the permissions header
@@ -641,7 +631,7 @@ public class MainVerticle extends AbstractVerticle {
     long startTime = System.currentTimeMillis();
     Future<PermissionData> retrievedPermissionsFuture = usePermissionsSource
       .getUserAndExpandedPermissions(userId, tenant, okapiUrl, permissionsRequestToken,
-        requestId, extraPermissions, cacheKey);
+        requestId, extraPermissions);
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
       if (res.failed()) {

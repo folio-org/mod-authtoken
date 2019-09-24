@@ -12,11 +12,16 @@ import org.folio.auth.authtokenmodule.PermissionData;
 public class DummyPermissionsSource implements PermissionsSource {
 
   @Override
-  public Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant, 
-      String okapiUrl, String requestToken, String requestId, JsonArray permissions, String key) {
+  public Future<PermissionData> getUserAndExpandedPermissions(String userid, String tenant,
+    String okapiUrl, String requestToken, String requestId, JsonArray permissions) {
     PermissionData permissionData = new PermissionData();
     permissionData.setExpandedPermissions(permissions);
     return Future.succeededFuture(permissionData);
+  }
+
+  @Override
+  public void clearCache() {
+    // has no notion of cache, so does nothing
   }
 
 }
