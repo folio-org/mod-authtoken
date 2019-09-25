@@ -1,3 +1,8 @@
+## 2.3.0 2019-09-25
+
+ * MODAT-49 Two caches for permissionsForUser and expandPermissions
+ * MODAT-50 Fix Does not pass X-Okapi-Request-Id
+
 ## 2.2.1 2019-07-23
 
 * [MODAT-47](https://issues.folio.org/browse/MODAT-47) Incorrect extra permissions handling
