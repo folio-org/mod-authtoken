@@ -26,9 +26,7 @@ public class UserService {
     cachePeriod = cacheInSeconds * 1000L;
 
     // purge cache periodically
-    vertx.setPeriodic(purgeCacheInSeconds * 1000L, id -> {
-      cache = new ConcurrentHashMap<>();
-    });
+    vertx.setPeriodic(purgeCacheInSeconds * 1000L, id -> cache = new ConcurrentHashMap<>());
   }
 
   /**

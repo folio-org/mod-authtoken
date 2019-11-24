@@ -59,6 +59,8 @@ public class MainVerticle extends AbstractVerticle {
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
   private static final String MISSING_HEADER = "Missing header: ";
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
+  private static final String REQUEST_ID = "request_id";
+  private static final String EXTRA_PERMS = "extra_permissions";
 
   PermissionsSource permissionsSource;
   private static final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
@@ -403,8 +405,8 @@ public class MainVerticle extends AbstractVerticle {
       .put("sub", "_AUTHZ_MODULE_")
       .put("tenant", tenant)
       .put("dummy", true)
-      .put("request_id", (requestId == null || requestId.isEmpty()) ? "dummy" : requestId)
-      .put("extra_permissions", perms);
+      .put(REQUEST_ID, (requestId == null || requestId.isEmpty()) ? "dummy" : requestId)
+      .put(EXTRA_PERMS, perms);
     return tokenCreator.createJWTToken(tokenPayload.encode());
   }
 
@@ -453,7 +455,8 @@ public class MainVerticle extends AbstractVerticle {
       has the necessary permissions in it. This prevents an
       ugly 'lookup loop'
     */
-    String permissionsRequestToken, userRequestToken;
+    String permissionsRequestToken;
+    String userRequestToken;
     try {
       permissionsRequestToken = createRequestToken(tenant, requestId, new JsonArray()
           .add(PERMISSIONS_PERMISSION_READ_BIT)
@@ -476,7 +479,7 @@ public class MainVerticle extends AbstractVerticle {
                 .put("sub", UNDEFINED_USER_NAME + ctx.request().remoteAddress().toString() +
                         "__" + df.format(now))
                 .put("tenant", tenant)
-                .put("request_id", requestId)
+                .put(REQUEST_ID, requestId)
                 .put("dummy", true);
       } catch(Exception e) {
         endText(ctx, 500,  "Error creating dummy token: ", e);
@@ -543,7 +546,7 @@ public class MainVerticle extends AbstractVerticle {
     final String finalUserId = userId;
 
     //Check and see if we have any module permissions defined
-    JsonArray extraPermissionsCandidate = getClaims(authToken).getJsonArray("extra_permissions");
+    JsonArray extraPermissionsCandidate = getClaims(authToken).getJsonArray(EXTRA_PERMS);
     if(extraPermissionsCandidate == null) {
       extraPermissionsCandidate = new JsonArray();
     }
@@ -572,8 +575,8 @@ public class MainVerticle extends AbstractVerticle {
         tokenPayload.put("sub", username);
         tokenPayload.put("tenant", tenant);
         tokenPayload.put("module", moduleName);
-        tokenPayload.put("extra_permissions", permissionList);
-        tokenPayload.put("request_id", requestId);
+        tokenPayload.put(EXTRA_PERMS, permissionList);
+        tokenPayload.put(REQUEST_ID, requestId);
         tokenPayload.put("user_id", finalUserId);
         String moduleToken = null;
         try {
