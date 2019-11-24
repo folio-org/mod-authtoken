@@ -41,11 +41,15 @@ public class AuthTokenTest {
   private static JsonObject payloadBad;
   private static JsonObject payload2;
   private static JsonObject payload3;
+  private static JsonObject payload404;
+  private static JsonObject payloadInactive;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String basicToken;
   private static String basicToken2;
   private static String basicToken3;
   private static String basicBadToken;
+  private static String token404;
+  private static String tokenInactive;
 
   static int port;
   static int mockPort;
@@ -57,9 +61,9 @@ public class AuthTokenTest {
   public static void setUpClass(TestContext context) throws NoSuchAlgorithmException,
     JOSEException, ParseException {
     Async async = context.async();
-    port = nextFreePort();
-    mockPort = nextFreePort();
-    freePort = nextFreePort();
+    port = NetworkUtils.nextFreePort();
+    mockPort = NetworkUtils.nextFreePort();
+    freePort = NetworkUtils.nextFreePort();
     vertx = Vertx.vertx();
 
     logger.info("Setting up AuthTokenTest. Port=" + port);
@@ -86,6 +90,14 @@ public class AuthTokenTest {
       .put("tenant", tenant)
       .put("sub", "jones")
       .put("extra_permissions", new JsonArray().add("auth.signtoken"));
+    payload404 = new JsonObject()
+      .put("user_id", "404")
+      .put("tenant", tenant)
+      .put("sub", "jones");
+    payloadInactive = new JsonObject()
+      .put("user_id", "inactive")
+      .put("tenant", tenant)
+      .put("sub", "jones");
     //String passPhrase = "TheOriginalCorrectBatteryHorseStapleGun";
     String passPhrase = "CorrectBatteryHorseStaple";
     String badPassPhrase = "IncorrectBatteryHorseStaple";
@@ -95,6 +107,8 @@ public class AuthTokenTest {
     basicToken2 = tokenCreator.createJWTToken(payload2.encode());
     basicToken3 = tokenCreator.createJWTToken(payload3.encode());
     basicBadToken = badTokenCreator.createJWTToken(payloadBad.encode());
+    token404 = tokenCreator.createJWTToken(payload404.encode());
+    tokenInactive = tokenCreator.createJWTToken(payloadInactive.encode());
 
     System.setProperty("jwt.signing.key", passPhrase);
 
@@ -351,11 +365,33 @@ public class AuthTokenTest {
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken)
-      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
       .header("X-Okapi-User-Id", userUUID)
       .get("/bar")
       .then()
       .statusCode(202);
+
+    logger.info("Test with 404 user token");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", token404)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-User-Id", "404")
+      .get("/bar")
+      .then()
+      .statusCode(401)
+      .assertThat().body(containsString("not exist"));
+
+    logger.info("Test with inactive user token");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", tokenInactive)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-User-Id", "inactive")
+      .get("/bar")
+      .then()
+      .statusCode(401)
+      .assertThat().body(containsString("not active"));
 
     logger.info("Test with basicBadToken");
     given()
@@ -948,31 +984,6 @@ public class AuthTokenTest {
     async.complete();
     logger.debug("AuthToken test1 done");
 
-  }
-
-  public static int nextFreePort() {
-    int maxTries = 10000;
-    int port = ThreadLocalRandom.current().nextInt(49152, 65535);
-    while (true) {
-      if (isLocalPortFree(port)) {
-        return port;
-      } else {
-        port = ThreadLocalRandom.current().nextInt(49152, 65535);
-      }
-      maxTries--;
-      if (maxTries == 0) {
-        return 8081;
-      }
-    }
-  }
-
-  private static boolean isLocalPortFree(int port) {
-    try {
-      new ServerSocket(port).close();
-      return true;
-    } catch (IOException e) {
-      return false;
-    }
   }
 
   private String getMagicPermission(String endpoint) {

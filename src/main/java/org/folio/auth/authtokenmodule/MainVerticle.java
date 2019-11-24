@@ -65,6 +65,9 @@ public class MainVerticle extends AbstractVerticle {
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
 
+  private UserService userService;
+  private static final String PERMISSIONS_USERS_ITEM_GET = "users.item.get";
+
   private TokenCreator tokenCreator;
 
   private LimitedSizeQueue<String> tokenCache;
@@ -116,6 +119,8 @@ public class MainVerticle extends AbstractVerticle {
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
+    int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "120")); // 2 minutes
+    int userCachePurgeInSeconds = Integer.parseInt(System.getProperty("user.cache.purge.seconds", "43200")); // 12 hours
 
     try {
       tokenCreator = getTokenCreator();
@@ -139,6 +144,8 @@ public class MainVerticle extends AbstractVerticle {
       }
     }
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
+
+    userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
 
     // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
@@ -337,7 +344,7 @@ public class MainVerticle extends AbstractVerticle {
       endText(ctx, 500, e);
     }
   }
-  
+
   /*
    * Handle a request to sign a new token
    * (Typically used by login module)
@@ -390,6 +397,17 @@ public class MainVerticle extends AbstractVerticle {
     }
   }
 
+  // create request token needed by mod-authtoken
+  private String createRequestToken(String tenant, String requestId, JsonArray perms) throws JOSEException, ParseException {
+    JsonObject tokenPayload = new JsonObject()
+      .put("sub", "_AUTHZ_MODULE_")
+      .put("tenant", tenant)
+      .put("dummy", true)
+      .put("request_id", (requestId == null || requestId.isEmpty()) ? "dummy" : requestId)
+      .put("extra_permissions", perms);
+    return tokenCreator.createJWTToken(tokenPayload.encode());
+  }
+
   private void handleAuthorize(RoutingContext ctx) {
     logger.debug("Calling handleAuthorize for " + ctx.request().absoluteURI());
     String requestId = ctx.request().headers().get(REQUESTID_HEADER);
@@ -430,30 +448,25 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     /*
-      In order to make our request to the permissions module
+      In order to make our request to the permissions or users modules
       we generate a custom token (since we have that power) that
       has the necessary permissions in it. This prevents an
       ugly 'lookup loop'
     */
-    String permissionsRequestToken;
-    JsonObject permissionRequestPayload = new JsonObject()
-      .put("sub", "_AUTHZ_MODULE_")
-      .put("tenant", tenant)
-      .put("dummy", true)
-      .put("request_id", "PERMISSIONS_REQUEST_TOKEN")
-      .put("extra_permissions", new JsonArray()
-        .add(PERMISSIONS_PERMISSION_READ_BIT)
-        .add(PERMISSIONS_USER_READ_BIT));
-
+    String permissionsRequestToken, userRequestToken;
     try {
-      permissionsRequestToken = tokenCreator.createJWTToken(permissionRequestPayload.encode());
+      permissionsRequestToken = createRequestToken(tenant, requestId, new JsonArray()
+          .add(PERMISSIONS_PERMISSION_READ_BIT)
+          .add(PERMISSIONS_USER_READ_BIT));
+      userRequestToken = createRequestToken(tenant, requestId, new JsonArray()
+          .add(PERMISSIONS_USERS_ITEM_GET));
     } catch (Exception e) {
-      endText(ctx, 500, "Error creating permission request token: ", e);
+      endText(ctx, 500, "Error creating request token: ", e);
       return;
     }
 
     if (candidateToken == null) {
-      logger.info("Generating dummy authtoken");
+      logger.debug("Generating dummy authtoken");
       JsonObject dummyPayload = new JsonObject();
       try {
         //Generate a new "dummy" token
@@ -476,7 +489,7 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
     }
- 
+
     final String authToken = candidateToken;
     logger.debug("Final authToken is " + authToken);
     final String errMsg = "Invalid token";
@@ -515,7 +528,7 @@ public class MainVerticle extends AbstractVerticle {
     if(tokenUserId != null) {
       if (userId != null) {
         if (!userId.equals(tokenUserId)) {
-          endText(ctx, 403, 
+          endText(ctx, 403,
            "Payload user id of '" + tokenUserId + " does not match expected value.");
           return;
         }
@@ -629,9 +642,25 @@ public class MainVerticle extends AbstractVerticle {
     logger.debug("Getting user permissions for " + username + " (userId " +
             userId + ")");
     long startTime = System.currentTimeMillis();
-    Future<PermissionData> retrievedPermissionsFuture = usePermissionsSource
-      .getUserAndExpandedPermissions(userId, tenant, okapiUrl, permissionsRequestToken,
-        requestId, extraPermissions);
+
+    // Need to check if the user is still active
+    Future<PermissionData> retrievedPermissionsFuture;
+    if (finalUserId != null && !finalUserId.isEmpty()) {
+      Future<Boolean> activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
+      retrievedPermissionsFuture = activeUser.compose(b -> {
+        if (b != null && b.booleanValue()) {
+          return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
+              permissionsRequestToken, requestId, extraPermissions);
+        } else {
+          endText(ctx, 401, "Invalid token: user with id " + finalUserId + " is not active");
+          return Future.succeededFuture();
+        }
+      });
+    } else {
+      retrievedPermissionsFuture = usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
+          permissionsRequestToken, requestId, extraPermissions);
+    }
+
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
       if (res.failed()) {
@@ -639,6 +668,10 @@ public class MainVerticle extends AbstractVerticle {
         logger.error("Unable to retrieve permissions for " + username + ": "
           + res.cause().getMessage() + " request took "
           + (stopTime - startTime) + " ms");
+        if (res.cause() instanceof UserService.UserServiceException) {
+          endText(ctx, 401, "Invalid token: " + res.cause().getLocalizedMessage());
+          return;
+        }
         ctx.response().putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
         endText(ctx, 400, "Unable to retrieve permissions for user with id'"
           + finalUserId + "': " + res.cause().getLocalizedMessage());

@@ -74,10 +74,10 @@ public class ModulePermissionsSource implements PermissionsSource {
 
   private Future<JsonArray> getPermissionsForUser(String userId, String tenant, String okapiUrl,
     String requestToken, String requestId) {
-    logger.info("gerPermissionsForUser userid=" + userId);
+    logger.debug("gerPermissionsForUser userid=" + userId);
     Future<JsonArray> future = Future.future();
     String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userId;
-    logger.info("Requesting permissions user object from URL at " + permUserRequestUrl);
+    logger.debug("Requesting permissions user object from URL at " + permUserRequestUrl);
     HttpClientRequest permUserReq = client.getAbs(permUserRequestUrl, permUserRes -> {
       permUserRes.bodyHandler(permUserBody -> {
         if (permUserRes.statusCode() != 200) {
@@ -89,7 +89,7 @@ public class ModulePermissionsSource implements PermissionsSource {
           JsonObject permUserResults = new JsonObject(permUserBody.toString());
           JsonObject permUser = permUserResults.getJsonArray("permissionUsers").getJsonObject(0);
           final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
-          logger.info("Requesting permissions from URL at " + requestUrl);
+          logger.debug("Requesting permissions from URL at " + requestUrl);
           HttpClientRequest req = client.getAbs(requestUrl, res -> {
             if (res.statusCode() == 200) {
               res.bodyHandler(res2 -> {
@@ -187,7 +187,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     try {
       String requestUrl = okapiUrl + "/perms/permissions?"
         + "expandSubs=true&query=" + URLEncoder.encode(query, "UTF-8");
-      logger.info("Requesting expanded permissions from URL at " + requestUrl);
+      logger.debug("Requesting expanded permissions from URL at " + requestUrl);
       HttpClientRequest req = client.getAbs(requestUrl, res -> {
         res.bodyHandler(body -> handleExpandPermissions(res, body, future, permissions));
         res.exceptionHandler(e -> {
@@ -274,7 +274,7 @@ public class ModulePermissionsSource implements PermissionsSource {
   public Future<PermissionData> getUserAndExpandedPermissions(String userid,
     String tenant, String okapiUrl, String requestToken, String requestId,
     JsonArray permissions) {
-    logger.info("Retrieving permissions for userid " + userid + " and expanding permissions");
+    logger.debug("Retrieving permissions for userid " + userid + " and expanding permissions");
 
     Future<JsonArray> userPermsFuture
       = getPermissionsForUserCached(userid, tenant, okapiUrl, requestToken, requestId);
