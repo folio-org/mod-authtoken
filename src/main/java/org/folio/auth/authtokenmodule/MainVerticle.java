@@ -121,7 +121,7 @@ public class MainVerticle extends AbstractVerticle {
     Router router = Router.router(vertx);
     HttpServer server = vertx.createHttpServer();
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
-    int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "120")); // 2 minutes
+    int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
     int userCachePurgeInSeconds = Integer.parseInt(System.getProperty("user.cache.purge.seconds", "43200")); // 12 hours
 
     try {
