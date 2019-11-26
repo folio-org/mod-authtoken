@@ -648,7 +648,7 @@ public class MainVerticle extends AbstractVerticle {
 
     // Need to check if the user is still active
     Future<PermissionData> retrievedPermissionsFuture;
-    if (finalUserId != null && !finalUserId.isEmpty()) {
+    if (finalUserId != null && !finalUserId.trim().isEmpty()) {
       Future<Boolean> activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
       retrievedPermissionsFuture = activeUser.compose(b -> {
         if (b != null && b.booleanValue()) {
