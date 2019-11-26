@@ -34,6 +34,7 @@ public class PermsMock extends AbstractVerticle {
     router.route("/perms/users/:id/permissions").handler(this::handlePermUsersPermissions);
     router.route("/perms/users").handler(this::handlePermsUsers);
     router.route("/perms/permissions").handler(this::handlePermsPermissions);
+    router.route("/users/:id").handler(this::handleUsers);
     logger.info("Running PermsMock on port " + port);
     server.requestHandler(router::accept).listen(port, result -> {
       if (result.failed()) {
@@ -42,6 +43,21 @@ public class PermsMock extends AbstractVerticle {
         future.complete();
       }
     });
+  }
+
+  private void handleUsers(RoutingContext context) {
+    String id = context.pathParam("id");
+    if (id.contentEquals("404")) {
+      context.response().setStatusCode(404).end();
+      return;
+    }
+    if (id.contentEquals("inactive")) {
+      context.response().putHeader("Content-Type", "application/json")
+          .end(new JsonObject().put("active", false).encode());
+      return;
+    }
+    context.response().putHeader("Content-Type", "application/json")
+        .end(new JsonObject().put("active", true).encode());
   }
 
   private void handlePermsUsers(RoutingContext context) {

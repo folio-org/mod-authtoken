@@ -25,6 +25,10 @@
     {
       "id" : "permissions",
       "version" : "5.2"
+    },
+    {
+      "id" : "users",
+      "version" : "15.0"
     }
   ],
   "filters" : [
