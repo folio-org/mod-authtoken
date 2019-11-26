@@ -655,8 +655,9 @@ public class MainVerticle extends AbstractVerticle {
           return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
               permissionsRequestToken, requestId, extraPermissions);
         } else {
-          endText(ctx, 401, "Invalid token: user with id " + finalUserId + " is not active");
-          return Future.succeededFuture();
+          String msg = "Invalid token: user with id " + finalUserId + " is not active";
+          endText(ctx, 401, msg);
+          return Future.failedFuture(msg);
         }
       });
     } else {
