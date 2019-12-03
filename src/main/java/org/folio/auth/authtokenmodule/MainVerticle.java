@@ -629,10 +629,12 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     PermissionsSource usePermissionsSource;
+    boolean dummyPermissionSource = false;
     if((tokenClaims.getBoolean("dummy") != null && tokenClaims.getBoolean("dummy"))
             || username.startsWith(UNDEFINED_USER_NAME)) {
       logger.debug("Using dummy permissions source");
       usePermissionsSource = new DummyPermissionsSource();
+      dummyPermissionSource = true;
     } else {
       usePermissionsSource = permissionsSource;
     }
@@ -648,7 +650,7 @@ public class MainVerticle extends AbstractVerticle {
 
     // Need to check if the user is still active
     Future<PermissionData> retrievedPermissionsFuture;
-    if (finalUserId != null && !finalUserId.trim().isEmpty()) {
+    if (!dummyPermissionSource && finalUserId != null && !finalUserId.trim().isEmpty()) {
       Future<Boolean> activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
       retrievedPermissionsFuture = activeUser.compose(b -> {
         if (b != null && b.booleanValue()) {
