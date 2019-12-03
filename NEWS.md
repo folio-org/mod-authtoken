@@ -1,3 +1,9 @@
+## 2.4.0 2019-12-03
+
+ * MODAT-56 validate user deactivation when checking access token
+ * Use new JAVA_OPTIONS MaxRAMPercentage FOLIO-2358
+ * Use new base docker image FOLIO-2358
+
 ## 2.3.0 2019-09-25
 
  * MODAT-49 Two caches for permissionsForUser and expandPermissions
