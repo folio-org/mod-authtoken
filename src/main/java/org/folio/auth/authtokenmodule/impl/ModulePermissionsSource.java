@@ -40,6 +40,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     this.vertx = vertx;
     HttpClientOptions options = new HttpClientOptions();
     options.setConnectTimeout(timeout * 1000);
+    options.setMaxPoolSize(100);
     client = vertx.createHttpClient(options);
   }
 
