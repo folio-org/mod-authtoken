@@ -44,6 +44,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final String DESIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Desired";
   private static final String REQUIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Required";
   private static final String MODULE_PERMISSIONS_HEADER = "X-Okapi-Module-Permissions";
+  private static final String MODULE_PATH_METHODS_HEADER = "X-Okapi-Module-Path-Methods";
   private static final String EXTRA_PERMISSIONS_HEADER = "X-Okapi-Extra-Permissions";
   private static final String CALLING_MODULE_HEADER = "X-Okapi-Calling-Module";
   private static final String USERID_HEADER = "X-Okapi-User-Id";
@@ -61,6 +62,7 @@ public class MainVerticle extends AbstractVerticle {
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
   private static final String REQUEST_ID = "request_id";
   private static final String EXTRA_PERMS = "extra_permissions";
+  private static final String EXTRA_PERMS_ID = "extra_permissions_id";
 
   PermissionsSource permissionsSource;
   private static final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
@@ -546,9 +548,14 @@ public class MainVerticle extends AbstractVerticle {
     final String finalUserId = userId;
 
     //Check and see if we have any module permissions defined
-    JsonArray extraPermissionsCandidate = getClaims(authToken).getJsonArray(EXTRA_PERMS);
+    JsonArray extraPermissionsCandidate = tokenClaims.getJsonArray(EXTRA_PERMS);
     if(extraPermissionsCandidate == null) {
-      extraPermissionsCandidate = new JsonArray();
+      String modPermId = tokenClaims.getString(EXTRA_PERMS_ID);
+      if (modPermId != null) {
+        extraPermissionsCandidate = ModPermCache.get(jwtTenant, modPermId);
+      } else {
+        extraPermissionsCandidate = new JsonArray();
+      }
     }
 
     // In some rare cases (redirect) Okapi can pass extra permissions directly too
@@ -569,13 +576,23 @@ public class MainVerticle extends AbstractVerticle {
     /* TODO get module permissions (if they exist) */
     if (ctx.request().headers().contains(MODULE_PERMISSIONS_HEADER)) {
       JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(MODULE_PERMISSIONS_HEADER));
+      JsonObject modulePathMethods = null;
+      if (ctx.request().headers().contains(MODULE_PATH_METHODS_HEADER)) {
+        modulePathMethods = new JsonObject(ctx.request().headers().get(MODULE_PATH_METHODS_HEADER));
+      }
       for(String moduleName : modulePermissions.fieldNames()) {
         JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
         JsonObject tokenPayload = new JsonObject();
         tokenPayload.put("sub", username);
         tokenPayload.put("tenant", tenant);
         tokenPayload.put("module", moduleName);
-        tokenPayload.put(EXTRA_PERMS, permissionList);
+        if (modulePathMethods != null) {
+          String modPermId = moduleName + "#" + modulePathMethods.getString(moduleName);
+          ModPermCache.put(tenant, modPermId, permissionList);
+          tokenPayload.put(EXTRA_PERMS_ID, modPermId);
+        } else {
+          tokenPayload.put(EXTRA_PERMS, permissionList);
+        }
         tokenPayload.put(REQUEST_ID, requestId);
         tokenPayload.put("user_id", finalUserId);
         String moduleToken = null;
