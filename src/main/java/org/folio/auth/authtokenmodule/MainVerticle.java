@@ -669,12 +669,11 @@ public class MainVerticle extends AbstractVerticle {
         }
       });
     } else if (dummyPermissionSource) {
-      Future<JsonArray> expandSystemPermissions = permService.expandSystemPermissions(
-          extraPermissions, tenant, okapiUrl, permissionsRequestToken, requestId);
-      retrievedPermissionsFuture = expandSystemPermissions.compose(expandedPermissions -> {
-        return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
-            permissionsRequestToken, requestId, expandedPermissions);
-      });
+      Future<JsonArray> expandSystemPermissions = permService.expandSystemPermissions(extraPermissions, tenant,
+          okapiUrl, permissionsRequestToken, requestId);
+      retrievedPermissionsFuture = expandSystemPermissions
+          .compose(expandedPermissions -> usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant,
+              okapiUrl, permissionsRequestToken, requestId, expandedPermissions));
     } else {
       retrievedPermissionsFuture = usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
           permissionsRequestToken, requestId, extraPermissions);

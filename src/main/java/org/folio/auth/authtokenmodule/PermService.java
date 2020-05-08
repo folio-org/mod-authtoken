@@ -15,18 +15,20 @@ import java.util.concurrent.ConcurrentMap;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 
 /**
- * Help to expand system generated module permission set to the actual permissions.
+ * Help to expand system generated module permission set to the actual
+ * permissions.
  */
 public class PermService {
 
   private static final Logger logger = LoggerFactory.getLogger(PermService.class);
-  // map from system generated module permission set name to the actual permissions
+  // map from system generated module permission set name to the actual
+  // permissions
   private static ConcurrentMap<String, PermEntry> cache = new ConcurrentHashMap<>();
   private ModulePermissionsSource modulePermissionsSource;
   private long cachePeriod;
 
-  public PermService(Vertx vertx, ModulePermissionsSource modulePermissionsSource,
-      int cacheInSeconds, int purgeCacheInSeconds) {
+  public PermService(Vertx vertx, ModulePermissionsSource modulePermissionsSource, int cacheInSeconds,
+      int purgeCacheInSeconds) {
     this.modulePermissionsSource = modulePermissionsSource;
 
     // purge less used cache entry periodically
@@ -71,8 +73,9 @@ public class PermService {
    * @param requestId
    * @return
    */
-  public Future<JsonArray> expandSystemPermissions(JsonArray permissions, String tenant,
-      String okapiUrl, String requestToken, String requestId) {
+  @SuppressWarnings("java:S3740")
+  public Future<JsonArray> expandSystemPermissions(JsonArray permissions, String tenant, String okapiUrl,
+      String requestToken, String requestId) {
     Future<JsonArray> future = Future.future();
     JsonArray expandedPerms = new JsonArray().addAll(permissions);
     @SuppressWarnings("rawtypes")
@@ -86,10 +89,10 @@ public class PermService {
       if (entry != null) {
         entry.updateTimestamp();
         expandedPerms.addAll(entry.getPerms());
-        continue;
+      } else {
+        futures.add(modulePermissionsSource.expandPermissionsCached(new JsonArray().add(perm), tenant, okapiUrl,
+            requestToken, requestId));
       }
-      futures.add(modulePermissionsSource.expandPermissionsCached(new JsonArray().add(perm), tenant,
-          okapiUrl, requestToken, requestId));
     }
     CompositeFuture.join(futures).setHandler(ar -> {
       if (ar.succeeded()) {
