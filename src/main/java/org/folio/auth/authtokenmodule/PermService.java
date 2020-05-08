@@ -52,12 +52,15 @@ public class PermService {
    * @return original permissions plus sub permissions
    */
   public static JsonArray expandSystemPermissionsUsingCache(JsonArray permissions) {
-    JsonArray perms = new JsonArray().addAll(permissions);
+    JsonArray perms = new JsonArray();
     for (int i = 0, n = permissions.size(); i < n; i++) {
-      PermEntry entry = cache.get(permissions.getString(i));
+      String perm = permissions.getString(i);
+      PermEntry entry = cache.get(perm);
       if (entry != null) {
-        entry.updateTimestamp();
         perms.addAll(entry.getPerms());
+        entry.updateTimestamp();
+      } else {
+        perms.add(perm);
       }
     }
     return perms;
@@ -77,18 +80,19 @@ public class PermService {
   public Future<JsonArray> expandSystemPermissions(JsonArray permissions, String tenant, String okapiUrl,
       String requestToken, String requestId) {
     Future<JsonArray> future = Future.future();
-    JsonArray expandedPerms = new JsonArray().addAll(permissions);
+    JsonArray expandedPerms = new JsonArray();
     @SuppressWarnings("rawtypes")
     List<Future> futures = new ArrayList<>();
     for (int i = 0, n = permissions.size(); i < n; i++) {
       String perm = permissions.getString(i);
       if (!perm.startsWith("SYS#")) {
+        expandedPerms.add(perm);
         continue;
       }
       PermEntry entry = cache.get(perm);
       if (entry != null) {
-        entry.updateTimestamp();
         expandedPerms.addAll(entry.getPerms());
+        entry.updateTimestamp();
       } else {
         futures.add(modulePermissionsSource.expandPermissionsCached(new JsonArray().add(perm), tenant, okapiUrl,
             requestToken, requestId));

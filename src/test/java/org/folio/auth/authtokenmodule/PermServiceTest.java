@@ -30,8 +30,7 @@ public class PermServiceTest {
     vertx = Vertx.vertx();
     mps = mock(ModulePermissionsSource.class);
     JsonArray perms = new JsonArray().add(SYS_PERM).add(SUB_PERM_1).add(SUB_PERM_2);
-    when(mps.expandPermissionsCached(any(), any(), any(), any(), any()))
-        .thenReturn(Future.succeededFuture(perms));
+    when(mps.expandPermissionsCached(any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(perms));
     permService = new PermService(vertx, mps, 2, 2);
   }
 
@@ -41,7 +40,7 @@ public class PermServiceTest {
     JsonArray perms = new JsonArray().add(SYS_PERM);
     JsonArray rs = PermService.expandSystemPermissionsUsingCache(perms);
     // no static cache
-    assertTrue(rs.size() == 1);
+    assertEquals(1, rs.size());
     assertTrue(rs.contains(SYS_PERM));
     // no cache
     rs = callExpandPerms(perms);
@@ -74,8 +73,7 @@ public class PermServiceTest {
     when(badMps.expandPermissionsCached(any(), any(), any(), any(), any()))
         .thenReturn(Future.failedFuture("test failure"));
     PermService ps = new PermService(vertx, badMps, 10, 10);
-    Future<JsonArray> rs =
-        ps.expandSystemPermissions(new JsonArray().add("SYS#2"), "a", "a", "a", "a");
+    Future<JsonArray> rs = ps.expandSystemPermissions(new JsonArray().add("SYS#2"), "a", "a", "a", "a");
     assertTrue(rs.failed());
   }
 
@@ -84,8 +82,7 @@ public class PermServiceTest {
   }
 
   private void verifyExpandPerms(JsonArray rs) {
-    assertEquals(3, rs.size());
-    assertTrue(rs.contains(SYS_PERM));
+    assertEquals(2, rs.size());
     assertTrue(rs.contains(SUB_PERM_1));
     assertTrue(rs.contains(SUB_PERM_2));
   }

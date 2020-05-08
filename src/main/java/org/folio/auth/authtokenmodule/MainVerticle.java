@@ -655,29 +655,21 @@ public class MainVerticle extends AbstractVerticle {
     long startTime = System.currentTimeMillis();
 
     // Need to check if the user is still active
-    Future<PermissionData> retrievedPermissionsFuture;
+    Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
     if (!dummyPermissionSource && finalUserId != null && !finalUserId.trim().isEmpty()) {
-      Future<Boolean> activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
-      retrievedPermissionsFuture = activeUser.compose(b -> {
-        if (b != null && b.booleanValue()) {
-          return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
-              permissionsRequestToken, requestId, extraPermissions);
-        } else {
-          String msg = "Invalid token: user with id " + finalUserId + " is not active";
-          endText(ctx, 401, msg);
-          return Future.failedFuture(msg);
-        }
-      });
-    } else if (dummyPermissionSource) {
-      Future<JsonArray> expandSystemPermissions = permService.expandSystemPermissions(extraPermissions, tenant,
-          okapiUrl, permissionsRequestToken, requestId);
-      retrievedPermissionsFuture = expandSystemPermissions
-          .compose(expandedPermissions -> usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant,
-              okapiUrl, permissionsRequestToken, requestId, expandedPermissions));
-    } else {
-      retrievedPermissionsFuture = usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
-          permissionsRequestToken, requestId, extraPermissions);
+      activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
     }
+    Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
+      if (b != null && b.booleanValue()) {
+        return permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
+            requestId);
+      } else {
+        String msg = "Invalid token: user with id " + finalUserId + " is not active";
+        endText(ctx, 401, msg);
+        return Future.failedFuture(msg);
+      }
+    }).compose(expandedPermissions -> usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
+        permissionsRequestToken, requestId, expandedPermissions));
 
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
