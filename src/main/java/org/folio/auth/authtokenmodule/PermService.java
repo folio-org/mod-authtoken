@@ -52,18 +52,19 @@ public class PermService {
    * @return original permissions plus sub permissions
    */
   public static JsonArray expandSystemPermissionsUsingCache(JsonArray permissions) {
-    JsonArray perms = new JsonArray();
+    JsonArray expandedPerms = new JsonArray();
     for (int i = 0, n = permissions.size(); i < n; i++) {
       String perm = permissions.getString(i);
       PermEntry entry = cache.get(perm);
       if (entry != null) {
-        perms.addAll(entry.getPerms());
+        expandedPerms.addAll(entry.getPerms());
         entry.updateTimestamp();
       } else {
-        perms.add(perm);
+        expandedPerms.add(perm);
       }
     }
-    return perms;
+    logger.debug("Expand using static cache from " + permissions + " to " + expandedPerms);
+    return expandedPerms;
   }
 
   /**
@@ -108,6 +109,7 @@ public class PermService {
           expandedPerms.addAll(perms);
         });
         future.complete(expandedPerms);
+        logger.debug("Expand from " + permissions + " to " + expandedPerms);
       } else {
         future.fail(ar.cause());
         logger.error("Failed to expand permissions", ar.cause());
