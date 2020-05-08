@@ -54,6 +54,7 @@ public class AuthRoutingEntry {
     if (ctx.getBodyAsString() == null || ctx.getBodyAsString().isEmpty()) {
       logger.debug(String.format("No body found in request for %s, treating as filter", endpoint));
       //check for permissions
+      extraPermissions = PermService.expandSystemPermissionsUsingCache(extraPermissions);
       boolean allFound = true;
       for (String perm : requiredPermissions) {
         if (!extraPermissions.contains(perm)) {

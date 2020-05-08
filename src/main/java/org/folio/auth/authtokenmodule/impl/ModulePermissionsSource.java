@@ -151,7 +151,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     req.end();
   }
 
-  private Future<JsonArray> expandPermissionsCached(JsonArray permissions,
+  public Future<JsonArray> expandPermissionsCached(JsonArray permissions,
     String tenant, String okapiUrl, String requestToken, String requestId) {
 
     final String key = tenant + "_" + permissions.encodePrettily();
@@ -182,7 +182,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     StringJoiner joiner = new StringJoiner(" or ");
     for (Object ob : permissions) {
       String permissionName = (String) ob;
-      joiner.add("permissionName==" + permissionName + "");
+      joiner.add("permissionName==\"" + permissionName + "\"");
     }
     query = query + joiner.toString() + ")";
     try {
