@@ -187,7 +187,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     query = query + joiner.toString() + ")";
     try {
       String requestUrl = okapiUrl + "/perms/permissions?"
-        + "expandSubs=true&query=" + URLEncoder.encode(query, "UTF-8");
+        + "expanded=true&query=" + URLEncoder.encode(query, "UTF-8");
       logger.debug("Requesting expanded permissions from URL at " + requestUrl);
       HttpClientRequest req = client.getAbs(requestUrl, res -> {
         res.bodyHandler(body -> handleExpandPermissions(res, body, future, permissions));
