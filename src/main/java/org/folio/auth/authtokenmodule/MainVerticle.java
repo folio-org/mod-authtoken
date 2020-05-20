@@ -70,6 +70,8 @@ public class MainVerticle extends AbstractVerticle {
   private UserService userService;
   private static final String PERMISSIONS_USERS_ITEM_GET = "users.item.get";
 
+  private PermService permService;
+
   private TokenCreator tokenCreator;
 
   private LimitedSizeQueue<String> tokenCache;
@@ -123,6 +125,8 @@ public class MainVerticle extends AbstractVerticle {
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
     int userCachePurgeInSeconds = Integer.parseInt(System.getProperty("user.cache.purge.seconds", "43200")); // 12 hours
+    int sysPermCacheInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.seconds", "259200")); // 3 days
+    int sysPermCachePurgeInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.purge.seconds", "43200")); // 12 hours
 
     try {
       tokenCreator = getTokenCreator();
@@ -148,6 +152,8 @@ public class MainVerticle extends AbstractVerticle {
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
+
+    permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds, sysPermCachePurgeInSeconds);
 
     // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
@@ -649,23 +655,21 @@ public class MainVerticle extends AbstractVerticle {
     long startTime = System.currentTimeMillis();
 
     // Need to check if the user is still active
-    Future<PermissionData> retrievedPermissionsFuture;
+    Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
     if (!dummyPermissionSource && finalUserId != null && !finalUserId.trim().isEmpty()) {
-      Future<Boolean> activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
-      retrievedPermissionsFuture = activeUser.compose(b -> {
-        if (b != null && b.booleanValue()) {
-          return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
-              permissionsRequestToken, requestId, extraPermissions);
-        } else {
-          String msg = "Invalid token: user with id " + finalUserId + " is not active";
-          endText(ctx, 401, msg);
-          return Future.failedFuture(msg);
-        }
-      });
-    } else {
-      retrievedPermissionsFuture = usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
-          permissionsRequestToken, requestId, extraPermissions);
+      activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
     }
+    Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
+      if (b != null && b.booleanValue()) {
+        return permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
+            requestId);
+      } else {
+        String msg = "Invalid token: user with id " + finalUserId + " is not active";
+        endText(ctx, 401, msg);
+        return Future.failedFuture(msg);
+      }
+    }).compose(expandedPermissions -> usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
+        permissionsRequestToken, requestId, expandedPermissions));
 
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.setHandler(res -> {
