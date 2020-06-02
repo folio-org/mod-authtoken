@@ -111,7 +111,6 @@ public class ModulePermissionsSource implements PermissionsSource {
               //doesn't exist, so we'll return an empty list to indicate no permissions
               promise.complete(new JsonArray());
             } else {
-              //promise.fail("Unable to retrieve permissions");
               res.bodyHandler(res2 -> {
                 String failMessage = "Unable to retrieve permissions (code " + res.statusCode() + "): " + res2.toString();
                 logger.debug(failMessage);
@@ -158,7 +157,6 @@ public class ModulePermissionsSource implements PermissionsSource {
     }
     Future<JsonArray> future = expandPermissions(permissions, tenant, okapiUrl, requestToken, requestId);
     return future.compose(res -> {
-      Future<JsonArray> future2 = Future.future();
       expandPermissionsMap.put(key, new CacheEntry<>(res));
       return Future.succeededFuture(res);
     });
