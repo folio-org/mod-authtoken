@@ -3,6 +3,7 @@ package org.folio.auth.authtokenmodule;
 import com.nimbusds.jose.JOSEException;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -108,7 +109,7 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   @Override
-  public void start(Future<Void> future) {
+  public void start(Promise<Void> promise) {
     authRoutingEntryList = new ArrayList<>();
     authRoutingEntryList.add(new AuthRoutingEntry("/token",
         new String[] {SIGN_TOKEN_PERMISSION}, this::handleSignToken));
@@ -132,7 +133,7 @@ public class MainVerticle extends AbstractVerticle {
       tokenCreator = getTokenCreator();
       tokenCreator.dryRunAlgorithms();
     } catch(Exception e) {
-      future.fail(new RuntimeException("Unable to initialize TokenCreator: " + e.getLocalizedMessage(), e));
+      promise.fail(new RuntimeException("Unable to initialize TokenCreator: " + e.getLocalizedMessage(), e));
       return;
     }
 
@@ -164,10 +165,10 @@ public class MainVerticle extends AbstractVerticle {
     router.route("/*").handler(this::handleAuthorize);
 
     server.requestHandler(router::accept).listen(port, result -> {
-        if(result.succeeded()) {
-          future.complete();
+        if (result.succeeded()) {
+          promise.complete();
         } else {
-          future.fail(result.cause());
+          promise.fail(result.cause());
         }
     });
 
@@ -297,7 +298,7 @@ public class MainVerticle extends AbstractVerticle {
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
       //Go ahead and make the new request token
       String newAuthToken = mintNewAuthToken(tenant, tokenClaims);
-      validateRefreshToken(tokenClaims, ctx).setHandler(res -> {
+      validateRefreshToken(tokenClaims, ctx).onComplete(res -> {
         if (res.failed()) {
           endText(ctx, 500, res.cause());
           return;
@@ -534,7 +535,7 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     String tokenUserId = tokenClaims.getString(TOKEN_USER_ID_FIELD);
-    if(tokenUserId != null) {
+    if (tokenUserId != null) {
       if (userId != null) {
         if (!userId.equals(tokenUserId)) {
           endText(ctx, 403,
@@ -553,7 +554,7 @@ public class MainVerticle extends AbstractVerticle {
 
     //Check and see if we have any module permissions defined
     JsonArray extraPermissionsCandidate = getClaims(authToken).getJsonArray(EXTRA_PERMS);
-    if(extraPermissionsCandidate == null) {
+    if (extraPermissionsCandidate == null) {
       extraPermissionsCandidate = new JsonArray();
     }
 
@@ -597,7 +598,6 @@ public class MainVerticle extends AbstractVerticle {
         moduleTokens.put(moduleName, moduleToken);
      }
     }
-
     //Add the original token back into the module tokens
     moduleTokens.put("_", authToken);
 
@@ -610,8 +610,8 @@ public class MainVerticle extends AbstractVerticle {
     which the /token handler will check for when it processes the actual request
     */
 
-    for(AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
-      if(authRoutingEntry.handleRoute(ctx, authToken, moduleTokens.encode())) {
+    for (AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
+      if (authRoutingEntry.handleRoute(ctx, authToken, moduleTokens.encode())) {
         return;
       }
     }
@@ -672,7 +672,7 @@ public class MainVerticle extends AbstractVerticle {
         permissionsRequestToken, requestId, expandedPermissions));
 
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
-    retrievedPermissionsFuture.setHandler(res -> {
+    retrievedPermissionsFuture.onComplete(res -> {
       if (res.failed()) {
         long stopTime = System.currentTimeMillis();
         logger.error("Unable to retrieve permissions for " + username + ": "
@@ -811,50 +811,45 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
-    Future<Boolean> future = Future.future();
+    Promise<Boolean> promise = Promise.promise();
     try {
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
       if (!tenant.equals(tokenClaims.getString("tenant"))) {
         logger.error("Tenant mismatch for refresh token");
-        future.complete(Boolean.FALSE);
-        return future;
+        return Future.succeededFuture(Boolean.FALSE);
       }
       String address = ctx.request().remoteAddress().host();
       if (!address.equals(tokenClaims.getString("address"))) {
         logger.error("Issuing address does not match for refresh token");
-        future.complete(Boolean.FALSE);
-        return future;
+        return Future.succeededFuture(Boolean.FALSE);
       }
       Long nowTime = Instant.now().getEpochSecond();
       Long expiration = tokenClaims.getLong("exp");
       if (expiration < nowTime) {
         logger.error("Attempt to refresh with expired refresh token");
-        future.complete(Boolean.FALSE);
-        return future;
+        return Future.succeededFuture(Boolean.FALSE);
       }
-      checkRefreshTokenRevoked(tokenClaims).setHandler(res -> {
+      checkRefreshTokenRevoked(tokenClaims).onComplete(res -> {
         if (res.failed()) {
-          future.fail(res.cause());
+          promise.fail(res.cause());
         } else {
           if (res.result()) {
             logger.error("Attempt to refresh with revoked token");
-            future.complete(Boolean.FALSE);
+            promise.complete(Boolean.FALSE);
           } else {
-            future.complete(Boolean.TRUE);
+            promise.complete(Boolean.TRUE);
           }
         }
       });
     } catch (Exception e) {
-      future.fail(e);
+      promise.fail(e);
     }
-    return future;
+    return promise.future();
   }
 
   private Future<Boolean> checkRefreshTokenRevoked(JsonObject tokenClaims) {
     //Stub function until we implement a shared revocation list
-    Future<Boolean> future = Future.future();
-    future.complete(Boolean.FALSE);
-    return future;
+    return Future.succeededFuture(Boolean.FALSE);
   }
 
   private JsonObject parseJsonObject(String encoded, String[] requiredMembers)

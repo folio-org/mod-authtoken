@@ -2,6 +2,7 @@ package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.logging.Logger;
@@ -80,7 +81,7 @@ public class PermService {
   @SuppressWarnings("java:S3740")
   public Future<JsonArray> expandSystemPermissions(JsonArray permissions, String tenant, String okapiUrl,
       String requestToken, String requestId) {
-    Future<JsonArray> future = Future.future();
+    Promise<JsonArray> promise = Promise.promise();
     JsonArray expandedPerms = new JsonArray();
     @SuppressWarnings("rawtypes")
     List<Future> futures = new ArrayList<>();
@@ -99,7 +100,7 @@ public class PermService {
             requestToken, requestId));
       }
     }
-    CompositeFuture.join(futures).setHandler(ar -> {
+    CompositeFuture.join(futures).onComplete(ar -> {
       if (ar.succeeded()) {
         futures.forEach(f -> {
           JsonArray perms = (JsonArray) f.result();
@@ -108,14 +109,14 @@ public class PermService {
           cache.put(perm, new PermEntry(perms));
           expandedPerms.addAll(perms);
         });
-        future.complete(expandedPerms);
+        promise.complete(expandedPerms);
         logger.debug("Expand from " + permissions + " to " + expandedPerms);
       } else {
-        future.fail(ar.cause());
+        promise.fail(ar.cause());
         logger.error("Failed to expand permissions", ar.cause());
       }
     });
-    return future;
+    return promise.future();
   }
 
   private static class PermEntry {
