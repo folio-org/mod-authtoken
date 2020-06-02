@@ -165,11 +165,7 @@ public class MainVerticle extends AbstractVerticle {
     router.route("/*").handler(this::handleAuthorize);
 
     server.requestHandler(router).listen(port, result -> {
-        if (result.succeeded()) {
-          promise.complete();
-        } else {
-          promise.fail(result.cause());
-        }
+      promise.handle(result.mapEmpty());
     });
 
 
