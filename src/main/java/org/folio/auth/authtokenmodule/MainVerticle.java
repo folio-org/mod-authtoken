@@ -164,11 +164,7 @@ public class MainVerticle extends AbstractVerticle {
     router.route("/*").handler(BodyHandler.create());
     router.route("/*").handler(this::handleAuthorize);
 
-    server.requestHandler(router).listen(port, result -> {
-      promise.handle(result.mapEmpty());
-    });
-
-
+    server.requestHandler(router).listen(port, result -> promise.handle(result.mapEmpty()));
   }
 
   private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {
