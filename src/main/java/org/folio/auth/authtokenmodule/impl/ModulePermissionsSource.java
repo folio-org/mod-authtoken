@@ -151,7 +151,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     req.end();
   }
 
-  private Future<JsonArray> expandPermissionsCached(JsonArray permissions,
+  public Future<JsonArray> expandPermissionsCached(JsonArray permissions,
     String tenant, String okapiUrl, String requestToken, String requestId) {
 
     final String key = tenant + "_" + permissions.encodePrettily();
@@ -182,12 +182,12 @@ public class ModulePermissionsSource implements PermissionsSource {
     StringJoiner joiner = new StringJoiner(" or ");
     for (Object ob : permissions) {
       String permissionName = (String) ob;
-      joiner.add("permissionName==" + permissionName + "");
+      joiner.add("permissionName==\"" + permissionName + "\"");
     }
     query = query + joiner.toString() + ")";
     try {
       String requestUrl = okapiUrl + "/perms/permissions?"
-        + "expandSubs=true&query=" + URLEncoder.encode(query, "UTF-8");
+        + "expanded=true&query=" + URLEncoder.encode(query, "UTF-8");
       logger.debug("Requesting expanded permissions from URL at " + requestUrl);
       HttpClientRequest req = client.getAbs(requestUrl, res -> {
         res.bodyHandler(body -> handleExpandPermissions(res, body, future, permissions));
