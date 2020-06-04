@@ -1,3 +1,12 @@
+## 2.5.0 2020-06-04
+
+ * MODAT-77 Provide permissionsRequired property.
+ * MODAT-76 Update to Vert.x 3.9.1
+ * MODAT-72 Expand module permission set
+ * MODAT-61 Increase HTTP client pool size.
+ * MODAT-62 Issue with log4j configuration.
+ * MODAT-59 Update log4j from 1.2.17 to 2.x fixing security vulnerability CVE-2019-17571
+
 ## 2.4.0 2019-12-03
 
  * MODAT-56 validate user deactivation when checking access token
