@@ -1,6 +1,7 @@
 package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
@@ -60,12 +61,12 @@ public class UserService {
   private Future<Boolean> isActiveUserNoCache(String userId, String tenant, String okapiUrl,
       String requestToken, String requestId) {
 
-    Future<Boolean> future = Future.future();
+    Promise<Boolean> promise = Promise.promise();
     HttpClientRequest req = client.getAbs(okapiUrl + "/users/" + userId, res -> {
       res.exceptionHandler(e -> {
         String msg = "Unexpected response exception for user id " + userId;
         logger.warn(msg, e);
-        future.fail(new UserServiceException(msg, e));
+        promise.fail(new UserServiceException(msg, e));
       });
       if (res.statusCode() == 200) {
         res.bodyHandler(user -> {
@@ -75,28 +76,28 @@ public class UserService {
           } catch (Exception e) {
             String msg = "Invalid user response: " + user + " for id " + userId;
             logger.warn(msg, e);
-            future.fail(new UserServiceException(msg, e));
+            promise.fail(new UserServiceException(msg, e));
             return;
           }
           ConcurrentMap<String, UserEntry> newMap = new ConcurrentHashMap<>();
           ConcurrentMap<String, UserEntry> oldMap = cache.putIfAbsent(tenant, newMap);
           ConcurrentMap<String, UserEntry> map = oldMap == null ? newMap : oldMap;
           map.put(userId, new UserEntry(active));
-          future.complete(active);
+          promise.complete(active);
         });
         return;
       }
       if (res.statusCode() == 404) {
-        future.fail(new UserServiceException("User with id " + userId + " does not exist"));
+        promise.fail(new UserServiceException("User with id " + userId + " does not exist"));
         return;
       }
-      future.fail(new UserServiceException(
+      promise.fail(new UserServiceException(
           "Unexpected user response code " + res.statusCode() + " for user id " + userId));
     });
     req.exceptionHandler(e -> {
       String msg = "Unexpected request exception for user id " + userId;
       logger.warn(msg, e);
-      future.fail(new UserServiceException(msg, e));
+      promise.fail(new UserServiceException(msg, e));
     });
 
     req.headers().add(MainVerticle.OKAPI_TOKEN_HEADER, requestToken)
@@ -107,7 +108,7 @@ public class UserService {
       req.headers().add(MainVerticle.REQUESTID_HEADER, requestId);
     }
     req.end();
-    return future;
+    return promise.future();
   }
 
   public static class UserServiceException extends Exception {

@@ -1,13 +1,22 @@
+## 2.5.0 2020-06-04
+
+ * [MODAT-77](https://issues.folio.org/browse/MODAT-77) Provide permissionsRequired property.
+ * [MODAT-76](https://issues.folio.org/browse/MODAT-76) Update to Vert.x 3.9.1
+ * [MODAT-72](https://issues.folio.org/browse/MODAT-72) Expand module permission set
+ * [MODAT-61](https://issues.folio.org/browse/MODAT-61) Increase HTTP client pool size.
+ * [MODAT-62](https://issues.folio.org/browse/MODAT-62) Issue with log4j configuration.
+ * [MODAT-59](https://issues.folio.org/browse/MODAT-59) Update log4j from 1.2.17 to 2.x fixing security vulnerability CVE-2019-17571
+
 ## 2.4.0 2019-12-03
 
- * MODAT-56 validate user deactivation when checking access token
+ * [MODAT-56](https://issues.folio.org/browse/MODAT-56) validate user deactivation when checking access token
  * Use new JAVA_OPTIONS MaxRAMPercentage FOLIO-2358
  * Use new base docker image FOLIO-2358
 
 ## 2.3.0 2019-09-25
 
- * MODAT-49 Two caches for permissionsForUser and expandPermissions
- * MODAT-50 Fix Does not pass X-Okapi-Request-Id
+ * [MODAT-49](https://issues.folio.org/browse/MODAT-49) Two caches for permissionsForUser and expandPermissions
+ * [MODAT-50](https://issues.folio.org/browse/MODAT-50) Fix Does not pass X-Okapi-Request-Id
 
 ## 2.2.1 2019-07-23
 
@@ -15,9 +24,9 @@
 * [MODAT-48](https://issues.folio.org/browse/MODAT-48) groovy-eclipse-compiler fail in Eclipse
 
 ## 2.2.0 2019-06-11
- * MODAT-43 Bump up token perm cache from 10s to 60s
- * MODAT-44 Fix mod-auth requires permissions interface
- * MODAT-46 checkout-by-barcode returns 500 "HTTP header is larger
+ * [MODAT-43](https://issues.folio.org/browse/MODAT-43) Bump up token perm cache from 10s to 60s
+ * [MODAT-44](https://issues.folio.org/browse/MODAT-44) Fix mod-auth requires permissions interface
+ * [MODAT-46](https://issues.folio.org/browse/MODAT-46) checkout-by-barcode returns 500 "HTTP header is larger
    than 8192 bytes
 
 ## 2.1.0 2019-03-15
@@ -31,8 +40,9 @@
  * Correct version in pom.xml
 
 ## 2.0.2 2018-11-30
- * Fix issue with missing module token when acting as filter (MODAT-38, MODAT-39)
- * Enable A256GCM Encryption (MODAT-35, MODAT-36)
+ * Fix issue with missing module token when acting as filter
+   ([MODAT-38](https://issues.folio.org/browse/MODAT-38), [MODAT-39](https://issues.folio.org/browse/MODAT-39))
+ * Enable A256GCM Encryption ([MODAT-35](https://issues.folio.org/browse/MODAT-35), [MODAT-36](https://issues.folio.org/browse/MODAT-36))
 
 ## 2.0.1 2018-09-11
  * Code clean-up

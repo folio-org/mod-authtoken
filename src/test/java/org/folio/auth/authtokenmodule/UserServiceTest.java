@@ -60,7 +60,7 @@ public class UserServiceTest {
   public void testNonExistingUser(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 3, 10);
-    userService.isActiveUser("0", TENANT, mockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+    userService.isActiveUser("0", TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
       if (ar.succeeded()) {
         context.fail("User id 0 should fail with 404 response");
       }
@@ -72,7 +72,7 @@ public class UserServiceTest {
   public void testInvalidResponseCode(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 3, 10);
-    userService.isActiveUser("00", TENANT, mockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+    userService.isActiveUser("00", TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
       if (ar.succeeded()) {
         context.fail("User id 00 should fail with invalid response code");
       }
@@ -85,7 +85,7 @@ public class UserServiceTest {
   public void testInvalidResponseJson(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 3, 10);
-    userService.isActiveUser("000", TENANT, mockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+    userService.isActiveUser("000", TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
       if (ar.succeeded()) {
         context.fail("User id 000 should fail with invalid user response");
       }
@@ -98,7 +98,7 @@ public class UserServiceTest {
   public void testNullActive(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 3, 10);
-    userService.isActiveUser("1", TENANT, mockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+    userService.isActiveUser("1", TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
       if (ar.failed() || ar.result() != null) {
         context.fail("User id 1 should be null");
       }
@@ -111,7 +111,7 @@ public class UserServiceTest {
   public void testInactiveUser(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 3, 10);
-    userService.isActiveUser("2", TENANT, mockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+    userService.isActiveUser("2", TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
       if (ar.failed() || ar.result().booleanValue()) {
         context.fail("User id 2 should be inactive");
       }
@@ -124,7 +124,7 @@ public class UserServiceTest {
   public void testActiveUser(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 3, 10);
-    userService.isActiveUser("3", TENANT, mockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+    userService.isActiveUser("3", TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
       if (ar.failed() || !ar.result().booleanValue()) {
         context.fail("User id 3 should be active");
       }
@@ -137,14 +137,14 @@ public class UserServiceTest {
   public void testMultipleActiveUsers(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 3, 10);
-    userService.isActiveUser("3", TENANT, mockUrl, "token", "reqId").setHandler(ar -> {
+    userService.isActiveUser("3", TENANT, mockUrl, "token", "reqId").onComplete(ar -> {
       if (ar.failed() || !ar.result().booleanValue()) {
         context.fail("User id 3 should be active");
       }
       context.assertTrue(ar.result());
     });
     vertx.setTimer(1000, id -> {
-      userService.isActiveUser("33", TENANT, mockUrl, "token", null).setHandler(ar -> {
+      userService.isActiveUser("33", TENANT, mockUrl, "token", null).onComplete(ar -> {
         if (ar.failed() || !ar.result().booleanValue()) {
           context.fail("User id 33 should be active");
         }
@@ -158,14 +158,14 @@ public class UserServiceTest {
   public void testCache(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 3, 10);
-    userService.isActiveUser("4", TENANT, mockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+    userService.isActiveUser("4", TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
       if (ar.failed() || !ar.result().booleanValue()) {
         context.fail("User id 4 should be active");
       }
       context.assertTrue(ar.result());
     });
     vertx.setTimer(1000, id -> {
-      userService.isActiveUser("4", TENANT, badMockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+      userService.isActiveUser("4", TENANT, badMockUrl, TOKEN, REQ_ID).onComplete(ar -> {
         if (ar.failed() || !ar.result().booleanValue()) {
           context.fail("User id 4 should be active");
         }
@@ -179,14 +179,14 @@ public class UserServiceTest {
   public void testExpiredCache(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 1, 10);
-    userService.isActiveUser("4", TENANT, mockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+    userService.isActiveUser("4", TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
       if (ar.failed() || !ar.result().booleanValue()) {
         context.fail("User id 4 should be active");
       }
       context.assertTrue(ar.result());
     });
     vertx.setTimer(2000, id -> {
-      userService.isActiveUser("4", TENANT, "http://localhost:" + freePort, "", "").setHandler(ar -> {
+      userService.isActiveUser("4", TENANT, "http://localhost:" + freePort, "", "").onComplete(ar -> {
         if (ar.succeeded()) {
           context.fail("Expired cache should make a new request");
         }
@@ -199,14 +199,14 @@ public class UserServiceTest {
   public void testPurgeCache(TestContext context) {
     Async async = context.async();
     UserService userService = new UserService(vertx, 10, 1);
-    userService.isActiveUser("4", TENANT, mockUrl, TOKEN, REQ_ID).setHandler(ar -> {
+    userService.isActiveUser("4", TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
       if (ar.failed() || !ar.result().booleanValue()) {
         context.fail("User id 4 should be active");
       }
       context.assertTrue(ar.result());
     });
     vertx.setTimer(2000, id -> {
-      userService.isActiveUser("4", TENANT, "http://localhost:" + freePort, "", "").setHandler(ar -> {
+      userService.isActiveUser("4", TENANT, "http://localhost:" + freePort, "", "").onComplete(ar -> {
         if (ar.succeeded()) {
           context.fail("Purged cache should make a new request");
         }

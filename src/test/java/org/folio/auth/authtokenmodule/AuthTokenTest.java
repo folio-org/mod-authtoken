@@ -1,32 +1,30 @@
 package org.folio.auth.authtokenmodule;
 
-import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.json.JsonObject;
-import io.vertx.ext.unit.junit.VertxUnitRunner;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
-import io.vertx.ext.unit.Async;
-import io.vertx.ext.unit.TestContext;
 import com.jayway.restassured.RestAssured;
-import static com.jayway.restassured.RestAssured.*;
-import static org.hamcrest.Matchers.*;
 import com.jayway.restassured.response.Response;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
+import io.vertx.core.DeploymentOptions;
+import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
-import java.io.IOException;
-import java.net.ServerSocket;
+import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.Vertx;
+import io.vertx.ext.unit.Async;
+import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
-import java.util.concurrent.ThreadLocalRandom;
-import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.junit.runner.RunWith;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import static com.jayway.restassured.RestAssured.*;
+import static org.hamcrest.Matchers.*;
+import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
 
 @RunWith(VertxUnitRunner.class)
 public class AuthTokenTest {
@@ -641,7 +639,7 @@ public class AuthTokenTest {
       .body(payload.encode())
       .post("/token")
       .then()
-      .statusCode(403);
+      .statusCode(403).body(containsString("Missing permissions to access endpoint '/token'"));
 
     logger.info("POST signing request with good token, no payload");
     given()
