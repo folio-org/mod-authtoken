@@ -149,7 +149,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     req.end();
   }
 
-  public Future<JsonArray> expandPermissionsCached(JsonArray permissions, String tenant, String okapiUrl,
+  private Future<JsonArray> expandPermissionsCached(JsonArray permissions, String tenant, String okapiUrl,
                                                    String requestToken, String requestId) {
     final String key = tenant + "_" + permissions.encodePrettily();
     CacheEntry<JsonArray> entry = expandPermissionsMap.get(key);
@@ -163,7 +163,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     });
   }
 
-  private Future<JsonArray> expandPermissions(JsonArray permissions, String tenant,
+  public Future<JsonArray> expandPermissions(JsonArray permissions, String tenant,
                                               String okapiUrl, String requestToken, String requestId) {
     if (permissions.isEmpty()) {
       return Future.succeededFuture(new JsonArray());

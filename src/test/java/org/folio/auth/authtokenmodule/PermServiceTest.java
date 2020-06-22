@@ -30,7 +30,7 @@ public class PermServiceTest {
     vertx = Vertx.vertx();
     mps = mock(ModulePermissionsSource.class);
     JsonArray perms = new JsonArray().add(SYS_PERM).add(SUB_PERM_1).add(SUB_PERM_2);
-    when(mps.expandPermissionsCached(any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(perms));
+    when(mps.expandPermissions(any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(perms));
     permService = new PermService(vertx, mps, 2, 2);
   }
 
@@ -70,11 +70,26 @@ public class PermServiceTest {
   @Test
   public void testFailedFuture() throws InterruptedException {
     ModulePermissionsSource badMps = mock(ModulePermissionsSource.class);
-    when(badMps.expandPermissionsCached(any(), any(), any(), any(), any()))
+    when(badMps.expandPermissions(any(), any(), any(), any(), any()))
         .thenReturn(Future.failedFuture("test failure"));
     PermService ps = new PermService(vertx, badMps, 10, 10);
     Future<JsonArray> rs = ps.expandSystemPermissions(new JsonArray().add("SYS#2"), "a", "a", "a", "a");
     assertTrue(rs.failed());
+  }
+
+  @Test
+  public void testEmptySystemPerm() throws InterruptedException {
+    String perm = "SYS#empty";
+    ModulePermissionsSource emptyMps = mock(ModulePermissionsSource.class);
+    when(emptyMps.expandPermissions(any(), any(), any(), any(), any()))
+        .thenReturn(Future.succeededFuture(new JsonArray().add(perm)))
+        .thenReturn(Future.succeededFuture(new JsonArray().add(perm)));
+    PermService ps = new PermService(vertx, emptyMps, 10, 10);
+    Future<JsonArray> rs = ps.expandSystemPermissions(new JsonArray().add(perm), "a", "a", "a", "a");
+    assertTrue(rs.result().isEmpty());
+    rs = ps.expandSystemPermissions(new JsonArray().add(perm), "a", "a", "a", "a");
+    assertTrue(rs.result().isEmpty());
+    verify(emptyMps, times(2)).expandPermissions(any(), any(), any(), any(), any());
   }
 
   private JsonArray callExpandPerms(JsonArray perms) {
