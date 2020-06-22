@@ -92,11 +92,11 @@ public class PermService {
         continue;
       }
       PermEntry entry = cache.get(perm);
-      if (entry != null) {
+      if (entry != null && !entry.getPerms().isEmpty()) {
         expandedPerms.addAll(entry.getPerms());
         entry.updateTimestamp();
       } else {
-        futures.add(modulePermissionsSource.expandPermissionsCached(new JsonArray().add(perm), tenant, okapiUrl,
+        futures.add(modulePermissionsSource.expandPermissions(new JsonArray().add(perm), tenant, okapiUrl,
             requestToken, requestId));
       }
     }
