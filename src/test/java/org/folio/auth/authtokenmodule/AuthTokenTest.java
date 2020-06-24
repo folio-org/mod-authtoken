@@ -24,6 +24,7 @@ import org.junit.Test;
 
 import static com.jayway.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
+import static org.junit.Assert.assertTrue;
 import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
 
 @RunWith(VertxUnitRunner.class)
@@ -41,6 +42,7 @@ public class AuthTokenTest {
   private static JsonObject payload3;
   private static JsonObject payload404;
   private static JsonObject payloadInactive;
+  private static JsonObject payloadSystemPermission;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String basicToken;
   private static String basicToken2;
@@ -48,6 +50,7 @@ public class AuthTokenTest {
   private static String basicBadToken;
   private static String token404;
   private static String tokenInactive;
+  private static String tokenSystemPermission;
 
   static int port;
   static int mockPort;
@@ -96,6 +99,12 @@ public class AuthTokenTest {
       .put("user_id", "inactive")
       .put("tenant", tenant)
       .put("sub", "jones");
+    payloadSystemPermission = new JsonObject()
+      .put("user_id", userUUID)
+      .put("tenant", tenant)
+      .put("sub", "jones")
+      .put("extra_permissions", new JsonArray()
+        .add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def"));
     //String passPhrase = "TheOriginalCorrectBatteryHorseStapleGun";
     String passPhrase = "CorrectBatteryHorseStaple";
     String badPassPhrase = "IncorrectBatteryHorseStaple";
@@ -107,6 +116,7 @@ public class AuthTokenTest {
     basicBadToken = badTokenCreator.createJWTToken(payloadBad.encode());
     token404 = tokenCreator.createJWTToken(payload404.encode());
     tokenInactive = tokenCreator.createJWTToken(payloadInactive.encode());
+    tokenSystemPermission = tokenCreator.createJWTToken(payloadSystemPermission.encode());
 
     System.setProperty("jwt.signing.key", passPhrase);
 
@@ -982,6 +992,25 @@ public class AuthTokenTest {
     async.complete();
     logger.debug("AuthToken test1 done");
 
+  }
+
+  @Test
+  public void testExpandSystemPermission() {
+    Response r = given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Request-Id", "1234")
+      .header("X-Okapi-Token", tokenSystemPermission)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-Permissions-Required",
+        PermsMock.SYS_PERM_SUB_01 + "," + PermsMock.SYS_PERM_SUB_02)
+      .get("/testsysperm")
+      .then()
+      .statusCode(202)
+      .extract().response();
+    
+    String headers = r.getHeader("X-Okapi-Permissions");
+    assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_01));
+    assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_02));
   }
 
   private String getMagicPermission(String endpoint) {
