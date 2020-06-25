@@ -24,6 +24,11 @@ public class PermsMock extends AbstractVerticle {
   public static boolean handlePermsUsersFail = false;
   public static boolean handlePermsUsersPermissionsFail = false;
   public static boolean handlePermsPermissionsFail = false;
+  public static String SYS_PERM_SET = PermService.SYS_PERM_PREFIX + "permset";
+  public static String SYS_PERM_SUB_01 = "sys.sub.01";
+  public static String SYS_PERM_SUB_02 = "sys.sub.02";
+  private static String PERM_NAME = "permissionName";
+  private static String PERM_SUB = "subPermissions";
 
   public void start(Future<Void> future) {
     final int port = context.config().getInteger("port");
@@ -108,6 +113,33 @@ public class PermsMock extends AbstractVerticle {
   }
 
   private void handlePermsPermissions(RoutingContext context) {
+    
+    // SYS permission is expanded individually and only once
+    String perms = context.queryParams().get("query");
+    if (perms != null) {
+      if (perms.contains(SYS_PERM_SET)) {
+        if (perms.indexOf(PERM_NAME) != perms.lastIndexOf(PERM_NAME)) {
+          String msg = "SYS perm should be expaned individually: " + perms;
+          logger.error(msg);
+          context.response().setStatusCode(500).setStatusMessage(msg).end();
+          return;
+        }
+        JsonObject permsResp = new JsonObject().put("permissions",
+          new JsonArray().add(new JsonObject()
+            .put(PERM_NAME, SYS_PERM_SET)
+            .put(PERM_SUB, new JsonArray().add(SYS_PERM_SUB_01).add(SYS_PERM_SUB_02))));
+        context.response().putHeader("Content-type", "application/json")
+          .end(permsResp.encode());
+        return;
+      };
+      if (perms.contains(SYS_PERM_SUB_01) || perms.contains(SYS_PERM_SUB_02)) {
+        String msg = "SYS perm should be expanded only once: " + perms;
+        logger.error(msg);
+        context.response().setStatusCode(500).setStatusMessage(msg).end();
+        return;
+      }
+    }
+    
     if (handlePermsPermissionsFail) {
       context.response()
         .setStatusCode(handlePermsPermissionsStatusCode)
@@ -116,19 +148,19 @@ public class PermsMock extends AbstractVerticle {
       return;
     }
     JsonObject sub = new JsonObject()
-      .put("permissionName", "bar.second")
-      .put("subPermissions", new JsonArray()
+      .put(PERM_NAME, "bar.second")
+      .put(PERM_SUB, new JsonArray()
         .add("bar.sub")
         .add(new JsonObject()
-          .put("permissionName", "bar.sub2")
-          .put("subPermissions", new JsonArray()
+          .put(PERM_NAME, "bar.sub2")
+          .put(PERM_SUB, new JsonArray()
             .add("bar.sub.sub")
           )
         )
       );
     JsonObject output = new JsonObject().put("permissions", new JsonArray()
       .add(new JsonObject()
-        .put("permissionName", "bar.first"))
+        .put(PERM_NAME, "bar.first"))
       .add(sub).add(sub) // same permissions twice on purpose
     );
     context.response()

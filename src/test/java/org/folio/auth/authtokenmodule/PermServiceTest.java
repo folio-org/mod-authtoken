@@ -3,6 +3,7 @@ package org.folio.auth.authtokenmodule;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.*;
+import static org.folio.auth.authtokenmodule.PermService.SYS_PERM_PREFIX;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
@@ -17,9 +18,12 @@ import org.junit.Test;
 @RunWith(VertxUnitRunner.class)
 public class PermServiceTest {
 
-  private static final String SYS_PERM = "SYS#1";
+  private static final String SYS_PERM = SYS_PERM_PREFIX + "1";
   private static final String SUB_PERM_1 = "user.read";
   private static final String SUB_PERM_2 = "user.write";
+  
+  private static final String SYS_PERM_2 = SYS_PERM_PREFIX + "2";
+  private static final String SYS_PERM_EMPTY = SYS_PERM_PREFIX + "Empty";
 
   private static Vertx vertx;
   private static ModulePermissionsSource mps;
@@ -30,7 +34,8 @@ public class PermServiceTest {
     vertx = Vertx.vertx();
     mps = mock(ModulePermissionsSource.class);
     JsonArray perms = new JsonArray().add(SYS_PERM).add(SUB_PERM_1).add(SUB_PERM_2);
-    when(mps.expandPermissions(any(), any(), any(), any(), any())).thenReturn(Future.succeededFuture(perms));
+    when(mps.expandPermissions(any(), any(), any(), any(), any()))
+      .thenReturn(Future.succeededFuture(perms));
     permService = new PermService(vertx, mps, 2, 2);
   }
 
@@ -73,21 +78,22 @@ public class PermServiceTest {
     when(badMps.expandPermissions(any(), any(), any(), any(), any()))
         .thenReturn(Future.failedFuture("test failure"));
     PermService ps = new PermService(vertx, badMps, 10, 10);
-    Future<JsonArray> rs = ps.expandSystemPermissions(new JsonArray().add("SYS#2"), "a", "a", "a", "a");
+    Future<JsonArray> rs = ps.expandSystemPermissions(new JsonArray()
+      .add(SYS_PERM_2), "a", "a", "a", "a");
     assertTrue(rs.failed());
   }
 
   @Test
   public void testEmptySystemPerm() throws InterruptedException {
-    String perm = "SYS#empty";
     ModulePermissionsSource emptyMps = mock(ModulePermissionsSource.class);
     when(emptyMps.expandPermissions(any(), any(), any(), any(), any()))
-        .thenReturn(Future.succeededFuture(new JsonArray().add(perm)))
-        .thenReturn(Future.succeededFuture(new JsonArray().add(perm)));
+        .thenReturn(Future.succeededFuture(new JsonArray().add(SYS_PERM_EMPTY)))
+        .thenReturn(Future.succeededFuture(new JsonArray().add(SYS_PERM_EMPTY)));
     PermService ps = new PermService(vertx, emptyMps, 10, 10);
-    Future<JsonArray> rs = ps.expandSystemPermissions(new JsonArray().add(perm), "a", "a", "a", "a");
+    Future<JsonArray> rs = ps.expandSystemPermissions(new JsonArray()
+      .add(SYS_PERM_EMPTY), "a", "a", "a", "a");
     assertTrue(rs.result().isEmpty());
-    rs = ps.expandSystemPermissions(new JsonArray().add(perm), "a", "a", "a", "a");
+    rs = ps.expandSystemPermissions(new JsonArray().add(SYS_PERM_EMPTY), "a", "a", "a", "a");
     assertTrue(rs.result().isEmpty());
     verify(emptyMps, times(2)).expandPermissions(any(), any(), any(), any(), any());
   }

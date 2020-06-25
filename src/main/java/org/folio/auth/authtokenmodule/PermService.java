@@ -21,9 +21,10 @@ import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
  */
 public class PermService {
 
+  public static final String SYS_PERM_PREFIX = "SYS#";
+  
   private static final Logger logger = LoggerFactory.getLogger(PermService.class);
-  // map from system generated module permission set name to the actual
-  // permissions
+  // map from system generated module permission set name to the actual permissions
   private static ConcurrentMap<String, PermEntry> cache = new ConcurrentHashMap<>();
   private ModulePermissionsSource modulePermissionsSource;
   private long cachePeriod;
@@ -87,7 +88,7 @@ public class PermService {
     List<Future> futures = new ArrayList<>();
     for (int i = 0, n = permissions.size(); i < n; i++) {
       String perm = permissions.getString(i);
-      if (!perm.startsWith("SYS#")) {
+      if (!perm.startsWith(SYS_PERM_PREFIX)) {
         expandedPerms.add(perm);
         continue;
       }
