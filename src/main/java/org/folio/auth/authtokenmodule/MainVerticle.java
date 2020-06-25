@@ -646,6 +646,8 @@ public class MainVerticle extends AbstractVerticle {
             userId + ")");
     long startTime = System.currentTimeMillis();
 
+    JsonArray expandedSystemPermissions = new JsonArray();
+
     // Need to check if the user is still active
     Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
     if (!dummyPermissionSource && finalUserId != null && !finalUserId.trim().isEmpty()) {
@@ -660,8 +662,18 @@ public class MainVerticle extends AbstractVerticle {
         endText(ctx, 401, msg);
         return Future.failedFuture(msg);
       }
-    }).compose(expandedPermissions -> usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
-        permissionsRequestToken, requestId, expandedPermissions));
+    }).compose(expandedPermissions -> {
+      expandedSystemPermissions.addAll(expandedPermissions);
+      // skip expanded system permissions
+      JsonArray extraPermsMinusSystemOnes = new JsonArray();
+      extraPermissions.forEach(it -> {
+        if (!((String)it).startsWith(PermService.SYS_PERM_PREFIX)) {
+          extraPermsMinusSystemOnes.add(it);
+        }
+      });
+      return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
+        permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
+    });
 
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.onComplete(res -> {
@@ -681,20 +693,9 @@ public class MainVerticle extends AbstractVerticle {
       }
 
       JsonArray permissions = new JsonArray();
-      JsonArray userPermissions = res.result().getUserPermissions();
-      for (Object o : userPermissions) {
-        String permName = (String) o;
-        if (!permissions.contains(permName)) {
-          permissions.add(permName);
-        }
-      }
-      JsonArray expandedExtraPermissions = res.result().getExpandedPermissions();
-      for (Object o : expandedExtraPermissions) {
-        String permName = (String) o;
-        if (!permissions.contains(permName)) {
-          permissions.add(permName);
-        }
-      }
+      mergePerms(permissions, res.result().getUserPermissions());
+      mergePerms(permissions, res.result().getExpandedPermissions());
+      mergePerms(permissions, expandedSystemPermissions);
 
       //Check that for all required permissions, we have them
       for (Object o : permissionsRequired) {
@@ -755,6 +756,15 @@ public class MainVerticle extends AbstractVerticle {
 
       ctx.response().end();
     });
+  }
+
+  private void mergePerms(JsonArray perms, JsonArray morePerms) {
+    for (Object o : morePerms) {
+      String permName = (String) o;
+      if (!perms.contains(permName)) {
+        perms.add(permName);
+      }
+    }
   }
 
   public String extractToken(String authorizationHeader) {
