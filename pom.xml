@@ -186,9 +186,9 @@
                   </manifestEntries>
                 </transformer>
                 <!-- See https://issues.apache.org/jira/browse/LOG4J2-673 -->
-                <transformer implementation="com.github.edwgiz.maven_shade_plugin.log4j2_cache_transformer.PluginsCacheFileTransformer" />
+                <transformer implementation="com.github.edwgiz.maven_shade_plugin.log4j2_cache_transformer.PluginsCacheFileTransformer"/>
               </transformers>
-              <artifactSet />
+              <artifactSet/>
               <outputFile>${project.build.directory}/${project.artifactId}-fat.jar</outputFile>
             </configuration>
           </execution>
@@ -218,6 +218,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
-    <vertx.version>3.9.1</vertx.version>
+    <vertx.version>3.9.2</vertx.version>
   </properties>
 </project>
