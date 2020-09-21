@@ -398,7 +398,7 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   // create request token needed by mod-authtoken
-  private String createRequestToken(String tenant, String requestId, JsonArray perms) throws JOSEException, ParseException {
+  private String createRequestToken(String tenant, JsonArray perms) throws JOSEException, ParseException {
     JsonObject tokenPayload = new JsonObject()
       .put("sub", "_AUTHZ_MODULE_")
       .put("tenant", tenant)
@@ -455,10 +455,10 @@ public class MainVerticle extends AbstractVerticle {
     String permissionsRequestToken;
     String userRequestToken;
     try {
-      permissionsRequestToken = createRequestToken(tenant, requestId, new JsonArray()
+      permissionsRequestToken = createRequestToken(tenant, new JsonArray()
           .add(PERMISSIONS_PERMISSION_READ_BIT)
           .add(PERMISSIONS_USER_READ_BIT));
-      userRequestToken = createRequestToken(tenant, requestId, new JsonArray()
+      userRequestToken = createRequestToken(tenant, new JsonArray()
           .add(PERMISSIONS_USERS_ITEM_GET));
     } catch (Exception e) {
       endText(ctx, 500, "Error creating request token: ", e);
