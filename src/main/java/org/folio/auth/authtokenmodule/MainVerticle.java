@@ -60,7 +60,6 @@ public class MainVerticle extends AbstractVerticle {
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
   private static final String MISSING_HEADER = "Missing header: ";
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
-  private static final String REQUEST_ID = "request_id";
   private static final String EXTRA_PERMS = "extra_permissions";
 
   PermissionsSource permissionsSource;
@@ -404,7 +403,6 @@ public class MainVerticle extends AbstractVerticle {
       .put("sub", "_AUTHZ_MODULE_")
       .put("tenant", tenant)
       .put("dummy", true)
-      .put(REQUEST_ID, (requestId == null || requestId.isEmpty()) ? "dummy" : requestId)
       .put(EXTRA_PERMS, perms);
     return tokenCreator.createJWTToken(tokenPayload.encode());
   }
@@ -478,7 +476,6 @@ public class MainVerticle extends AbstractVerticle {
                 .put("sub", UNDEFINED_USER_NAME + ctx.request().remoteAddress().toString() +
                         "__" + df.format(now))
                 .put("tenant", tenant)
-                .put(REQUEST_ID, requestId)
                 .put("dummy", true);
       } catch(Exception e) {
         endText(ctx, 500,  "Error creating dummy token: ", e);
@@ -575,7 +572,6 @@ public class MainVerticle extends AbstractVerticle {
         tokenPayload.put("tenant", tenant);
         tokenPayload.put("module", moduleName);
         tokenPayload.put(EXTRA_PERMS, permissionList);
-        tokenPayload.put(REQUEST_ID, requestId);
         tokenPayload.put("user_id", finalUserId);
         String moduleToken = null;
         try {
