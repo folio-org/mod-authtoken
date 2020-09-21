@@ -1,7 +1,7 @@
 package org.folio.auth.authtokenmodule;
 
-import com.jayway.restassured.RestAssured;
-import com.jayway.restassured.response.Response;
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
 import io.vertx.core.DeploymentOptions;
@@ -22,7 +22,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import static com.jayway.restassured.RestAssured.*;
+import static io.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertTrue;
 import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
@@ -935,7 +935,7 @@ public class AuthTokenTest {
       .body(new JsonObject().put("passPhrase", secret).put("payload", "gyf").encode())
       .post("/encrypted-token/create")
       .then()
-      .statusCode(400).body(containsString("java.lang.String cannot be cast to io.vertx.core.json.JsonObject"));
+      .statusCode(400).body(containsString("java.lang.String cannot be cast to class io.vertx.core.json.JsonObject"));
 
     String encryptedTokenResponse = r.getBody().asString();
     JsonObject encryptedTokenJson = new JsonObject(encryptedTokenResponse);
