@@ -60,7 +60,6 @@ public class MainVerticle extends AbstractVerticle {
   private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
   private static final String MISSING_HEADER = "Missing header: ";
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
-  private static final String REQUEST_ID = "request_id";
   private static final String EXTRA_PERMS = "extra_permissions";
 
   PermissionsSource permissionsSource;
@@ -399,12 +398,11 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   // create request token needed by mod-authtoken
-  private String createRequestToken(String tenant, String requestId, JsonArray perms) throws JOSEException, ParseException {
+  private String createRequestToken(String tenant, JsonArray perms) throws JOSEException, ParseException {
     JsonObject tokenPayload = new JsonObject()
       .put("sub", "_AUTHZ_MODULE_")
       .put("tenant", tenant)
       .put("dummy", true)
-      .put(REQUEST_ID, (requestId == null || requestId.isEmpty()) ? "dummy" : requestId)
       .put(EXTRA_PERMS, perms);
     return tokenCreator.createJWTToken(tokenPayload.encode());
   }
@@ -457,10 +455,10 @@ public class MainVerticle extends AbstractVerticle {
     String permissionsRequestToken;
     String userRequestToken;
     try {
-      permissionsRequestToken = createRequestToken(tenant, requestId, new JsonArray()
+      permissionsRequestToken = createRequestToken(tenant, new JsonArray()
           .add(PERMISSIONS_PERMISSION_READ_BIT)
           .add(PERMISSIONS_USER_READ_BIT));
-      userRequestToken = createRequestToken(tenant, requestId, new JsonArray()
+      userRequestToken = createRequestToken(tenant, new JsonArray()
           .add(PERMISSIONS_USERS_ITEM_GET));
     } catch (Exception e) {
       endText(ctx, 500, "Error creating request token: ", e);
@@ -478,7 +476,6 @@ public class MainVerticle extends AbstractVerticle {
                 .put("sub", UNDEFINED_USER_NAME + ctx.request().remoteAddress().toString() +
                         "__" + df.format(now))
                 .put("tenant", tenant)
-                .put(REQUEST_ID, requestId)
                 .put("dummy", true);
       } catch(Exception e) {
         endText(ctx, 500,  "Error creating dummy token: ", e);
@@ -575,7 +572,6 @@ public class MainVerticle extends AbstractVerticle {
         tokenPayload.put("tenant", tenant);
         tokenPayload.put("module", moduleName);
         tokenPayload.put(EXTRA_PERMS, permissionList);
-        tokenPayload.put(REQUEST_ID, requestId);
         tokenPayload.put("user_id", finalUserId);
         String moduleToken = null;
         try {
