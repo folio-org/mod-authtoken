@@ -1,3 +1,15 @@
+## 2.6.0 2020-09-30
+
+ * [MODAT-89](https://issues.folio.org/browse/MODAT-89) Upgrade to Vertx 3.9.3
+ * [MODAT-88](https://issues.folio.org/browse/MODAT-88) Migrate to JDK 11
+ * [MODAT-86](https://issues.folio.org/browse/MODAT-86) Remove requestId from token claims
+
+## 2.5.1 2020-06-25
+
+ * [MODAT-79](https://issues.folio.org/browse/MODAT-79) Fix Error: 414 Request-URI Too Large. Fixed by skipping
+   expanded system permissions
+ * [MODAT-78](https://issues.folio.org/browse/MODAT-78) refresh system perm set expansion if it is empty
+
 ## 2.5.0 2020-06-04
 
  * [MODAT-77](https://issues.folio.org/browse/MODAT-77) Provide permissionsRequired property.
