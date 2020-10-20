@@ -27,9 +27,19 @@ In addition to acting as a filter, the module exposes a few endpoints that are a
 
 * /refresh - This endpoint takes a valid refresh token and returns a new access token. It accepts a POST of a JSON object, with required field _refreshToken_ that contains the refresh token. It returns a new access token inside of a JSON object (response code 201), contained in a field called _token_.
 
-# Command Line Options
+# Command Line Options/System Properties
 
-mod-authtoken employs a caching mechanism to avoid repeated lookups to the permissions module for rapid incoming requests. This is enabled by default, though it may be disabled by passing -Dcache.permissions=false to the jar when loading.
+mod-authtoken supports a number of command line options as system properties, set by passing `-D<property.name>=<value>` to the jar when loading.
+
+* `jwt.signing.key` - A passphrase to use as a signing key. Setting this property for all instances of the module allows mod-authtoken to be clustered
+* `perm.lookup.timeout` - Timeout for lookups to mod-permissions in seconds. Defaults to 10.
+* `user.cache.seconds` - Time to cache user permissions in seconds. Defaults to 60.
+* `user.cache.purge.seconds` - Time before a user is purged from the permissions cache in seconds. Defaults to 43200 (12 hours).
+* `sys.perm.cache.seconds` - Time that system permissions are cached in seconds. Defaults to 259200 (3 days).
+* `sys.perm.cache.purge.seconds` - Time before system permissions are purged from the permissions cache. Defaults to 43200 (12 hours).
+* `log.level` - Module log level.
+* `port` - Port the module will listen on. Defaults to 8081.
+* `cache.permissions` - Boolean controlling the permissions cache. Defaults to `true`.
 
 # Custom Headers
 
@@ -60,4 +70,3 @@ requires and provides, the permissions, and the additional module metadata.
 The built artifacts for this module are available.
 See [configuration](https://dev.folio.org/download/artifacts) for repository access,
 and the [Docker image](https://hub.docker.com/r/folioorg/mod-authtoken/).
-
