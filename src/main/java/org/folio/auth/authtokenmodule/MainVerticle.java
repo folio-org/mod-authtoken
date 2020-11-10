@@ -157,7 +157,7 @@ public class MainVerticle extends AbstractVerticle {
 
     // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
-    final String portStr = System.getProperty("port", defaultPort);
+    final String portStr = System.getProperty("http.port", System.getProperty("port", defaultPort));
     final int port = Integer.parseInt(portStr);
 
     router.route("/*").handler(BodyHandler.create());
