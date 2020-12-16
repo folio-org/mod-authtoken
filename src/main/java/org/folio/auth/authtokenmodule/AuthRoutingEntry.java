@@ -53,7 +53,7 @@ public class AuthRoutingEntry {
       return false;
     }
     if (ctx.getBodyAsString() == null || ctx.getBodyAsString().isEmpty()) {
-      logger.debug(String.format("No body found in request for %s, treating as filter", endpoint));
+      logger.debug("No body found in request for {}, treating as filter", endpoint);
       //check for permissions
       extraPermissions = PermService.expandSystemPermissionsUsingCache(extraPermissions);
       boolean allFound = true;
@@ -64,7 +64,7 @@ public class AuthRoutingEntry {
         }
       }
       if (!allFound) {
-        logger.error(String.format("Insufficient permissions to access endpoint %s", endpoint));
+        logger.error("Insufficient permissions to access endpoint {}", endpoint);
         ctx.response()
           .setChunked(true)
           .setStatusCode(401)
@@ -82,7 +82,7 @@ public class AuthRoutingEntry {
       }
       return true;
     } else {
-      logger.debug(String.format("Body found in request for %s, treating as request", endpoint));
+      logger.debug("Body found in request for {}, treating as request", endpoint);
       JsonArray requestPerms = null;
       String permissionsHeader = ctx.request().headers().get(PERMISSIONS_HEADER);
       // Vert.x 3.5.4 accepted null for JsonArray constructor; Vert.x 3.9.1 does not
@@ -100,11 +100,10 @@ public class AuthRoutingEntry {
         passThrough = true;
       }
       if (passThrough) {
-        logger.debug(String.format("Calling handler %s", handler.toString()));
+        logger.debug("Calling handler {}", handler.toString());
         handler.handle(ctx);
       } else {
-        logger.error(String.format("Missing assigned permission to access endpoint '%s'",
-          endpoint));
+        logger.error("Missing assigned permission to access endpoint '{}'", endpoint);
         ctx.response()
           .setStatusCode(403)
           .end(String.format("Missing permissions to access endpoint '%s'", endpoint));
