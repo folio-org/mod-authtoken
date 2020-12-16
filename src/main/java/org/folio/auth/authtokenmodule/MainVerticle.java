@@ -111,6 +111,19 @@ public class MainVerticle extends AbstractVerticle {
     endText(ctx, code, "Error: ", t);
   }
 
+  static void setLogLevel(String name) {
+    if (name == null) {
+      return;
+    }
+    setLogLevel(Level.toLevel(name));
+  }
+
+  static Level setLogLevel(Level level) {
+    Level existing = LogManager.getRootLogger().getLevel();
+    Configurator.setAllLevels(LogManager.getRootLogger().getName(), level);
+    return existing;
+  }
+
   @Override
   public void start(Promise<Void> promise) {
     authRoutingEntryList = new ArrayList<>();
@@ -143,14 +156,7 @@ public class MainVerticle extends AbstractVerticle {
     clientTokenCreatorMap = new HashMap<>();
 
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
-    String logLevel = System.getProperty("log.level", null);
-    if (logLevel != null) {
-      try {
-        Configurator.setRootLevel(Level.toLevel(logLevel));
-      } catch(Exception e) {
-        logger.error("Unable to set log level: " + e.getMessage());
-      }
-    }
+    setLogLevel(System.getProperty("log.level", null));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
