@@ -100,7 +100,7 @@ public class AuthRoutingEntry {
         passThrough = true;
       }
       if (passThrough) {
-        logger.debug("Calling handler {}", handler.toString());
+        logger.debug("Calling handler {}", () -> handler);
         handler.handle(ctx);
       } else {
         logger.error("Missing assigned permission to access endpoint '{}'", endpoint);
