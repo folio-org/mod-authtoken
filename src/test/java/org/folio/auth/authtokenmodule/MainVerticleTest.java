@@ -44,7 +44,6 @@ public class MainVerticleTest {
     MainVerticle.setLogLevel("info");
     Level last = MainVerticle.setLogLevel(old);
     context.assertEquals(Level.INFO, last);
-    MainVerticle.setLogLevel(old);
   }
 }
 
