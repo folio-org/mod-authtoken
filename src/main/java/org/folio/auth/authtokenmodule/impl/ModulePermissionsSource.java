@@ -5,18 +5,19 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientOptions;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
+
+import io.vertx.ext.web.client.WebClientOptions;
 import org.folio.auth.authtokenmodule.CacheEntry;
 import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.PermissionData;
@@ -31,7 +32,7 @@ public class ModulePermissionsSource implements PermissionsSource {
 
   private Vertx vertx;
   private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
-  private final HttpClient client;
+  private final WebClient client;
   private final Map<String,CacheEntry<JsonArray>> expandPermissionsMap = new HashMap<>();
   private final Map<String,CacheEntry<JsonArray>> permissionsForUserMap = new HashMap<>();
   private static int expandPermissionsTimeout = 300;
@@ -39,10 +40,10 @@ public class ModulePermissionsSource implements PermissionsSource {
 
   public ModulePermissionsSource(Vertx vertx, int timeout) {
     this.vertx = vertx;
-    HttpClientOptions options = new HttpClientOptions();
+    WebClientOptions options = new WebClientOptions();
     options.setConnectTimeout(timeout * 1000);
     options.setMaxPoolSize(100);
-    client = vertx.createHttpClient(options);
+    client = WebClient.create(vertx, options);
   }
 
   @Override
@@ -76,67 +77,67 @@ public class ModulePermissionsSource implements PermissionsSource {
     Promise<JsonArray> promise = Promise.promise();
     String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userId;
     logger.debug("Requesting permissions user object from URL at " + permUserRequestUrl);
-    HttpClientRequest permUserReq = client.getAbs(permUserRequestUrl, permUserRes -> {
-      permUserRes.bodyHandler(permUserBody -> {
-        if (permUserRes.statusCode() != 200) {
-          String message = "Expected return code 200, got " + permUserRes.statusCode()
-              + " : " + permUserBody.toString();
-          logger.error(message);
-          promise.fail(message);
-          return;
-        }
-        JsonObject permUserResults = new JsonObject(permUserBody.toString());
-        JsonObject permUser = permUserResults.getJsonArray("permissionUsers").getJsonObject(0);
-        final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
-        logger.debug("Requesting permissions from URL at " + requestUrl);
-        HttpClientRequest req = client.getAbs(requestUrl, res -> {
-          if (res.statusCode() == 404) {
-            //In the event of a 404, that means that the permissions user
-            //doesn't exist, so we'll return an empty list to indicate no permissions
-            promise.complete(new JsonArray());
-            return;
-          }
-          if (res.statusCode() != 200) {
-            res.bodyHandler(res2 -> {
-              String failMessage = "Unable to retrieve permissions (code " + res.statusCode() + "): " + res2.toString();
-              logger.debug(failMessage);
-              promise.fail(failMessage);
-            });
-            return;
-          }
-          // 200
-          res.bodyHandler(res2 -> {
-            JsonObject permissionsObject;
-            try {
-              permissionsObject = new JsonObject(res2.toString());
-            } catch (Exception e) {
-              logger.debug("Error parsing permissions object: " + e.getLocalizedMessage());
-              permissionsObject = null;
-            }
-            if (permissionsObject != null && permissionsObject.getJsonArray("permissionNames") != null) {
-              logger.debug("Got permissions");
-              promise.complete(permissionsObject.getJsonArray("permissionNames"));
-            } else {
-              logger.error("Got malformed/empty permissions object");
-              promise.fail("Got malformed/empty permissions object");
-            }
-          });
-        });
-        req.exceptionHandler(exception -> {
-          promise.fail(exception);
-        });
-        endRequest(req, requestToken, tenant, requestId);
-      });
-      permUserRes.exceptionHandler(e -> {
-        promise.fail(e);
-      });
-    });
-    permUserReq.exceptionHandler(promise::fail);
+    HttpRequest<Buffer> permUserReq = client.getAbs(permUserRequestUrl);
     endRequest(permUserReq, requestToken, tenant, requestId);
+    permUserReq.send()
+        .onFailure(cause -> promise.fail(cause))
+        .onSuccess(permUserRes -> {
+          if (permUserRes.statusCode() != 200) {
+            String message = "Expected return code 200, got " + permUserRes.statusCode()
+                + " : " + permUserRes.bodyAsString();
+            logger.error(message);
+            promise.fail(message);
+            return;
+          }
+          JsonObject permUser = null;
+          try {
+            JsonObject permUserResults = permUserRes.bodyAsJsonObject();
+            permUser = permUserResults.getJsonArray("permissionUsers").getJsonObject(0);
+          } catch (Exception e) {
+            logger.error(e.getMessage());
+            promise.fail(e);
+            return;
+          }
+          final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
+          logger.debug("Requesting permissions from URL at " + requestUrl);
+          HttpRequest<Buffer> req = client.getAbs(requestUrl);
+          endRequest(req, requestToken, tenant, requestId);
+          req.send()
+              .onFailure(cause -> promise.fail(cause))
+              .onSuccess(res -> {
+                if (res.statusCode() == 404) {
+                  //In the event of a 404, that means that the permissions user
+                  //doesn't exist, so we'll return an empty list to indicate no permissions
+                  promise.complete(new JsonArray());
+                  return;
+                }
+                if (res.statusCode() != 200) {
+                  String failMessage = "Unable to retrieve permissions (code " + res.statusCode() + "): " + res.bodyAsString();
+                  logger.debug(failMessage);
+                  promise.fail(failMessage);
+                  return;
+                }
+                // 200
+                JsonObject permissionsObject;
+                try {
+                  permissionsObject = res.bodyAsJsonObject();
+                } catch (Exception e) {
+                  logger.debug("Error parsing permissions object: " + e.getLocalizedMessage());
+                  permissionsObject = null;
+                }
+                if (permissionsObject != null && permissionsObject.getJsonArray("permissionNames") != null) {
+                  logger.debug("Got permissions");
+                  promise.complete(permissionsObject.getJsonArray("permissionNames"));
+                } else {
+                  logger.error("Got malformed/empty permissions object");
+                  promise.fail("Got malformed/empty permissions object");
+                }
+              });
+        });
     return promise.future();
   }
 
-  private void endRequest(HttpClientRequest req, String requestToken,
+  private void endRequest(HttpRequest<Buffer> req, String requestToken,
                           String tenant, String requestId) {
     if (requestId != null) {
       req.headers().add(MainVerticle.REQUESTID_HEADER, requestId);
@@ -146,7 +147,6 @@ public class ModulePermissionsSource implements PermissionsSource {
         .add(MainVerticle.OKAPI_TENANT_HEADER, tenant)
         .add(MainVerticle.CONTENT_TYPE, MainVerticle.APPLICATION_JSON)
         .add(MainVerticle.ACCEPT, MainVerticle.APPLICATION_JSON);
-    req.end();
   }
 
   private Future<JsonArray> expandPermissionsCached(JsonArray permissions, String tenant, String okapiUrl,
@@ -164,7 +164,7 @@ public class ModulePermissionsSource implements PermissionsSource {
   }
 
   public Future<JsonArray> expandPermissions(JsonArray permissions, String tenant,
-                                              String okapiUrl, String requestToken, String requestId) {
+                                             String okapiUrl, String requestToken, String requestId) {
     if (permissions.isEmpty()) {
       return Future.succeededFuture(new JsonArray());
     }
@@ -179,18 +179,13 @@ public class ModulePermissionsSource implements PermissionsSource {
     query = query + joiner.toString() + ")";
     try {
       String requestUrl = okapiUrl + "/perms/permissions?"
-        + "expanded=true&query=" + URLEncoder.encode(query, "UTF-8");
+          + "expanded=true&query=" + URLEncoder.encode(query, "UTF-8");
       logger.debug("Requesting expanded permissions from URL at " + requestUrl);
-      HttpClientRequest req = client.getAbs(requestUrl, res -> {
-        res.bodyHandler(body -> handleExpandPermissions(res, body, promise, permissions));
-        res.exceptionHandler(e -> {
-          promise.fail(e);
-        });
-      });
-      req.exceptionHandler(e -> {
-        promise.fail(e);
-      });
+      HttpRequest<Buffer> req = client.getAbs(requestUrl);
       endRequest(req, requestToken, tenant, requestId);
+      Future<HttpResponse<Buffer>> httpResponseFuture = req.send()
+          .onFailure(cause -> promise.fail(cause))
+          .onSuccess(res -> handleExpandPermissions(res, res.bodyAsBuffer(), promise, permissions));
     } catch (Exception e) {
       logger.error(e.getLocalizedMessage(), e);
       promise.fail("Unable to expand permissions: " + e.getLocalizedMessage());
@@ -198,7 +193,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     return promise.future();
   }
 
-  private void handleExpandPermissions(HttpClientResponse res, Buffer body, Promise<JsonArray> promise,
+  private void handleExpandPermissions(HttpResponse<Buffer> res, Buffer body, Promise<JsonArray> promise,
                                        JsonArray permissions) {
 
     try {

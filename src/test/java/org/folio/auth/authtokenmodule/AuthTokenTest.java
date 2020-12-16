@@ -441,7 +441,7 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Desired", "extra.*bar")
       .get("/bar")
       .then()
-      .statusCode(401).body(containsString("Unexpected request exception for user id "));
+      .statusCode(401).body(containsString("Unexpected response exception for user id"));
 
     logger.info("Test /permss/users with bad status");
     PermsMock.handlePermsUsersStatusCode = 400;

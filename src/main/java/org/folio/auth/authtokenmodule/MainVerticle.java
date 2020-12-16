@@ -674,6 +674,10 @@ public class MainVerticle extends AbstractVerticle {
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.onComplete(res -> {
       if (res.failed()) {
+        // Vert.x 4 warns about this.. And it's true : response already written 19 lines above
+        if (ctx.response().ended()) {
+          return;
+        }
         long stopTime = System.currentTimeMillis();
         logger.error("Unable to retrieve permissions for " + username + ": "
           + res.cause().getMessage() + " request took "

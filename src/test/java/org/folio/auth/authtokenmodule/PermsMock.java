@@ -1,7 +1,7 @@
 package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -30,7 +30,7 @@ public class PermsMock extends AbstractVerticle {
   private static String PERM_NAME = "permissionName";
   private static String PERM_SUB = "subPermissions";
 
-  public void start(Future<Void> future) {
+  public void start(Promise<Void> promise) {
     final int port = context.config().getInteger("port");
 
     Router router = Router.router(vertx);
@@ -41,13 +41,7 @@ public class PermsMock extends AbstractVerticle {
     router.route("/perms/permissions").handler(this::handlePermsPermissions);
     router.route("/users/:id").handler(this::handleUsers);
     logger.info("Running PermsMock on port " + port);
-    server.requestHandler(router::accept).listen(port, result -> {
-      if (result.failed()) {
-        future.fail(result.cause());
-      } else {
-        future.complete();
-      }
-    });
+    server.requestHandler(router).listen(port, result -> promise.handle(result.mapEmpty()));
   }
 
   private void handleUsers(RoutingContext context) {
