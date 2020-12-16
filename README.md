@@ -1,6 +1,6 @@
 # mod-authtoken
 
-Copyright (C) 2016-2019 The Open Library Foundation
+Copyright (C) 2016-2020 The Open Library Foundation
 
 This software is distributed under the terms of the Apache License,
 Version 2.0. See the file "[LICENSE](LICENSE)" for more information.
@@ -15,7 +15,16 @@ that privileged modules (such as Authentication) may make use of.
 
 # Building
 
-This module requires that the Java Cryptography Extension files be installed, in order to run successfully. OpenJDK ships with them [since 8u161](https://bugs.openjdk.java.net/browse/JDK-8189377), for Oracle JDK, they can be located at https://www.oracle.com/technetwork/java/javase/downloads/jce8-download-2133166.html
+## System requirements
+
+* Java 11
+
+* Apache Maven 3.3.x or higher
+
+## Quick start
+
+    mvn install
+    java -jar target/mod-authtoken-far.jar
 
 # Interface
 
