@@ -12,8 +12,6 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -28,6 +26,11 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 
@@ -63,7 +66,8 @@ public class MainVerticle extends AbstractVerticle {
   private static final String EXTRA_PERMS = "extra_permissions";
 
   PermissionsSource permissionsSource;
-  private static final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+  private static final Logger logger = LogManager.getLogger(MainVerticle.class);
+
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
 
@@ -140,11 +144,9 @@ public class MainVerticle extends AbstractVerticle {
 
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
     String logLevel = System.getProperty("log.level", null);
-    if(logLevel != null) {
+    if (logLevel != null) {
       try {
-        org.apache.log4j.Logger l4jLogger;
-        l4jLogger = org.apache.log4j.Logger.getLogger("mod-auth-authtoken-module");
-        l4jLogger.getParent().setLevel(org.apache.log4j.Level.toLevel(logLevel));
+        Configurator.setRootLevel(Level.toLevel(logLevel));
       } catch(Exception e) {
         logger.error("Unable to set log level: " + e.getMessage());
       }

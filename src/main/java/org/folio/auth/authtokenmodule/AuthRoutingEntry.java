@@ -4,9 +4,10 @@ import com.nimbusds.jose.util.Base64;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.RoutingContext;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -25,7 +26,7 @@ public class AuthRoutingEntry {
   private String endpoint;
   private List<String> requiredPermissions;
   private Handler<RoutingContext> handler;
-  private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+  private static final Logger logger = LogManager.getLogger(AuthRoutingEntry.class);
 
   public AuthRoutingEntry(String endpoint, String[] requiredPermissions,
     Handler<RoutingContext> handler) {

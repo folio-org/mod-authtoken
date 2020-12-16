@@ -5,14 +5,15 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 
 /**
@@ -23,7 +24,8 @@ public class PermService {
 
   public static final String SYS_PERM_PREFIX = "SYS#";
   
-  private static final Logger logger = LoggerFactory.getLogger(PermService.class);
+  private static final Logger logger = LogManager.getLogger(PermService.class);
+
   // map from system generated module permission set name to the actual permissions
   private static ConcurrentMap<String, PermEntry> cache = new ConcurrentHashMap<>();
   private ModulePermissionsSource modulePermissionsSource;

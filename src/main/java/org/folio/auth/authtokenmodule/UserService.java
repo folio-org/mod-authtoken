@@ -4,10 +4,10 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.WebClient;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentMap;
 
 public class UserService {
 
-  private final Logger logger = LoggerFactory.getLogger(UserService.class);
+  private static final Logger logger = LogManager.getLogger(PermService.class);
 
   // map from tenant id to user id and then to user active or not
   private ConcurrentMap<String, ConcurrentMap<String, UserEntry>> cache = new ConcurrentHashMap<>();

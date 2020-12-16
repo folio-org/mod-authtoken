@@ -7,17 +7,18 @@ import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.client.WebClientOptions;
+
 import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringJoiner;
 
-import io.vertx.ext.web.client.WebClientOptions;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.CacheEntry;
 import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.PermissionData;
@@ -31,7 +32,7 @@ import org.folio.auth.authtokenmodule.PermissionsSource;
 public class ModulePermissionsSource implements PermissionsSource {
 
   private Vertx vertx;
-  private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+  private static final Logger logger = LogManager.getLogger(ModulePermissionsSource.class);
   private final WebClient client;
   private final Map<String,CacheEntry<JsonArray>> expandPermissionsMap = new HashMap<>();
   private final Map<String,CacheEntry<JsonArray>> permissionsForUserMap = new HashMap<>();

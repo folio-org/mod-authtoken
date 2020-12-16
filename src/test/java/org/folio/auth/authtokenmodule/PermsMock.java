@@ -7,8 +7,8 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  *
@@ -16,7 +16,7 @@ import io.vertx.core.logging.LoggerFactory;
  */
 public class PermsMock extends AbstractVerticle {
 
-  private final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+  private static final Logger logger = LogManager.getLogger("PermsMock");
 
   public static int handlePermsUsersStatusCode = 200;
   public static int handlePermsUsersPermissionsStatusCode = 200;
