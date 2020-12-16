@@ -1,7 +1,6 @@
 package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.client.HttpRequest;
@@ -62,7 +61,6 @@ public class UserService {
   private Future<Boolean> isActiveUserNoCache(String userId, String tenant, String okapiUrl,
                                               String requestToken, String requestId) {
 
-    Promise<Boolean> promise = Promise.promise();
     HttpRequest<Buffer> req = client.getAbs(okapiUrl + "/users/" + userId);
 
     req.headers().add(MainVerticle.OKAPI_TOKEN_HEADER, requestToken)
@@ -72,13 +70,8 @@ public class UserService {
     if (requestId != null) {
       req.headers().add(MainVerticle.REQUESTID_HEADER, requestId);
     }
-    req.send()
-        .onFailure(e -> {
-          String msg = "Unexpected response exception for user id " + userId;
-          logger.warn(msg, e);
-          promise.fail(new UserServiceException(msg, e));
-        })
-        .onSuccess(res -> {
+    return req.send()
+        .compose(res -> {
           if (res.statusCode() == 200) {
             Boolean active = null;
             try {
@@ -86,24 +79,20 @@ public class UserService {
             } catch (Exception e) {
               String msg = "Invalid user response: " + res.bodyAsString() + " for id " + userId;
               logger.warn(msg, e);
-              promise.fail(new UserServiceException(msg, e));
-              return;
+              return Future.failedFuture(new UserServiceException(msg, e));
             }
             ConcurrentMap<String, UserEntry> newMap = new ConcurrentHashMap<>();
             ConcurrentMap<String, UserEntry> oldMap = cache.putIfAbsent(tenant, newMap);
             ConcurrentMap<String, UserEntry> map = oldMap == null ? newMap : oldMap;
             map.put(userId, new UserEntry(active));
-            promise.complete(active);
-            return;
+            return Future.succeededFuture(active);
           }
           if (res.statusCode() == 404) {
-            promise.fail(new UserServiceException("User with id " + userId + " does not exist"));
-            return;
+            return Future.failedFuture(new UserServiceException("User with id " + userId + " does not exist"));
           }
-          promise.fail(new UserServiceException(
+          return Future.failedFuture(new UserServiceException(
               "Unexpected user response code " + res.statusCode() + " for user id " + userId));
         });
-    return promise.future();
   }
 
   public static class UserServiceException extends Exception {

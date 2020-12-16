@@ -442,7 +442,8 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Desired", "extra.*bar")
       .get("/bar")
       .then()
-      .statusCode(401).body(containsString("Unexpected response exception for user id"));
+      .statusCode(400).body(containsString("Connection refused"));
+    // used to be 401.. But connection refused is hardly forbidden..
 
     logger.info("Test /permss/users with bad status");
     PermsMock.handlePermsUsersStatusCode = 400;

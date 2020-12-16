@@ -815,40 +815,30 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
-    Promise<Boolean> promise = Promise.promise();
-    try {
-      String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
-      if (!tenant.equals(tokenClaims.getString("tenant"))) {
-        logger.error("Tenant mismatch for refresh token");
-        return Future.succeededFuture(Boolean.FALSE);
-      }
-      String address = ctx.request().remoteAddress().host();
-      if (!address.equals(tokenClaims.getString("address"))) {
-        logger.error("Issuing address does not match for refresh token");
-        return Future.succeededFuture(Boolean.FALSE);
-      }
-      Long nowTime = Instant.now().getEpochSecond();
-      Long expiration = tokenClaims.getLong("exp");
-      if (expiration < nowTime) {
-        logger.error("Attempt to refresh with expired refresh token");
-        return Future.succeededFuture(Boolean.FALSE);
-      }
-      checkRefreshTokenRevoked(tokenClaims).onComplete(res -> {
-        if (res.failed()) {
-          promise.fail(res.cause());
-        } else {
-          if (res.result()) {
-            logger.error("Attempt to refresh with revoked token");
-            promise.complete(Boolean.FALSE);
-          } else {
-            promise.complete(Boolean.TRUE);
-          }
-        }
-      });
-    } catch (Exception e) {
-      promise.fail(e);
+    String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+    if (!tenant.equals(tokenClaims.getString("tenant"))) {
+      logger.error("Tenant mismatch for refresh token");
+      return Future.succeededFuture(Boolean.FALSE);
     }
-    return promise.future();
+    String address = ctx.request().remoteAddress().host();
+    if (!address.equals(tokenClaims.getString("address"))) {
+      logger.error("Issuing address does not match for refresh token");
+      return Future.succeededFuture(Boolean.FALSE);
+    }
+    Long nowTime = Instant.now().getEpochSecond();
+    Long expiration = tokenClaims.getLong("exp");
+    if (expiration < nowTime) {
+      logger.error("Attempt to refresh with expired refresh token");
+      return Future.succeededFuture(Boolean.FALSE);
+    }
+    return checkRefreshTokenRevoked(tokenClaims).compose(res -> {
+      if (res) {
+        logger.error("Attempt to refresh with revoked token");
+        return Future.succeededFuture(Boolean.FALSE);
+      } else {
+        return Future.succeededFuture(Boolean.TRUE);
+      }
+    });
   }
 
   private Future<Boolean> checkRefreshTokenRevoked(JsonObject tokenClaims) {
