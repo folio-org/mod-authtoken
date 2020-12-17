@@ -71,10 +71,11 @@ public class LimitedSizeQueueTest {
     LimitedSizeQueue<String> a2 = new LimitedSizeQueue<>(2);
 
     Assert.assertNotEquals(a1, a2);
-    Assert.assertEquals(a1.hashCode(), a2.hashCode());
+    Assert.assertNotEquals(a1.hashCode(), a2.hashCode());
 
     LimitedSizeQueue<String> b1 = new LimitedSizeQueue<>(1);
     Assert.assertEquals(a1, b1);
+    Assert.assertEquals(a1.hashCode(), b1.hashCode());
 
     LimitedSizeQueue<Integer> i1 = new LimitedSizeQueue<>(1);
     Assert.assertEquals(a1, i1);

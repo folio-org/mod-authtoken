@@ -22,7 +22,7 @@ public class LimitedSizeQueue<K>
 
   @Override
   public int hashCode() {
-    return super.hashCode();
+    return super.hashCode() + 31 * maxSize;
   }
 
   @Override
@@ -30,6 +30,10 @@ public class LimitedSizeQueue<K>
     return size() > maxSize;
   }
 
+  /**
+   * Adds key if not already in queue. If key exists, nothing is changed.
+   * @param k key
+   */
   public void add(K k) {
     super.put(k, Boolean.TRUE);
   }
