@@ -12,8 +12,6 @@ import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -28,6 +26,11 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 
@@ -63,7 +66,8 @@ public class MainVerticle extends AbstractVerticle {
   private static final String EXTRA_PERMS = "extra_permissions";
 
   PermissionsSource permissionsSource;
-  private static final Logger logger = LoggerFactory.getLogger("mod-auth-authtoken-module");
+  private static final Logger logger = LogManager.getLogger(MainVerticle.class);
+
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
 
@@ -107,6 +111,19 @@ public class MainVerticle extends AbstractVerticle {
     endText(ctx, code, "Error: ", t);
   }
 
+  static void setLogLevel(String name) {
+    if (name == null) {
+      return;
+    }
+    setLogLevel(Level.toLevel(name));
+  }
+
+  static Level setLogLevel(Level level) {
+    Level existing = LogManager.getRootLogger().getLevel();
+    Configurator.setAllLevels(LogManager.getRootLogger().getName(), level);
+    return existing;
+  }
+
   @Override
   public void start(Promise<Void> promise) {
     authRoutingEntryList = new ArrayList<>();
@@ -139,16 +156,7 @@ public class MainVerticle extends AbstractVerticle {
     clientTokenCreatorMap = new HashMap<>();
 
     tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
-    String logLevel = System.getProperty("log.level", null);
-    if(logLevel != null) {
-      try {
-        org.apache.log4j.Logger l4jLogger;
-        l4jLogger = org.apache.log4j.Logger.getLogger("mod-auth-authtoken-module");
-        l4jLogger.getParent().setLevel(org.apache.log4j.Level.toLevel(logLevel));
-      } catch(Exception e) {
-        logger.error("Unable to set log level: " + e.getMessage());
-      }
-    }
+    setLogLevel(System.getProperty("log.level", null));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
@@ -674,6 +682,10 @@ public class MainVerticle extends AbstractVerticle {
     logger.debug("Retrieving permissions for userid " + userId + " and expanding permissions");
     retrievedPermissionsFuture.onComplete(res -> {
       if (res.failed()) {
+        // Vert.x 4 warns about this.. And it's true : response already written 19 lines above
+        if (ctx.response().ended()) {
+          return;
+        }
         long stopTime = System.currentTimeMillis();
         logger.error("Unable to retrieve permissions for " + username + ": "
           + res.cause().getMessage() + " request took "
@@ -809,40 +821,30 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
-    Promise<Boolean> promise = Promise.promise();
-    try {
-      String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
-      if (!tenant.equals(tokenClaims.getString("tenant"))) {
-        logger.error("Tenant mismatch for refresh token");
-        return Future.succeededFuture(Boolean.FALSE);
-      }
-      String address = ctx.request().remoteAddress().host();
-      if (!address.equals(tokenClaims.getString("address"))) {
-        logger.error("Issuing address does not match for refresh token");
-        return Future.succeededFuture(Boolean.FALSE);
-      }
-      Long nowTime = Instant.now().getEpochSecond();
-      Long expiration = tokenClaims.getLong("exp");
-      if (expiration < nowTime) {
-        logger.error("Attempt to refresh with expired refresh token");
-        return Future.succeededFuture(Boolean.FALSE);
-      }
-      checkRefreshTokenRevoked(tokenClaims).onComplete(res -> {
-        if (res.failed()) {
-          promise.fail(res.cause());
-        } else {
-          if (res.result()) {
-            logger.error("Attempt to refresh with revoked token");
-            promise.complete(Boolean.FALSE);
-          } else {
-            promise.complete(Boolean.TRUE);
-          }
-        }
-      });
-    } catch (Exception e) {
-      promise.fail(e);
+    String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+    if (!tenant.equals(tokenClaims.getString("tenant"))) {
+      logger.error("Tenant mismatch for refresh token");
+      return Future.succeededFuture(Boolean.FALSE);
     }
-    return promise.future();
+    String address = ctx.request().remoteAddress().host();
+    if (!address.equals(tokenClaims.getString("address"))) {
+      logger.error("Issuing address does not match for refresh token");
+      return Future.succeededFuture(Boolean.FALSE);
+    }
+    Long nowTime = Instant.now().getEpochSecond();
+    Long expiration = tokenClaims.getLong("exp");
+    if (expiration < nowTime) {
+      logger.error("Attempt to refresh with expired refresh token");
+      return Future.succeededFuture(Boolean.FALSE);
+    }
+    return checkRefreshTokenRevoked(tokenClaims).compose(res -> {
+      if (res) {
+        logger.error("Attempt to refresh with revoked token");
+        return Future.succeededFuture(Boolean.FALSE);
+      } else {
+        return Future.succeededFuture(Boolean.TRUE);
+      }
+    });
   }
 
   private Future<Boolean> checkRefreshTokenRevoked(JsonObject tokenClaims) {
