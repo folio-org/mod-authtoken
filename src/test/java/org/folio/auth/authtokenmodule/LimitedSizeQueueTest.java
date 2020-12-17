@@ -62,7 +62,7 @@ public class LimitedSizeQueueTest {
       }
     }
     long end = System.nanoTime();
-    System.out.printf("time = " + (end - start)/1000000 + " ms");
+    System.out.printf("time = " + (end - start) / 1000000 + " ms");
   }
 
   @Test
@@ -70,8 +70,8 @@ public class LimitedSizeQueueTest {
     LimitedSizeQueue<String> a1 = new LimitedSizeQueue<>(1);
     LimitedSizeQueue<String> a2 = new LimitedSizeQueue<>(2);
 
-    Assert.assertEquals(a1, a1);
     Assert.assertNotEquals(a1, a2);
+    Assert.assertEquals(a1.hashCode(), a2.hashCode());
 
     LimitedSizeQueue<String> b1 = new LimitedSizeQueue<>(1);
     Assert.assertEquals(a1, b1);
@@ -80,8 +80,7 @@ public class LimitedSizeQueueTest {
     Assert.assertEquals(a1, i1);
     Assert.assertEquals(i1, a1);
 
-    Map<Integer, Integer> l1 = new LinkedHashMap<>();
-    Assert.assertEquals(l1, i1);
-    Assert.assertNotEquals(a1, 2);
+    a1.add("1");
+    Assert.assertNotEquals(a1, a2);
   }
 }

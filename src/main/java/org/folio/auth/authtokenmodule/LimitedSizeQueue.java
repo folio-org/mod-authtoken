@@ -21,6 +21,11 @@ public class LimitedSizeQueue<K>
   }
 
   @Override
+  public int hashCode() {
+    return super.hashCode();
+  }
+
+  @Override
   protected boolean removeEldestEntry(Map.Entry<K, Boolean> eldest) {
     return size() > maxSize;
   }
