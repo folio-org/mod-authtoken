@@ -78,7 +78,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userId;
     logger.debug("Requesting permissions user object from URL at " + permUserRequestUrl);
     HttpRequest<Buffer> permUserReq = client.getAbs(permUserRequestUrl);
-    endRequest(permUserReq, requestToken, tenant, requestId);
+    sendHeaders(permUserReq, requestToken, tenant, requestId);
     return permUserReq.send()
         .compose(permUserRes -> {
           if (permUserRes.statusCode() != 200) {
@@ -96,9 +96,9 @@ public class ModulePermissionsSource implements PermissionsSource {
             return Future.failedFuture(e);
           }
           final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
-          logger.debug("Requesting permissions from URL at " + requestUrl);
+          logger.debug("Requesting permissions from URL at {}", requestUrl);
           HttpRequest<Buffer> req = client.getAbs(requestUrl);
-          endRequest(req, requestToken, tenant, requestId);
+          sendHeaders(req, requestToken, tenant, requestId);
           return req.send()
               .compose(res -> {
                 if (res.statusCode() == 404) {
@@ -130,8 +130,8 @@ public class ModulePermissionsSource implements PermissionsSource {
         });
   }
 
-  private void endRequest(HttpRequest<Buffer> req, String requestToken,
-                          String tenant, String requestId) {
+  private void sendHeaders(HttpRequest<Buffer> req, String requestToken,
+                           String tenant, String requestId) {
     if (requestId != null) {
       req.headers().add(MainVerticle.REQUESTID_HEADER, requestId);
     }
@@ -171,9 +171,9 @@ public class ModulePermissionsSource implements PermissionsSource {
     query = query + joiner.toString() + ")";
     String requestUrl = okapiUrl + "/perms/permissions?"
         + "expanded=true&query=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
-    logger.debug("Requesting expanded permissions from URL at " + requestUrl);
+    logger.debug("Requesting expanded permissions from URL at {}", requestUrl);
     HttpRequest<Buffer> req = client.getAbs(requestUrl);
-    endRequest(req, requestToken, tenant, requestId);
+    sendHeaders(req, requestToken, tenant, requestId);
     return req.send().compose(res -> handleExpandPermissions(res, res.bodyAsBuffer(), permissions));
   }
 
