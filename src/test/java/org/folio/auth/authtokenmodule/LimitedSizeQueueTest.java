@@ -70,18 +70,18 @@ public class LimitedSizeQueueTest {
     LimitedSizeQueue<String> a1 = new LimitedSizeQueue<>(1);
     LimitedSizeQueue<String> a2 = new LimitedSizeQueue<>(2);
 
-    Assert.assertTrue(a1.equals(a1));
-    Assert.assertFalse(a1.equals(a2));
+    Assert.assertEquals(a1, a1);
+    Assert.assertNotEquals(a1, a2);
 
     LimitedSizeQueue<String> b1 = new LimitedSizeQueue<>(1);
-    Assert.assertTrue(a1.equals(b1));
+    Assert.assertEquals(a1, b1);
 
     LimitedSizeQueue<Integer> i1 = new LimitedSizeQueue<>(1);
-    Assert.assertTrue(a1.equals(i1));
-    Assert.assertTrue(i1.equals(a1));
+    Assert.assertEquals(a1, i1);
+    Assert.assertEquals(i1, a1);
 
     Map<Integer, Integer> l1 = new LinkedHashMap<>();
-    Assert.assertTrue(l1.equals(i1));
-    Assert.assertFalse(a1.equals(2));
+    Assert.assertEquals(l1, i1);
+    Assert.assertNotEquals(a1, 2);
   }
 }

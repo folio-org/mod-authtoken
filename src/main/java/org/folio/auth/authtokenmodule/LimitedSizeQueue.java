@@ -14,10 +14,9 @@ public class LimitedSizeQueue<K>
   @Override
   public boolean equals(Object obj) {
     if (!super.equals(obj)) {
-      System.out.println("NOT equals");
       return false;
     }
-    LimitedSizeQueue fobj = (LimitedSizeQueue) obj;
+    LimitedSizeQueue<K> fobj = (LimitedSizeQueue<K>) obj;
     return fobj.maxSize == maxSize;
   }
 
