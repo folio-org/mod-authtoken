@@ -1,29 +1,29 @@
 package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.WebClient;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public class UserService {
 
-  private final Logger logger = LoggerFactory.getLogger(UserService.class);
+  private static final Logger logger = LogManager.getLogger(PermService.class);
 
   // map from tenant id to user id and then to user active or not
   private ConcurrentMap<String, ConcurrentMap<String, UserEntry>> cache = new ConcurrentHashMap<>();
 
-  private HttpClient client;
+  private WebClient client;
   private long cachePeriod;
 
   public UserService(Vertx vertx, int cacheInSeconds, int purgeCacheInSeconds) {
-    client = vertx.createHttpClient();
+    client = WebClient.create(vertx);
     cachePeriod = cacheInSeconds * 1000L;
 
     // purge cache periodically
@@ -59,46 +59,9 @@ public class UserService {
   }
 
   private Future<Boolean> isActiveUserNoCache(String userId, String tenant, String okapiUrl,
-      String requestToken, String requestId) {
+                                              String requestToken, String requestId) {
 
-    Promise<Boolean> promise = Promise.promise();
-    HttpClientRequest req = client.getAbs(okapiUrl + "/users/" + userId, res -> {
-      res.exceptionHandler(e -> {
-        String msg = "Unexpected response exception for user id " + userId;
-        logger.warn(msg, e);
-        promise.fail(new UserServiceException(msg, e));
-      });
-      if (res.statusCode() == 200) {
-        res.bodyHandler(user -> {
-          Boolean active = null;
-          try {
-            active = new JsonObject(user.toString()).getBoolean("active");
-          } catch (Exception e) {
-            String msg = "Invalid user response: " + user + " for id " + userId;
-            logger.warn(msg, e);
-            promise.fail(new UserServiceException(msg, e));
-            return;
-          }
-          ConcurrentMap<String, UserEntry> newMap = new ConcurrentHashMap<>();
-          ConcurrentMap<String, UserEntry> oldMap = cache.putIfAbsent(tenant, newMap);
-          ConcurrentMap<String, UserEntry> map = oldMap == null ? newMap : oldMap;
-          map.put(userId, new UserEntry(active));
-          promise.complete(active);
-        });
-        return;
-      }
-      if (res.statusCode() == 404) {
-        promise.fail(new UserServiceException("User with id " + userId + " does not exist"));
-        return;
-      }
-      promise.fail(new UserServiceException(
-          "Unexpected user response code " + res.statusCode() + " for user id " + userId));
-    });
-    req.exceptionHandler(e -> {
-      String msg = "Unexpected request exception for user id " + userId;
-      logger.warn(msg, e);
-      promise.fail(new UserServiceException(msg, e));
-    });
+    HttpRequest<Buffer> req = client.getAbs(okapiUrl + "/users/" + userId);
 
     req.headers().add(MainVerticle.OKAPI_TOKEN_HEADER, requestToken)
         .add(MainVerticle.OKAPI_TENANT_HEADER, tenant)
@@ -107,8 +70,29 @@ public class UserService {
     if (requestId != null) {
       req.headers().add(MainVerticle.REQUESTID_HEADER, requestId);
     }
-    req.end();
-    return promise.future();
+    return req.send()
+        .compose(res -> {
+          if (res.statusCode() == 200) {
+            Boolean active = null;
+            try {
+              active = res.bodyAsJsonObject().getBoolean("active");
+            } catch (Exception e) {
+              String msg = "Invalid user response: " + res.bodyAsString() + " for id " + userId;
+              logger.warn(msg, e);
+              return Future.failedFuture(new UserServiceException(msg, e));
+            }
+            ConcurrentMap<String, UserEntry> newMap = new ConcurrentHashMap<>();
+            ConcurrentMap<String, UserEntry> oldMap = cache.putIfAbsent(tenant, newMap);
+            ConcurrentMap<String, UserEntry> map = oldMap == null ? newMap : oldMap;
+            map.put(userId, new UserEntry(active));
+            return Future.succeededFuture(active);
+          }
+          if (res.statusCode() == 404) {
+            return Future.failedFuture(new UserServiceException("User with id " + userId + " does not exist"));
+          }
+          return Future.failedFuture(new UserServiceException(
+              "Unexpected user response code " + res.statusCode() + " for user id " + userId));
+        });
   }
 
   public static class UserServiceException extends Exception {

@@ -3,7 +3,7 @@ package org.folio.auth.authtokenmodule;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertThat;
 
-import org.folio.auth.authtokenmodule.MainVerticle;
+import org.apache.logging.log4j.Level;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -38,5 +38,12 @@ public class MainVerticleTest {
         context.asyncAssertFailure(fail -> assertThat(fail.getMessage(), containsString("TokenCreator"))));
   }
 
+  @Test
+  public void setLogLevel(TestContext context) {
+    Level old = MainVerticle.setLogLevel(Level.ERROR);
+    MainVerticle.setLogLevel("info");
+    Level last = MainVerticle.setLogLevel(old);
+    context.assertEquals(Level.INFO, last);
+  }
 }
 

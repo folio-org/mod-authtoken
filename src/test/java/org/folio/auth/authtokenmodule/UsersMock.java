@@ -1,7 +1,7 @@
 package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -9,19 +9,13 @@ import io.vertx.ext.web.RoutingContext;
 
 public class UsersMock extends AbstractVerticle {
 
-  public void start(Future<Void> future) {
+  public void start(Promise<Void> promise) {
     Router router = Router.router(vertx);
     router.route("/users/:id").handler(this::handleUser);
 
     HttpServer server = vertx.createHttpServer();
     int port = context.config().getInteger("port");
-    server.requestHandler(router::accept).listen(port, result -> {
-      if (result.failed()) {
-        future.fail(result.cause());
-      } else {
-        future.complete();
-      }
-    });
+    server.requestHandler(router).listen(port, result -> promise.handle(result.mapEmpty()));
   }
 
   private void handleUser(RoutingContext context) {
