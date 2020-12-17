@@ -14,7 +14,7 @@ public class LimitedSizeQueue<K> extends ArrayList<K> {
   public boolean add(K k){
     boolean r = super.add(k);
     if (size() > maxSize) {
-      removeRange(0, size() - maxSize - 1);
+      removeRange(0, size() - maxSize);
     }
     return r;
   }
