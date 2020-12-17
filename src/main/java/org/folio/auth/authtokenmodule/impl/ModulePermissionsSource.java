@@ -78,7 +78,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userId;
     logger.debug("Requesting permissions user object from URL at " + permUserRequestUrl);
     HttpRequest<Buffer> permUserReq = client.getAbs(permUserRequestUrl);
-    sendHeaders(permUserReq, requestToken, tenant, requestId);
+    setHeaders(permUserReq, requestToken, tenant, requestId);
     return permUserReq.send()
         .compose(permUserRes -> {
           if (permUserRes.statusCode() != 200) {
@@ -98,7 +98,7 @@ public class ModulePermissionsSource implements PermissionsSource {
           final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
           logger.debug("Requesting permissions from URL at {}", requestUrl);
           HttpRequest<Buffer> req = client.getAbs(requestUrl);
-          sendHeaders(req, requestToken, tenant, requestId);
+          setHeaders(req, requestToken, tenant, requestId);
           return req.send()
               .compose(res -> {
                 if (res.statusCode() == 404) {
@@ -130,8 +130,8 @@ public class ModulePermissionsSource implements PermissionsSource {
         });
   }
 
-  private void sendHeaders(HttpRequest<Buffer> req, String requestToken,
-                           String tenant, String requestId) {
+  private void setHeaders(HttpRequest<Buffer> req, String requestToken,
+                          String tenant, String requestId) {
     if (requestId != null) {
       req.headers().add(MainVerticle.REQUESTID_HEADER, requestId);
     }
@@ -143,7 +143,7 @@ public class ModulePermissionsSource implements PermissionsSource {
   }
 
   private Future<JsonArray> expandPermissionsCached(JsonArray permissions, String tenant, String okapiUrl,
-                                                   String requestToken, String requestId) {
+                                                    String requestToken, String requestId) {
     final String key = tenant + "_" + permissions.encodePrettily();
     CacheEntry<JsonArray> entry = expandPermissionsMap.get(key);
     if (entry != null && entry.getAge() < expandPermissionsTimeout) {
@@ -173,7 +173,7 @@ public class ModulePermissionsSource implements PermissionsSource {
         + "expanded=true&query=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
     logger.debug("Requesting expanded permissions from URL at {}", requestUrl);
     HttpRequest<Buffer> req = client.getAbs(requestUrl);
-    sendHeaders(req, requestToken, tenant, requestId);
+    setHeaders(req, requestToken, tenant, requestId);
     return req.send().compose(res -> handleExpandPermissions(res, res.bodyAsBuffer(), permissions));
   }
 
