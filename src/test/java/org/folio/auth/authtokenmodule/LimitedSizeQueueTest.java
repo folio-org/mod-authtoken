@@ -1,9 +1,10 @@
 package org.folio.auth.authtokenmodule;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.util.UUID;
 
 public class LimitedSizeQueueTest {
   @Test
@@ -43,7 +44,7 @@ public class LimitedSizeQueueTest {
   }
 
   @Test
-  public void testQueueSize1e6() {
+  public void testQueueSize100() {
     final int count = 1000000;
     final int sz = 100;
     final String prefix = UUID.randomUUID().toString() + UUID.randomUUID().toString();
@@ -64,4 +65,23 @@ public class LimitedSizeQueueTest {
     System.out.printf("time = " + (end - start)/1000000 + " ms");
   }
 
+  @Test
+  public void testQueueCompare() {
+    LimitedSizeQueue<String> a1 = new LimitedSizeQueue<>(1);
+    LimitedSizeQueue<String> a2 = new LimitedSizeQueue<>(2);
+
+    Assert.assertTrue(a1.equals(a1));
+    Assert.assertFalse(a1.equals(a2));
+
+    LimitedSizeQueue<String> b1 = new LimitedSizeQueue<>(1);
+    Assert.assertTrue(a1.equals(b1));
+
+    LimitedSizeQueue<Integer> i1 = new LimitedSizeQueue<>(1);
+    Assert.assertTrue(a1.equals(i1));
+    Assert.assertTrue(i1.equals(a1));
+
+    Map<Integer, Integer> l1 = new LinkedHashMap<>();
+    Assert.assertTrue(l1.equals(i1));
+    Assert.assertFalse(a1.equals(2));
+  }
 }

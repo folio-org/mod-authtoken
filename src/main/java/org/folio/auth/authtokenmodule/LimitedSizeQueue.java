@@ -12,6 +12,16 @@ public class LimitedSizeQueue<K>
   }
 
   @Override
+  public boolean equals(Object obj) {
+    if (!super.equals(obj)) {
+      System.out.println("NOT equals");
+      return false;
+    }
+    LimitedSizeQueue fobj = (LimitedSizeQueue) obj;
+    return fobj.maxSize == maxSize;
+  }
+
+  @Override
   protected boolean removeEldestEntry(Map.Entry<K, Boolean> eldest) {
     return size() > maxSize;
   }
