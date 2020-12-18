@@ -31,7 +31,7 @@ public class LimitedSizeQueue<K>
   }
 
   /**
-   * Adds key if not already in queue. If key exists, nothing is changed.
+   * Adds key if not already in queue. If key exists, its queue position doesn't change.
    * @param k key
    */
   public void add(K k) {
