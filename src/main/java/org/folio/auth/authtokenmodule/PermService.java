@@ -22,13 +22,13 @@ import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 public class PermService {
 
   public static final String SYS_PERM_PREFIX = "SYS#";
-  
+
   private static final Logger logger = LogManager.getLogger(PermService.class);
 
   // map from system generated module permission set name to the actual permissions
-  private static ConcurrentMap<String, PermEntry> cache = new ConcurrentHashMap<>();
-  private ModulePermissionsSource modulePermissionsSource;
-  private long cachePeriod;
+  private static final ConcurrentMap<String, PermEntry> cache = new ConcurrentHashMap<>();
+  private final ModulePermissionsSource modulePermissionsSource;
+  private final long cachePeriod;
 
   public PermService(Vertx vertx, ModulePermissionsSource modulePermissionsSource, int cacheInSeconds,
       int purgeCacheInSeconds) {
@@ -42,7 +42,7 @@ public class PermService {
       for (String key : keys) {
         if ((System.currentTimeMillis() - cache.get(key).getTimestamp()) > cachePeriod) {
           cache.remove(key);
-          logger.info("Removed cache of system permission: " + key);
+          logger.info("Removed cache of system permission: {}", key);
         }
       }
     });
@@ -66,7 +66,7 @@ public class PermService {
         expandedPerms.add(perm);
       }
     }
-    logger.debug("Expand using static cache from " + permissions + " to " + expandedPerms);
+    logger.debug("Expand using static cache from {} to {}", permissions, expandedPerms);
     return expandedPerms;
   }
 
@@ -109,7 +109,7 @@ public class PermService {
         cache.put(perm, new PermEntry(perms));
         expandedPerms.addAll(perms);
       });
-      logger.debug("Expand from " + permissions + " to " + expandedPerms);
+      logger.debug("Expand from {} to {}", permissions, expandedPerms);
       return Future.succeededFuture(expandedPerms);
     });
   }
@@ -117,7 +117,7 @@ public class PermService {
   private static class PermEntry {
     private long timestamp = System.currentTimeMillis();
 
-    private JsonArray perms = new JsonArray();
+    private final JsonArray perms;
 
     public PermEntry(JsonArray perms) {
       this.perms = perms;

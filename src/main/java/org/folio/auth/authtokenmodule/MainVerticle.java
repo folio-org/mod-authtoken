@@ -186,14 +186,14 @@ public class MainVerticle extends AbstractVerticle {
 
   private void handleSignEncryptedToken(RoutingContext ctx) {
     try {
-      logger.debug("Encrypted token signing request from {}", () -> ctx.request().absoluteURI());
+      logger.debug("Encrypted token signing request from {}", ctx.request().absoluteURI());
       if (ctx.request().method() != HttpMethod.POST) {
         String message = "Invalid method for this endpoint";
         endText(ctx, 400, message);
         return;
       }
       String content = ctx.getBodyAsString();
-      JsonObject requestJson = null;
+      JsonObject requestJson;
       try {
         requestJson = parseJsonObject(content,
           new String[]{"passPhrase", "payload"});
@@ -232,7 +232,7 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       String content = ctx.getBodyAsString();
-      JsonObject requestJson = null;
+      JsonObject requestJson;
       try {
         requestJson = parseJsonObject(content,
           new String[]{"passPhrase", "token"});
@@ -274,7 +274,7 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       String content = ctx.getBodyAsString();
-      JsonObject requestJson = null;
+      JsonObject requestJson;
       try {
         requestJson = parseJsonObject(content,
           new String[]{"refreshToken"});
@@ -283,8 +283,8 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       String token = requestJson.getString("refreshToken");
-      String tokenContent = null;
-      JsonObject tokenClaims = null;
+      String tokenContent;
+      JsonObject tokenClaims;
       try {
         tokenContent = tokenCreator.decodeJWEToken(token);
         tokenClaims = new JsonObject(tokenContent);
@@ -335,7 +335,7 @@ public class MainVerticle extends AbstractVerticle {
       String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
       String address = ctx.request().remoteAddress().host();
       String content = ctx.getBodyAsString();
-      JsonObject requestJson = null;
+      JsonObject requestJson;
       try {
         requestJson = parseJsonObject(content,
           new String[]{"userId", "sub"});
@@ -372,8 +372,8 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       final String postContent = ctx.getBodyAsString();
-      JsonObject json = null;
-      JsonObject payload = null;
+      JsonObject json;
+      JsonObject payload;
       try {
         json = new JsonObject(postContent);
       } catch (DecodeException dex) {
@@ -441,7 +441,7 @@ public class MainVerticle extends AbstractVerticle {
     //String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
     String okapiTokenHeader = ctx.request().headers().get(OKAPI_TOKEN_HEADER);
-    String candidateToken = null;
+    String candidateToken;
     if (okapiTokenHeader != null && authHeader != null) {
       String authToken = extractToken(authHeader);
       if (okapiTokenHeader.equals(authToken)) { // authToken may be null
@@ -585,7 +585,7 @@ public class MainVerticle extends AbstractVerticle {
         tokenPayload.put("module", moduleName);
         tokenPayload.put(EXTRA_PERMS, permissionList);
         tokenPayload.put("user_id", finalUserId);
-        String moduleToken = null;
+        String moduleToken;
         try {
           moduleToken = tokenCreator.createJWTToken(tokenPayload.encode());
         } catch(Exception e) {
@@ -739,7 +739,7 @@ public class MainVerticle extends AbstractVerticle {
         claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
       }
 
-      String token = null;
+      String token;
       try {
         token = tokenCreator.createJWTToken(claims.encode());
       } catch(Exception e) {
@@ -817,8 +817,7 @@ public class MainVerticle extends AbstractVerticle {
         .put("exp", nowTime + (60 * 60 * 24))
         .put("jti", UUID.randomUUID().toString())
         .put("prn", "refresh");
-    String refreshToken = tokenCreator.createJWEToken(payload.encode());
-    return refreshToken;
+    return tokenCreator.createJWEToken(payload.encode());
   }
 
   private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
@@ -855,7 +854,7 @@ public class MainVerticle extends AbstractVerticle {
 
   private JsonObject parseJsonObject(String encoded, String[] requiredMembers)
     throws AuthtokenException {
-    JsonObject json = null;
+    JsonObject json;
     try {
       json = new JsonObject(encoded);
     } catch (Exception e) {

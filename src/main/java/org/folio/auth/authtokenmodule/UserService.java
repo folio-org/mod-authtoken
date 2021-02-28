@@ -19,8 +19,8 @@ public class UserService {
   // map from tenant id to user id and then to user active or not
   private ConcurrentMap<String, ConcurrentMap<String, UserEntry>> cache = new ConcurrentHashMap<>();
 
-  private WebClient client;
-  private long cachePeriod;
+  private final WebClient client;
+  private final long cachePeriod;
 
   public UserService(Vertx vertx, int cacheInSeconds, int purgeCacheInSeconds) {
     client = WebClient.create(vertx);
@@ -73,7 +73,7 @@ public class UserService {
     return req.send()
         .compose(res -> {
           if (res.statusCode() == 200) {
-            Boolean active = null;
+            Boolean active;
             try {
               active = res.bodyAsJsonObject().getBoolean("active");
             } catch (Exception e) {
@@ -110,8 +110,8 @@ public class UserService {
   }
 
   private static class UserEntry {
-    private long timestamp = System.currentTimeMillis();
-    private Boolean active;
+    private final long timestamp = System.currentTimeMillis();
+    private final Boolean active;
 
     public UserEntry(Boolean active) {
       this.active = active;
