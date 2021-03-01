@@ -74,9 +74,9 @@ public class ModulePermissionsSource implements PermissionsSource {
 
   private Future<JsonArray> getPermissionsForUser(String userId, String tenant, String okapiUrl,
                                                   String requestToken, String requestId) {
-    logger.debug("gerPermissionsForUser userid=" + userId);
+    logger.debug("gerPermissionsForUser userid={}", userId);
     String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userId;
-    logger.debug("Requesting permissions user object from URL at " + permUserRequestUrl);
+    logger.debug("Requesting permissions user object from URL at {}", permUserRequestUrl);
     HttpRequest<Buffer> permUserReq = client.getAbs(permUserRequestUrl);
     setHeaders(permUserReq, requestToken, tenant, requestId);
     return permUserReq.send()
@@ -116,7 +116,7 @@ public class ModulePermissionsSource implements PermissionsSource {
                 try {
                   permissionsObject = res.bodyAsJsonObject();
                 } catch (Exception e) {
-                  logger.debug("Error parsing permissions object: " + e.getLocalizedMessage());
+                  logger.debug("Error parsing permissions object: {}", e.getMessage());
                   permissionsObject = null;
                 }
                 if (permissionsObject != null && permissionsObject.getJsonArray("permissionNames") != null) {
@@ -183,7 +183,7 @@ public class ModulePermissionsSource implements PermissionsSource {
     if (res.statusCode() != 200) {
       String message = "Expected 200, got result " + res.statusCode()
           + " : " + body.toString();
-      logger.error("Error expanding " + permissions.encode() + ": " + message);
+      logger.error("Error expanding {}: {}", permissions.encode(), message);
       return Future.failedFuture(message);
     }
     logger.debug("Got result from permissions module");
@@ -241,7 +241,7 @@ public class ModulePermissionsSource implements PermissionsSource {
       String userid, String tenant, String okapiUrl, String requestToken, String requestId,
       JsonArray permissions) {
 
-    logger.debug("Retrieving permissions for userid " + userid + " and expanding permissions");
+    logger.debug("Retrieving permissions for userid {} and expanding permissions", userid);
     Future<JsonArray> userPermsFuture
         = getPermissionsForUserCached(userid, tenant, okapiUrl, requestToken, requestId);
     Future<JsonArray> expandedPermsFuture

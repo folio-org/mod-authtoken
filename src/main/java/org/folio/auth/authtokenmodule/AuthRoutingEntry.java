@@ -41,7 +41,7 @@ public class AuthRoutingEntry {
   }
 
   /*
-  Return true if we're handling the route, false if pass-thru
+  Return true if we're handling the route, false if pass-through
    */
   public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
     JsonObject claims = getClaims(authToken);
