@@ -1,3 +1,13 @@
+## 2.7.0 2021-03-01
+
+Update mod-authtoken to use same log format as RMB and Okapi. Upgrade from
+Vert.x 3 to 4. Token cache optimization and bug fix.
+
+ * [MODAT-98](https://issues.folio.org/browse/MODAT-98) log4j2 format, Vert.x 4.0.2
+ * [MODAT-82](https://issues.folio.org/browse/MODAT-82) Replace linear search MainVerticle.LimitedSizeQueue
+ * [MODAT-96](https://issues.folio.org/browse/MODAT-96) Upgrade mod-authtoken to Vert.x 4.0.0
+ * [MODAT-63](https://issues.folio.org/browse/MODAT-63) Update log4j from 1.x API to 2 API
+
 ## 2.6.0 2020-09-30
 
  * [MODAT-89](https://issues.folio.org/browse/MODAT-89) Upgrade to Vertx 3.9.3
