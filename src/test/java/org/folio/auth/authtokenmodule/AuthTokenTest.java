@@ -8,14 +8,15 @@ import io.vertx.core.DeploymentOptions;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.junit.runner.RunWith;
 import org.junit.AfterClass;
@@ -30,7 +31,7 @@ import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
 @RunWith(VertxUnitRunner.class)
 public class AuthTokenTest {
 
-  private static final Logger logger = LoggerFactory.getLogger("AuthTokenTest");
+  private static final Logger logger = LogManager.getLogger("AuthTokenTest");
   private static final String LS = System.lineSeparator();
   private static final String tenant = "Roskilde";
   private static HttpClient httpClient;
@@ -441,7 +442,8 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Desired", "extra.*bar")
       .get("/bar")
       .then()
-      .statusCode(401).body(containsString("Unexpected request exception for user id "));
+      .statusCode(400).body(containsString("Connection refused"));
+    // used to be 401.. But connection refused is hardly forbidden..
 
     logger.info("Test /permss/users with bad status");
     PermsMock.handlePermsUsersStatusCode = 400;

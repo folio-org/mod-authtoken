@@ -2,17 +2,17 @@ package org.folio.auth.authtokenmodule;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 
 /**
@@ -22,12 +22,13 @@ import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 public class PermService {
 
   public static final String SYS_PERM_PREFIX = "SYS#";
-  
-  private static final Logger logger = LoggerFactory.getLogger(PermService.class);
+
+  private static final Logger logger = LogManager.getLogger(PermService.class);
+
   // map from system generated module permission set name to the actual permissions
-  private static ConcurrentMap<String, PermEntry> cache = new ConcurrentHashMap<>();
-  private ModulePermissionsSource modulePermissionsSource;
-  private long cachePeriod;
+  private static final ConcurrentMap<String, PermEntry> cache = new ConcurrentHashMap<>();
+  private final ModulePermissionsSource modulePermissionsSource;
+  private final long cachePeriod;
 
   public PermService(Vertx vertx, ModulePermissionsSource modulePermissionsSource, int cacheInSeconds,
       int purgeCacheInSeconds) {
@@ -41,7 +42,7 @@ public class PermService {
       for (String key : keys) {
         if ((System.currentTimeMillis() - cache.get(key).getTimestamp()) > cachePeriod) {
           cache.remove(key);
-          logger.info("Removed cache of system permission: " + key);
+          logger.info("Removed cache of system permission: {}", key);
         }
       }
     });
@@ -65,7 +66,7 @@ public class PermService {
         expandedPerms.add(perm);
       }
     }
-    logger.debug("Expand using static cache from " + permissions + " to " + expandedPerms);
+    logger.debug("Expand using static cache from {} to {}", permissions, expandedPerms);
     return expandedPerms;
   }
 
@@ -81,8 +82,7 @@ public class PermService {
    */
   @SuppressWarnings("java:S3740")
   public Future<JsonArray> expandSystemPermissions(JsonArray permissions, String tenant, String okapiUrl,
-      String requestToken, String requestId) {
-    Promise<JsonArray> promise = Promise.promise();
+                                                   String requestToken, String requestId) {
     JsonArray expandedPerms = new JsonArray();
     @SuppressWarnings("rawtypes")
     List<Future> futures = new ArrayList<>();
@@ -101,29 +101,23 @@ public class PermService {
             requestToken, requestId));
       }
     }
-    CompositeFuture.join(futures).onComplete(ar -> {
-      if (ar.succeeded()) {
-        futures.forEach(f -> {
-          JsonArray perms = (JsonArray) f.result();
-          String perm = perms.getString(0);
-          perms.remove(0);
-          cache.put(perm, new PermEntry(perms));
-          expandedPerms.addAll(perms);
-        });
-        promise.complete(expandedPerms);
-        logger.debug("Expand from " + permissions + " to " + expandedPerms);
-      } else {
-        promise.fail(ar.cause());
-        logger.error("Failed to expand permissions", ar.cause());
-      }
+    return CompositeFuture.join(futures).compose(ar -> {
+      futures.forEach(f -> {
+        JsonArray perms = (JsonArray) f.result();
+        String perm = perms.getString(0);
+        perms.remove(0);
+        cache.put(perm, new PermEntry(perms));
+        expandedPerms.addAll(perms);
+      });
+      logger.debug("Expand from {} to {}", permissions, expandedPerms);
+      return Future.succeededFuture(expandedPerms);
     });
-    return promise.future();
   }
 
   private static class PermEntry {
     private long timestamp = System.currentTimeMillis();
 
-    private JsonArray perms = new JsonArray();
+    private final JsonArray perms;
 
     public PermEntry(JsonArray perms) {
       this.perms = perms;
