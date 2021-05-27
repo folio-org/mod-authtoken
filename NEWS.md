@@ -1,3 +1,11 @@
+## 2.8.0 2021-05-27
+
+No functional changes since 2.7.0.
+
+ * Upgrade to Vert.x 4.1.0.CR1
+ * [MODAT-92](https://issues.folio.org/browse/MODAT-92) Add personal data disclosure form
+ * Support both "http.port" and "port" property variables
+
 ## 2.7.0 2021-03-01
 
 Update mod-authtoken to use same log format as RMB and Okapi. Upgrade from
@@ -56,7 +64,7 @@ Vert.x 3 to 4. Token cache optimization and bug fix.
  * Update to Vertx 3.5.4
 
 ## 2.0.4 2019-01-11
- * Fix issue with caching permissions (MODAT-42)
+ * Fix issue with caching permissions ([MODAT-42](https://issues.folio.org/browse/MODAT-42))
 
 ## 2.0.3 2018-12-07
  * Correct version in pom.xml
