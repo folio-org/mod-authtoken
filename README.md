@@ -36,6 +36,13 @@ In addition to acting as a filter, the module exposes a few endpoints that are a
 
 * /refresh - This endpoint takes a valid refresh token and returns a new access token. It accepts a POST of a JSON object, with required field _refreshToken_ that contains the refresh token. It returns a new access token inside of a JSON object (response code 201), contained in a field called _token_.
 
+The expiration time is hard-coded:
+
+* 10 minutes for access tokens
+* 24 hours for refresh tokens
+
+[MODAT-65](https://issues.folio.org/browse/MODAT-65) will make it configurable.
+
 # Command Line Options/System Properties
 
 mod-authtoken supports a number of command line options as system properties, set by passing `-D<property.name>=<value>` to the jar when loading.
@@ -55,6 +62,8 @@ mod-authtoken supports a number of command line options as system properties, se
 Passing a value of "true" to the Authtoken-Refresh-Cache header for any request will inform mod-authtoken to delete the permissions cache for that userid and to request fresh permissions, regardless of cache age.
 
 # Additional information
+
+[Refresh Tokens Designs and Decisions](https://wiki.folio.org/display/DD/Refresh+Tokens)
 
 Other [modules](https://dev.folio.org/source-code/#server-side).
 
