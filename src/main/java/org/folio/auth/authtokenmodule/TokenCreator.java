@@ -16,6 +16,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import java.security.SecureRandom;
 import java.text.ParseException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Date;
 
@@ -84,6 +85,10 @@ public class TokenCreator {
     if(!jwt.verify(macVerifier)) {
       String message = String.format("Could not verify token %s", token);
       throw(new BadSignatureException(message));
+    }
+    Number exp = jwt.getPayload().toJSONObject().getAsNumber("exp");
+    if (exp != null && exp.longValue() < Instant.now().getEpochSecond()) {
+      throw new BadSignatureException("Expired token");
     }
   }
 

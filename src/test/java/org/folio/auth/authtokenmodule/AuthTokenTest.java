@@ -5,7 +5,6 @@ import io.restassured.response.Response;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
 import io.vertx.core.DeploymentOptions;
-import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Vertx;
@@ -14,7 +13,7 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
-
+import java.time.Instant;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
@@ -34,13 +33,13 @@ public class AuthTokenTest {
   private static final Logger logger = LogManager.getLogger("AuthTokenTest");
   private static final String LS = System.lineSeparator();
   private static final String tenant = "Roskilde";
-  private static HttpClient httpClient;
   private static TokenCreator tokenCreator;
   private static TokenCreator badTokenCreator;
   private static JsonObject payload;
   private static JsonObject payloadBad;
   private static JsonObject payload2;
   private static JsonObject payload3;
+  private static JsonObject payloadExpired;
   private static JsonObject payload404;
   private static JsonObject payloadInactive;
   private static JsonObject payloadSystemPermission;
@@ -49,6 +48,7 @@ public class AuthTokenTest {
   private static String basicToken2;
   private static String basicToken3;
   private static String basicBadToken;
+  private static String basicExpiredToken;
   private static String token404;
   private static String tokenInactive;
   private static String tokenSystemPermission;
@@ -92,6 +92,11 @@ public class AuthTokenTest {
       .put("tenant", tenant)
       .put("sub", "jones")
       .put("extra_permissions", new JsonArray().add("auth.signtoken"));
+    payloadExpired = new JsonObject()
+      .put("user_id", userUUID)
+      .put("tenant", tenant)
+      .put("sub", "jones")
+      .put("exp", Instant.now().getEpochSecond() - 1);
     payload404 = new JsonObject()
       .put("user_id", "404")
       .put("tenant", tenant)
@@ -115,13 +120,12 @@ public class AuthTokenTest {
     basicToken2 = tokenCreator.createJWTToken(payload2.encode());
     basicToken3 = tokenCreator.createJWTToken(payload3.encode());
     basicBadToken = badTokenCreator.createJWTToken(payloadBad.encode());
+    basicExpiredToken = tokenCreator.createJWTToken(payloadExpired.encode());
     token404 = tokenCreator.createJWTToken(payload404.encode());
     tokenInactive = tokenCreator.createJWTToken(payloadInactive.encode());
     tokenSystemPermission = tokenCreator.createJWTToken(payloadSystemPermission.encode());
 
     System.setProperty("jwt.signing.key", passPhrase);
-
-    httpClient = vertx.createHttpClient();
 
     RestAssured.port = port;
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
@@ -379,6 +383,17 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(202);
+
+    logger.info("Test with expired token");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicExpiredToken)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-User-Id", userUUID)
+      .get("/bar")
+      .then()
+      .statusCode(401)
+      .body(is("Invalid token"));
 
     logger.info("Test with 404 user token");
     given()
@@ -1009,7 +1024,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(202)
       .extract().response();
-    
+
     String headers = r.getHeader("X-Okapi-Permissions");
     assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_01));
     assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_02));

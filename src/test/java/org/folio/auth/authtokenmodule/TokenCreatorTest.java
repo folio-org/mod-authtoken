@@ -1,6 +1,9 @@
 package org.folio.auth.authtokenmodule;
 
+import static org.junit.Assert.assertThrows;
+
 import com.nimbusds.jose.JOSEException;
+import io.vertx.core.json.JsonObject;
 import java.text.ParseException;
 import org.junit.Test;
 
@@ -34,5 +37,12 @@ public class TokenCreatorTest {
     byte[] bytes = "12345678901234567890123456789012".getBytes();
     TokenCreator tokenCreator = new TokenCreator(bytes);
     tokenCreator.dryRunAlgorithms();
+  }
+
+  @Test
+  public void expiredToken() throws Exception {
+    var tokenCreator = new TokenCreator((String) null);
+    var token = tokenCreator.createJWTToken(new JsonObject().put("exp", 5).encode());
+    assertThrows("Expired token", BadSignatureException.class, () -> tokenCreator.checkJWTToken(token));
   }
 }
