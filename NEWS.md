@@ -1,3 +1,10 @@
+## 2.9.0 2021-09-29
+
+ * Support /admin/health
+Other:
+ * Upgrade to Vert.x 4.1.4, okapi-common 4.9.0
+ * Notes on refresh tokens.
+
 ## 2.8.0 2021-05-27
 
 No functional changes since 2.7.0.
