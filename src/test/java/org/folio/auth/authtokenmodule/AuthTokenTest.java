@@ -1009,10 +1009,21 @@ public class AuthTokenTest {
       .then()
       .statusCode(202)
       .extract().response();
-    
+
     String headers = r.getHeader("X-Okapi-Permissions");
     assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_01));
     assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_02));
+  }
+
+  @Test
+  public void testAdminHealth()  {
+    given()
+      .get("/admin/health")
+      .then()
+      .statusCode(200)
+      .contentType("text/plain")
+      .body(is("OK"));
+
   }
 
   private String getMagicPermission(String endpoint) {
