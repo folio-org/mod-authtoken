@@ -170,9 +170,16 @@ public class MainVerticle extends AbstractVerticle {
     final int port = Integer.parseInt(portStr);
 
     router.route("/*").handler(BodyHandler.create());
+    router.get("/admin/health").handler(this::handleAdminHealth);
     router.route("/*").handler(this::handleAuthorize);
 
     server.requestHandler(router).listen(port, result -> promise.handle(result.mapEmpty()));
+  }
+
+  private void handleAdminHealth(RoutingContext ctx) {
+    ctx.response().setStatusCode(200);
+    ctx.response().putHeader(CONTENT_TYPE, "text/plain");
+    ctx.response().end("OK");
   }
 
   private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {
