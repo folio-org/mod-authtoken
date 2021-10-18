@@ -33,6 +33,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
 
 /**
@@ -41,22 +42,10 @@ import org.folio.okapi.common.logging.FolioLoggingContext;
  */
 public class MainVerticle extends AbstractVerticle {
 
-  // TODO - Use header names from Okapi.common
-  public static final String PERMISSIONS_HEADER = "X-Okapi-Permissions";
   public static final String APPLICATION_JSON = "application/json";
   public static final String CONTENT_TYPE = "Content-Type";
   public static final String ACCEPT = "Accept";
-  private static final String DESIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Desired";
-  private static final String REQUIRED_PERMISSIONS_HEADER = "X-Okapi-Permissions-Required";
-  private static final String MODULE_PERMISSIONS_HEADER = "X-Okapi-Module-Permissions";
-  private static final String EXTRA_PERMISSIONS_HEADER = "X-Okapi-Extra-Permissions";
   private static final String CALLING_MODULE_HEADER = "X-Okapi-Calling-Module";
-  private static final String USERID_HEADER = "X-Okapi-User-Id";
-  public static final String REQUESTID_HEADER = "X-Okapi-Request-Id";
-  public static final String MODULE_TOKENS_HEADER = "X-Okapi-Module-Tokens";
-  public static final String OKAPI_URL_HEADER = "X-Okapi-Url";
-  public static final String OKAPI_TOKEN_HEADER = "X-Okapi-Token";
-  public static final String OKAPI_TENANT_HEADER = "X-Okapi-Tenant";
   public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
@@ -302,7 +291,7 @@ public class MainVerticle extends AbstractVerticle {
         endText(ctx, 400, "Invalid token format");
         return;
       }
-      String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       //Go ahead and make the new request token
       String newAuthToken = mintNewAuthToken(tenant, tokenClaims);
       validateRefreshToken(tokenClaims, ctx).onComplete(res -> {
@@ -339,7 +328,7 @@ public class MainVerticle extends AbstractVerticle {
         endText(ctx, 400, message);
         return;
       }
-      String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       String address = ctx.request().remoteAddress().host();
       String content = ctx.getBodyAsString();
       JsonObject requestJson;
@@ -373,7 +362,7 @@ public class MainVerticle extends AbstractVerticle {
     try {
       logger.debug("Token signing request from {}", ctx.request().absoluteURI());
       // tenant and okapiUrl are already checked in handleAuthorize
-      String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       if (ctx.request().method() != HttpMethod.POST) {
         endText(ctx, 400, "Unsupported operation: " + ctx.request().method().toString());
         return;
@@ -424,22 +413,22 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private void handleAuthorize(RoutingContext ctx) {
-    String requestId = ctx.request().headers().get(REQUESTID_HEADER);
-    String userId = ctx.request().headers().get(USERID_HEADER);
-    String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+    String requestId = ctx.request().headers().get(XOkapiHeaders.REQUEST_ID);
+    String userId = ctx.request().headers().get(XOkapiHeaders.USER_ID);
+    String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
     FolioLoggingContext.put(FolioLoggingContext.REQUEST_ID_LOGGING_VAR_NAME, requestId);
     FolioLoggingContext.put(FolioLoggingContext.MODULE_ID_LOGGING_VAR_NAME, "mod-authtoken");
     FolioLoggingContext.put(FolioLoggingContext.TENANT_ID_LOGGING_VAR_NAME, tenant);
     FolioLoggingContext.put(FolioLoggingContext.USER_ID_LOGGING_VAR_NAME, userId);
     logger.debug("Calling handleAuthorize for {}", ctx.request().absoluteURI());
     if (tenant == null) {
-      endText(ctx, 400, MISSING_HEADER + OKAPI_TENANT_HEADER);
+      endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.TENANT);
       return;
     }
 
-    String okapiUrl = ctx.request().headers().get(OKAPI_URL_HEADER);
+    String okapiUrl = ctx.request().headers().get(XOkapiHeaders.URL);
     if (okapiUrl == null) {
-      endText(ctx, 400, MISSING_HEADER + OKAPI_URL_HEADER);
+      endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.URL);
       return;
     }
     String zapCacheString = ctx.request().headers().get(ZAP_CACHE_HEADER);
@@ -447,7 +436,7 @@ public class MainVerticle extends AbstractVerticle {
 
     //String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
-    String okapiTokenHeader = ctx.request().headers().get(OKAPI_TOKEN_HEADER);
+    String okapiTokenHeader = ctx.request().headers().get(XOkapiHeaders.TOKEN);
     String candidateToken;
     if (okapiTokenHeader != null && authHeader != null) {
       String authToken = extractToken(authHeader);
@@ -455,8 +444,8 @@ public class MainVerticle extends AbstractVerticle {
         candidateToken = authToken;
       } else {
         endText(ctx, 400, "Conflicting token information in Authorization and "
-          + OKAPI_TOKEN_HEADER + " headers. Please remove Authorization header "
-          + " and use " + OKAPI_TOKEN_HEADER + " in the future");
+          + XOkapiHeaders.TOKEN + " headers. Please remove Authorization header "
+          + " and use " + XOkapiHeaders.TOKEN + " in the future");
         return;
       }
     } else if (okapiTokenHeader != null) {
@@ -568,9 +557,9 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     // In some rare cases (redirect) Okapi can pass extra permissions directly too
-    if (ctx.request().headers().contains(EXTRA_PERMISSIONS_HEADER)) {
-      String extraPermString = ctx.request().headers().get(EXTRA_PERMISSIONS_HEADER);
-      logger.debug("Extra permissions from {}: {}",  EXTRA_PERMISSIONS_HEADER, extraPermString);
+    if (ctx.request().headers().contains(XOkapiHeaders.EXTRA_PERMISSIONS)) {
+      String extraPermString = ctx.request().headers().get(XOkapiHeaders.EXTRA_PERMISSIONS);
+      logger.debug("Extra permissions from {}: {}", XOkapiHeaders.EXTRA_PERMISSIONS, extraPermString);
       for (String entry : extraPermString.split(",")) {
         extraPermissionsCandidate.add(entry);
       }
@@ -582,8 +571,8 @@ public class MainVerticle extends AbstractVerticle {
 
     JsonObject moduleTokens = new JsonObject();
     /* TODO get module permissions (if they exist) */
-    if (ctx.request().headers().contains(MODULE_PERMISSIONS_HEADER)) {
-      JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(MODULE_PERMISSIONS_HEADER));
+    if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
+      JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS));
       for(String moduleName : modulePermissions.fieldNames()) {
         JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
         JsonObject tokenPayload = new JsonObject();
@@ -627,15 +616,15 @@ public class MainVerticle extends AbstractVerticle {
     JsonArray permissionsRequired = new JsonArray();
     JsonArray permissionsDesired = new JsonArray();
 
-    if (ctx.request().headers().contains(REQUIRED_PERMISSIONS_HEADER)) {
-      String permissionsString = ctx.request().headers().get(REQUIRED_PERMISSIONS_HEADER);
+    if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_REQUIRED)) {
+      String permissionsString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_REQUIRED);
       for (String entry : permissionsString.split(",")) {
         permissionsRequired.add(entry);
       }
     }
 
-    if (ctx.request().headers().contains(DESIRED_PERMISSIONS_HEADER)) {
-      String permString = ctx.request().headers().get(DESIRED_PERMISSIONS_HEADER);
+    if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_DESIRED)) {
+      String permString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_DESIRED);
       for (String entry : permString.split(",")) {
         permissionsDesired.add(entry);
       }
@@ -703,7 +692,6 @@ public class MainVerticle extends AbstractVerticle {
           endText(ctx, 401, "Invalid token: " + res.cause().getLocalizedMessage());
           return;
         }
-        ctx.response().putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
         endText(ctx, 400, "Unable to retrieve permissions for user with id'"
           + finalUserId + "': " + res.cause().getLocalizedMessage());
         return;
@@ -721,7 +709,6 @@ public class MainVerticle extends AbstractVerticle {
           logger.error(permissions.encode() + "{}(user permissions) nor {}"
             + "(module permissions) do not contain {}",
           permissions.encode(), extraPermissions.encode(), o);
-          ctx.response().putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
           endText(ctx, 403, "Access requires permission: " + o);
           return;
         }
@@ -752,7 +739,6 @@ public class MainVerticle extends AbstractVerticle {
       } catch(Exception e) {
         String message = String.format("Error creating access token: %s", e.getMessage());
         logger.error(message);
-        ctx.response().putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode());
         endText(ctx, 500, "Error creating access token");
         return;
       }
@@ -762,12 +748,12 @@ public class MainVerticle extends AbstractVerticle {
               .setChunked(true)
               .setStatusCode(202)
               .putHeader(CONTENT_TYPE, "text/plain")
-              .putHeader(PERMISSIONS_HEADER, permissions.encode())
-              .putHeader(MODULE_TOKENS_HEADER, moduleTokens.encode())
+              .putHeader(XOkapiHeaders.PERMISSIONS, permissions.encode())
+              .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
               .putHeader("Authorization", "Bearer " + token)
-              .putHeader(OKAPI_TOKEN_HEADER, token);
+              .putHeader(XOkapiHeaders.TOKEN, token);
       if (finalUserId != null) {
-        ctx.response().putHeader(USERID_HEADER, finalUserId);
+        ctx.response().putHeader(XOkapiHeaders.USER_ID, finalUserId);
       }
 
       ctx.response().end();
@@ -828,7 +814,7 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
-    String tenant = ctx.request().headers().get(OKAPI_TENANT_HEADER);
+    String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
     if (!tenant.equals(tokenClaims.getString("tenant"))) {
       logger.error("Tenant mismatch for refresh token");
       return Future.succeededFuture(Boolean.FALSE);

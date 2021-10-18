@@ -7,6 +7,7 @@ import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.WebClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.okapi.common.XOkapiHeaders;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -63,12 +64,12 @@ public class UserService {
 
     HttpRequest<Buffer> req = client.getAbs(okapiUrl + "/users/" + userId);
 
-    req.headers().add(MainVerticle.OKAPI_TOKEN_HEADER, requestToken)
-        .add(MainVerticle.OKAPI_TENANT_HEADER, tenant)
+    req.headers().add(XOkapiHeaders.TOKEN, requestToken)
+        .add(XOkapiHeaders.TENANT, tenant)
         .add(MainVerticle.CONTENT_TYPE, MainVerticle.APPLICATION_JSON)
         .add(MainVerticle.ACCEPT, MainVerticle.APPLICATION_JSON);
     if (requestId != null) {
-      req.headers().add(MainVerticle.REQUESTID_HEADER, requestId);
+      req.headers().add(XOkapiHeaders.REQUEST_ID, requestId);
     }
     return req.send()
         .compose(res -> {
