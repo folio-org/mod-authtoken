@@ -692,6 +692,7 @@ public class MainVerticle extends AbstractVerticle {
           endText(ctx, 401, "Invalid token: " + res.cause().getLocalizedMessage());
           return;
         }
+        ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
         endText(ctx, 400, "Unable to retrieve permissions for user with id'"
           + finalUserId + "': " + res.cause().getLocalizedMessage());
         return;
@@ -709,6 +710,7 @@ public class MainVerticle extends AbstractVerticle {
           logger.error(permissions.encode() + "{}(user permissions) nor {}"
             + "(module permissions) do not contain {}",
           permissions.encode(), extraPermissions.encode(), o);
+          ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
           endText(ctx, 403, "Access requires permission: " + o);
           return;
         }
@@ -739,6 +741,7 @@ public class MainVerticle extends AbstractVerticle {
       } catch(Exception e) {
         String message = String.format("Error creating access token: %s", e.getMessage());
         logger.error(message);
+        ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
         endText(ctx, 500, "Error creating access token");
         return;
       }
