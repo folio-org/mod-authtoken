@@ -193,6 +193,21 @@ public class AuthTokenTest {
   }
 
   @Test
+  public void testNoUser(TestContext context) {
+    PermsMock.handlePermsUsersEmpty = true;
+    given()
+      .header(MainVerticle.ZAP_CACHE_HEADER, "true")
+      .header(XOkapiHeaders.TENANT, tenant)
+      .header(XOkapiHeaders.TOKEN, basicToken2)
+      .header(XOkapiHeaders.URL, "http://localhost:" + mockPort)
+      .get("/bar")
+      .then()
+      .statusCode(400)
+      .body(containsString("User " + userUUID + " does not exist"));
+    PermsMock.handlePermsUsersEmpty = false;
+  }
+
+  @Test
   public void test1(TestContext context) throws JOSEException, ParseException {
     async = context.async();
     logger.debug("AuthToken test1 starting");

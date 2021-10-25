@@ -75,7 +75,7 @@ public class ModulePermissionsSource implements PermissionsSource {
 
   private Future<JsonArray> getPermissionsForUser(String userId, String tenant, String okapiUrl,
                                                   String requestToken, String requestId) {
-    logger.debug("gerPermissionsForUser userid={}", userId);
+    logger.debug("getPermissionsForUser userid={}", userId);
     String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userId;
     logger.debug("Requesting permissions user object from URL at {}", permUserRequestUrl);
     HttpRequest<Buffer> permUserReq = client.getAbs(permUserRequestUrl);
@@ -88,14 +88,12 @@ public class ModulePermissionsSource implements PermissionsSource {
             logger.error(message);
             return Future.failedFuture(message);
           }
-          JsonObject permUser = null;
-          try {
-            JsonObject permUserResults = permUserRes.bodyAsJsonObject();
-            permUser = permUserResults.getJsonArray("permissionUsers").getJsonObject(0);
-          } catch (Exception e) {
-            logger.error(e.getMessage());
-            return Future.failedFuture(e);
+          JsonObject permUserResults = permUserRes.bodyAsJsonObject();
+          JsonArray permissionUsers = permUserResults.getJsonArray("permissionUsers");
+          if (permissionUsers.isEmpty()) {
+            return Future.failedFuture("User " + userId + " does not exist");
           }
+          JsonObject permUser = permissionUsers.getJsonObject(0);
           final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
           logger.debug("Requesting permissions from URL at {}", requestUrl);
           HttpRequest<Buffer> req = client.getAbs(requestUrl);

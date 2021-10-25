@@ -50,7 +50,7 @@ public class MainVerticle extends AbstractVerticle {
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
   private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   private static final String TOKEN_USER_ID_FIELD = "user_id";
-  private static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
+  static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
   private static final String MISSING_HEADER = "Missing header: ";
   private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
   private static final String EXTRA_PERMS = "extra_permissions";
