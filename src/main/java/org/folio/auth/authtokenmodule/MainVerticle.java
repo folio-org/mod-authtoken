@@ -695,7 +695,7 @@ public class MainVerticle extends AbstractVerticle {
         // mod-authtoken should return the module tokens header even in case of errors.
         // If not, pre+post filters will NOT get modulePermissions from Okapi
         ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
-        endText(ctx, 400, "Unable to retrieve permissions for user with id'"
+        endText(ctx, 400, "Unable to retrieve permissions for user with id' "
           + finalUserId + "': " + res.cause().getLocalizedMessage());
         return;
       }
