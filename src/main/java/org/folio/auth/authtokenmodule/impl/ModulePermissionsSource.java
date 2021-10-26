@@ -91,7 +91,7 @@ public class ModulePermissionsSource implements PermissionsSource {
           JsonObject permUserResults = permUserRes.bodyAsJsonObject();
           JsonArray permissionUsers = permUserResults.getJsonArray("permissionUsers");
           if (permissionUsers.isEmpty()) {
-            return Future.failedFuture("User " + userId + " does not exist");
+            return Future.failedFuture( "User does not exist: " + permUserRequestUrl);
           }
           JsonObject permUser = permissionUsers.getJsonObject(0);
           final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";

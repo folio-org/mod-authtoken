@@ -203,7 +203,7 @@ public class AuthTokenTest {
       .get("/bar")
       .then()
       .statusCode(400)
-      .body(containsString("User " + userUUID + " does not exist"));
+      .body(containsString("User does not exist:"));
     PermsMock.handlePermsUsersEmpty = false;
   }
 
