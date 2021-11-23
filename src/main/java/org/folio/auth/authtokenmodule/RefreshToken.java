@@ -9,12 +9,13 @@ public class RefreshToken extends Token {
   // TODO This could be obtained from the env.
   int expirationSeconds = 60 * 60 * 24;
 
-  public RefreshToken(String tenant, String userId) {
+  public RefreshToken(String tenant, String username, String userId) {
     long now = Instant.now().getEpochSecond();
     claims = new JsonObject();
     claims.put("type", TokenType.REFRESH);
     claims.put("exp", expirationSeconds + now);
-    claims.put("sub", userId);
+    claims.put("sub", username);
+    claims.put("user_id", userId);
     claims.put("tenant", tenant);
 
     // TODO Add other claims here.
@@ -25,12 +26,8 @@ public class RefreshToken extends Token {
     claims = getClaims(sourceJwt);
   }
 
-  public Future<TokenValidationResult> isValid() {
-    TokenValidationResult common = validateCommon();
-    if (!common.isValid)
-      return Future.succeededFuture(common);
-    
-    return Future.succeededFuture(TokenValidationResult.success());
+  public Future<Void> validate() {
+    return Future.succeededFuture();
   }
 
 }
