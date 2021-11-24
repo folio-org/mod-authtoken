@@ -1,19 +1,22 @@
-package org.folio.auth.authtokenmodule;
+package org.folio.auth.authtokenmodule.tokens;
 
 import java.time.Instant;
-
-import io.netty.util.concurrent.FailedFuture;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
 public class AccessToken extends Token {
+  // TODO This could be obtained from the env.
+  int expirationSeconds = 60 * 10;
+
   public AccessToken(String tenant, String username, String userId) {
+    var now = Instant.now().getEpochSecond();
     claims = new JsonObject();
-    claims.put("iat", Instant.now().getEpochSecond());
+    claims.put("type", TokenType.ACCESS);
+    claims.put("iat", now);
+    claims.put("exp", now + expirationSeconds);
     claims.put("tenant", tenant);
     claims.put("sub", username);
     claims.put("user_id", userId);
-    claims.put("type", TokenType.ACCESS);
 
     // TODO Add exp
   }
@@ -30,8 +33,7 @@ public class AccessToken extends Token {
       return Future.failedFuture(e);
     }
 
-    // TODO Validate anything special to this token type.
-    // TODO Validate the exp claim.
+    // TODO Validate the exp claim andn put behind a system flag.
 
     return Future.succeededFuture();
   }

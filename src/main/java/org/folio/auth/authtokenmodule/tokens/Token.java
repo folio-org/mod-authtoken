@@ -1,9 +1,13 @@
-package org.folio.auth.authtokenmodule;
+package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import java.util.Base64;
 import com.nimbusds.jose.JOSEException;
+
+import org.folio.auth.authtokenmodule.BadSignatureException;
+import org.folio.auth.authtokenmodule.TokenCreator;
+
 import java.text.ParseException;
 
 public abstract class Token {
@@ -17,7 +21,7 @@ public abstract class Token {
     return new JsonObject(decodedJson);
   }
 
-  abstract Future<Void> validate();
+  public abstract Future<Void> validate();
 
   protected void validateCommon() throws TokenValidationException {
 
@@ -53,9 +57,8 @@ public abstract class Token {
   }
 
   public String encode() throws JOSEException, ParseException {
-    String key = System.getProperty("jwt.signing.key");
     // TODO Is there a penalty here? Should the TokenCreator be passed in as an arg?
-    System.out.println("Claims as string " + claims);
+    String key = System.getProperty("jwt.signing.key");
     String encodedClaims = claims.encode();
     return new TokenCreator(key).createJWTToken(encodedClaims);
   }

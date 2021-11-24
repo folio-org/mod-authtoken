@@ -1,4 +1,4 @@
-package org.folio.auth.authtokenmodule;
+package org.folio.auth.authtokenmodule.tokens;
 
 public class TokenValidationException extends Exception {
   public TokenValidationException(String message) {
