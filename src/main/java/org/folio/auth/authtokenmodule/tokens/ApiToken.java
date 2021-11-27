@@ -2,6 +2,7 @@ package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Future;
+import io.vertx.core.MultiMap;
 
 public class ApiToken extends Token {
   public ApiToken(String tenant, String username, String userId) {
@@ -25,9 +26,9 @@ public class ApiToken extends Token {
     source = jwtSource;
   }
 
-  public Future<Void> validate() {
+  public Future<Void> validate(MultiMap headers) {
     try { 
-      validateCommon();
+      validateCommon(headers);
     } catch (Exception e) {
       return Future.failedFuture(e);
     }

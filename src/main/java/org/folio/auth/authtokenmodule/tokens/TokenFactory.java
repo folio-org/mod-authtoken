@@ -1,15 +1,24 @@
 package org.folio.auth.authtokenmodule.tokens;
 
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 
 public class TokenFactory {
 
-  public static Token parseTokenType(String jwtSource) throws TokenValidationException {
+  public static Token parseJWTToken(String jwtSource) throws TokenValidationException {
     Token token = null;
+    JsonObject claims = null;
+    try {
+      claims = Token.getClaims(jwtSource);
+    } catch (Exception e) {
+      throw new TokenValidationException("Unable to get token claims", e, 401);
+    }
 
-    JsonObject claims = Token.getClaims(jwtSource);
+    String tokenType = claims.getString("type");
+    if (tokenType ==  null)
+      throw new TokenValidationException("Token has no type", 400);
 
-    switch (claims.getString("type")) {
+    switch (tokenType) {
     case TokenType.ACCESS:
       token = new AccessToken(jwtSource);
       break;
@@ -30,7 +39,7 @@ public class TokenFactory {
     }
 
     if (token == null)
-      throw new TokenValidationException("Unsupported or non existent token type");
+      throw new TokenValidationException("Unsupported token type", 400);
     return token;
   }
 

@@ -33,6 +33,14 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
+import org.folio.auth.authtokenmodule.tokens.AccessToken;
+import org.folio.auth.authtokenmodule.tokens.DummyToken;
+import org.folio.auth.authtokenmodule.tokens.ModuleToken;
+import org.folio.auth.authtokenmodule.tokens.RefreshToken;
+import org.folio.auth.authtokenmodule.tokens.RequestToken;
+import org.folio.auth.authtokenmodule.tokens.Token;
+import org.folio.auth.authtokenmodule.tokens.TokenFactory;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
 
@@ -270,6 +278,7 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       String content = ctx.getBodyAsString();
+      // TODO Clean up this code to make more use of RT class.
       JsonObject requestJson;
       try {
         requestJson = parseJsonObject(content,
@@ -293,7 +302,11 @@ public class MainVerticle extends AbstractVerticle {
       }
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       //Go ahead and make the new request token
-      String newAuthToken = mintNewAuthToken(tenant, tokenClaims);
+      //String newAuthToken = mintNewAuthToken(tenant, tokenClaims);
+      // TODO Maybe create a constructor that takes the claims of the RT.
+      String username = tokenClaims.getString("sub");
+      String userId = tokenClaims.getString("user_id");
+      String newAuthToken = new AccessToken(tenant, username, userId).encodeAsJWT();
       validateRefreshToken(tokenClaims, ctx).onComplete(res -> {
         if (res.failed()) {
           endText(ctx, 500, res.cause());
@@ -341,7 +354,9 @@ public class MainVerticle extends AbstractVerticle {
       }
       String userId = requestJson.getString("userId");
       String sub = requestJson.getString("sub");
-      String refreshToken = generateRefreshToken(tenant, userId, address, sub);
+      // TODO Remove
+      //String refreshToken = generateRefreshToken(tenant, userId, address, sub);
+      String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE();
       JsonObject responseJson = new JsonObject()
         .put("refreshToken", refreshToken);
       endJson(ctx, 201, responseJson.encode());
@@ -377,6 +392,7 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
       payload = json.getJsonObject("payload");
+
       if (payload == null) {
         endText(ctx, 400, "Valid 'payload' field is required");
         return;
@@ -384,16 +400,20 @@ public class MainVerticle extends AbstractVerticle {
       logger.debug("Payload to create token from is {}", payload.encode());
 
       if (!payload.containsKey("sub")) {
+        System.out.println("handleSignToken: payload contains no sub");
         endText(ctx, 400, "Payload must contain a 'sub' field");
         return;
       }
 
-      payload.put("tenant", tenant);
-
-      //Set "time issued" claim on token
-      Instant instant = Instant.now();
-      payload.put("iat", instant.getEpochSecond());
-      String token = tokenCreator.createJWTToken(payload.encode());
+      // TODO Remove
+      // payload.put("tenant", tenant);
+      // Instant instant = Instant.now();
+      // payload.put("iat", instant.getEpochSecond());
+      // String token = tokenCreator.createJWTToken(payload.encode());
+      // TODO Does the payload _always_ have a user_id?
+      String userId = payload.getString("user_id");
+      String username = payload.getString("sub");
+      String token = new AccessToken(tenant, username, userId).encodeAsJWT();
 
       JsonObject responseObject = new JsonObject().put("token", token);
       endJson(ctx, 201, responseObject.encode());
@@ -403,14 +423,14 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   // create request token needed by mod-authtoken
-  private String createRequestToken(String tenant, JsonArray perms) throws JOSEException, ParseException {
-    JsonObject tokenPayload = new JsonObject()
-      .put("sub", "_AUTHZ_MODULE_")
-      .put("tenant", tenant)
-      .put("dummy", true)
-      .put(EXTRA_PERMS, perms);
-    return tokenCreator.createJWTToken(tokenPayload.encode());
-  }
+  // private String createRequestToken(String tenant, JsonArray perms) throws JOSEException, ParseException {
+  //   JsonObject tokenPayload = new JsonObject()
+  //     .put("sub", "_AUTHZ_MODULE_")
+  //     .put("tenant", tenant)
+  //     .put("dummy", true)
+  //     .put(EXTRA_PERMS, perms);
+  //   return tokenCreator.createJWTToken(tokenPayload.encode());
+  // }
 
   private void handleAuthorize(RoutingContext ctx) {
     String requestId = ctx.request().headers().get(XOkapiHeaders.REQUEST_ID);
@@ -465,11 +485,15 @@ public class MainVerticle extends AbstractVerticle {
     String permissionsRequestToken;
     String userRequestToken;
     try {
-      permissionsRequestToken = createRequestToken(tenant, new JsonArray()
-          .add(PERMISSIONS_PERMISSION_READ_BIT)
-          .add(PERMISSIONS_USER_READ_BIT));
-      userRequestToken = createRequestToken(tenant, new JsonArray()
-          .add(PERMISSIONS_USERS_ITEM_GET));
+      // permissionsRequestToken = createRequestToken(tenant, new JsonArray()
+      //     .add(PERMISSIONS_PERMISSION_READ_BIT)
+      //     .add(PERMISSIONS_USER_READ_BIT));
+      var rtPerms = new JsonArray().add(PERMISSIONS_PERMISSION_READ_BIT).add(PERMISSIONS_USER_READ_BIT);
+      permissionsRequestToken = new RequestToken(tenant, rtPerms).encodeAsJWT();
+      // userRequestToken = createRequestToken(tenant, new JsonArray()
+      //     .add(PERMISSIONS_USERS_ITEM_GET));
+      var userRTPerms = new JsonArray().add(PERMISSIONS_USERS_ITEM_GET);
+      userRequestToken = new RequestToken(tenant, userRTPerms).encodeAsJWT();
     } catch (Exception e) {
       endText(ctx, 500, "Error creating request token: ", e);
       return;
@@ -477,22 +501,23 @@ public class MainVerticle extends AbstractVerticle {
 
     if (candidateToken == null) {
       logger.debug("Generating dummy authtoken");
-      JsonObject dummyPayload = new JsonObject();
+      // JsonObject dummyPayload = new JsonObject();
+      // try {
+      //   // Generate a new "dummy" token
+      //   DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+      //   Date now = Calendar.getInstance().getTime();
+      //   dummyPayload
+      //           .put("sub", UNDEFINED_USER_NAME + ctx.request().remoteAddress().toString() +
+      //                   "__" + df.format(now))
+      //           .put("tenant", tenant)
+      //           .put("dummy", true);
+      // } catch(Exception e) {
+      //   endText(ctx, 500,  "Error creating dummy token: ", e);
+      //   return;
+      // }
       try {
-        //Generate a new "dummy" token
-        DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
-        Date now = Calendar.getInstance().getTime();
-        dummyPayload
-                .put("sub", UNDEFINED_USER_NAME + ctx.request().remoteAddress().toString() +
-                        "__" + df.format(now))
-                .put("tenant", tenant)
-                .put("dummy", true);
-      } catch(Exception e) {
-        endText(ctx, 500,  "Error creating dummy token: ", e);
-        return;
-      }
-      try {
-        candidateToken = tokenCreator.createJWTToken(dummyPayload.encode());
+        //candidateToken = tokenCreator.createJWTToken(dummyPayload.encode());
+        candidateToken = new DummyToken(tenant, ctx.request().remoteAddress().toString()).encodeAsJWT();
       } catch(Exception e) {
         endText(ctx, 500, "Error creating candidate token: ", e);
         return;
@@ -501,271 +526,296 @@ public class MainVerticle extends AbstractVerticle {
 
     final String authToken = candidateToken;
     logger.debug("Final authToken is {}", authToken);
-    final String errMsg = "Invalid token";
+
+    // final String errMsg = "Invalid token";
+    // try {
+    //   if (!tokenCache.contains(authToken)) {
+    //     tokenCreator.checkJWTToken(authToken);
+    //     tokenCache.add(authToken);
+    //   }
+    // } catch (ParseException p) {
+    //   logger.error("Malformed token: {}", authToken, p);
+    //   endText(ctx, 401, errMsg);
+    //   return;
+    // } catch (JOSEException j) {
+    //   logger.error("Unable to verify token token {}, {}", authToken, j.getMessage());
+    //   endText(ctx, 401, errMsg);
+    //   return;
+    // } catch (BadSignatureException b) {
+    //   logger.error("Unsupported JWT format", b);
+    //   endText(ctx, 401, errMsg);
+    //   return;
+    // }
+
+    Token tokenToValidate = null;
     try {
-      if (!tokenCache.contains(authToken)) {
-        tokenCreator.checkJWTToken(authToken);
-        tokenCache.add(authToken);
-      }
-    } catch (ParseException p) {
-      logger.error("Malformed token: {}", authToken, p);
-      endText(ctx, 401, errMsg);
-      return;
-    } catch (JOSEException j) {
-      logger.error("Unable to verify token token {}, {}", authToken, j.getMessage());
-      endText(ctx, 401, errMsg);
-      return;
-    } catch (BadSignatureException b) {
-      logger.error("Unsupported JWT format", b);
-      endText(ctx, 401, errMsg);
+      tokenToValidate = TokenFactory.parseJWTToken(authToken);
+    } catch (TokenValidationException e) {
+      logger.error(e.toString());
+      System.out.println("parseTokenType failed: " + e.getMessage());
+      endText(ctx, e.httpResponseCode, "Unable to parse token");
       return;
     }
-
-    JsonObject tokenClaims = getClaims(authToken);
-
-    String username = tokenClaims.getString("sub");
-    String jwtTenant = tokenClaims.getString("tenant");
-
-    if (jwtTenant == null || !jwtTenant.equals(tenant)) {
-      logger.error("Expected tenant: {}, got tenant {}", tenant, jwtTenant);
-      endText(ctx, 403, "Invalid token for access");
+    Future<Void> tokenValidationResult = tokenToValidate.validate(ctx.request().headers());
+    tokenValidationResult.onFailure(h -> {
+      System.out.println("tokenValidationResult.onFalure reached");
+      // TODO It is possible that not all exceptions will be of this type so we should probably check
+      // before casting.
+      var e = (TokenValidationException)h;
+      System.out.println("msg in tokenValidationResult: " + e.getMessage());
+      logger.error("Invalid token: {}", e.toString());
+      endText(ctx, e.httpResponseCode, "Invalid token");
       return;
-    }
-
-    String tokenUserId = tokenClaims.getString(TOKEN_USER_ID_FIELD);
-    if (tokenUserId != null) {
-      if (userId != null) {
-        if (!userId.equals(tokenUserId)) {
-          endText(ctx, 403,
-           "Payload user id of '" + tokenUserId + "' does not match expected value");
-          return;
-        }
-      } else {
-        //Assign the userId to be whatever's in the token
-        userId = tokenUserId;
-      }
-    } else {
-      logger.debug("No '{}' field found in token", TOKEN_USER_ID_FIELD);
-    }
-
-    final String finalUserId = userId;
-
-    //Check and see if we have any module permissions defined
-    JsonArray extraPermissionsCandidate = getClaims(authToken).getJsonArray(EXTRA_PERMS);
-    if (extraPermissionsCandidate == null) {
-      extraPermissionsCandidate = new JsonArray();
-    }
-
-    // In some rare cases (redirect) Okapi can pass extra permissions directly too
-    if (ctx.request().headers().contains(XOkapiHeaders.EXTRA_PERMISSIONS)) {
-      String extraPermString = ctx.request().headers().get(XOkapiHeaders.EXTRA_PERMISSIONS);
-      logger.debug("Extra permissions from {}: {}", XOkapiHeaders.EXTRA_PERMISSIONS, extraPermString);
-      for (String entry : extraPermString.split(",")) {
-        extraPermissionsCandidate.add(entry);
-      }
-    }
-
-    final JsonArray extraPermissions = extraPermissionsCandidate;
-
-    //Instead of storing tokens, let's store an array of objects that each
-
-    JsonObject moduleTokens = new JsonObject();
-    /* TODO get module permissions (if they exist) */
-    if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
-      JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS));
-      for(String moduleName : modulePermissions.fieldNames()) {
-        JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
-        JsonObject tokenPayload = new JsonObject();
-        tokenPayload.put("sub", username);
-        tokenPayload.put("tenant", tenant);
-        tokenPayload.put("module", moduleName);
-        tokenPayload.put(EXTRA_PERMS, permissionList);
-        tokenPayload.put("user_id", finalUserId);
-        String moduleToken;
-        try {
-          moduleToken = tokenCreator.createJWTToken(tokenPayload.encode());
-        } catch(Exception e) {
-          String message = String.format("Error creating moduleToken: %s",
-              e.getLocalizedMessage());
-          logger.error(message);
-          endText(ctx, 500, "Error generating module permissions token");
-          return;
-        }
-        moduleTokens.put(moduleName, moduleToken);
-     }
-    }
-    //Add the original token back into the module tokens
-    moduleTokens.put("_", authToken);
-
-    /*
-    When the initial request comes in, as a filter, we require that the auth.signtoken
-    permission exists in the module tokens. This means that even if a request has
-    the permission in its permissions list, it cannot request a token unless
-    it has been granted at the module level. If it passes the filter successfully,
-    a new permission, auth.signtoken.execute is attached to the outgoing request
-    which the /token handler will check for when it processes the actual request
-    */
-
-    for (AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
-      if (authRoutingEntry.handleRoute(ctx, authToken, moduleTokens.encode())) {
-        return;
-      }
-    }
-
-    //Populate the permissionsRequired array from the header
-    JsonArray permissionsRequired = new JsonArray();
-    JsonArray permissionsDesired = new JsonArray();
-
-    if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_REQUIRED)) {
-      String permissionsString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_REQUIRED);
-      for (String entry : permissionsString.split(",")) {
-        permissionsRequired.add(entry);
-      }
-    }
-
-    if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_DESIRED)) {
-      String permString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_DESIRED);
-      for (String entry : permString.split(",")) {
-        permissionsDesired.add(entry);
-      }
-    }
-
-    PermissionsSource usePermissionsSource;
-    boolean dummyPermissionSource = false;
-    if((tokenClaims.getBoolean("dummy") != null && tokenClaims.getBoolean("dummy"))
-            || username.startsWith(UNDEFINED_USER_NAME)) {
-      logger.debug("Using dummy permissions source");
-      usePermissionsSource = new DummyPermissionsSource();
-      dummyPermissionSource = true;
-    } else {
-      usePermissionsSource = permissionsSource;
-    }
-
-    if (zapCache) {
-      usePermissionsSource.clearCache();
-    }
-
-    //Retrieve the user permissions and populate the permissions header
-    logger.debug("Getting user permissions for {} (userId {})", username, userId);
-    long startTime = System.currentTimeMillis();
-
-    JsonArray expandedSystemPermissions = new JsonArray();
-
-    // Need to check if the user is still active
-    Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
-    if (!dummyPermissionSource && finalUserId != null && !finalUserId.trim().isEmpty()) {
-      activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
-    }
-    Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
-      if (b != null && b.booleanValue()) {
-        return permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
-            requestId);
-      } else {
-        String msg = "Invalid token: user with id " + finalUserId + " is not active";
-        endText(ctx, 401, msg);
-        return Future.failedFuture(msg);
-      }
-    }).compose(expandedPermissions -> {
-      expandedSystemPermissions.addAll(expandedPermissions);
-      // skip expanded system permissions
-      JsonArray extraPermsMinusSystemOnes = new JsonArray();
-      extraPermissions.forEach(it -> {
-        if (!((String)it).startsWith(PermService.SYS_PERM_PREFIX)) {
-          extraPermsMinusSystemOnes.add(it);
-        }
-      });
-      return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
-        permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
     });
+    tokenValidationResult.onSuccess(h -> {
+      //JsonObject tokenClaims = getClaims(authToken);
+      JsonObject tokenClaims = Token.getClaims(authToken);
+      String username = tokenClaims.getString("sub");
+      //String jwtTenant = tokenClaims.getString("tenant");
 
-    logger.debug("Retrieving permissions for userid {} and expanding permissions", userId);
-    retrievedPermissionsFuture.onComplete(res -> {
-      if (res.failed()) {
-        // Vert.x 4 warns about this.. And it's true : response already written 19 lines above
-        if (ctx.response().ended()) {
-          return;
-        }
-        long stopTime = System.currentTimeMillis();
-        logger.error("Unable to retrieve permissions for {}: {} request took {} ms",
-          username, res.cause().getMessage(), stopTime - startTime);
-        if (res.cause() instanceof UserService.UserServiceException) {
-          endText(ctx, 401, "Invalid token: " + res.cause().getLocalizedMessage());
-          return;
-        }
-        // mod-authtoken should return the module tokens header even in case of errors.
-        // If not, pre+post filters will NOT get modulePermissions from Okapi
-        ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
-        endText(ctx, 400, "Unable to retrieve permissions for user with id' "
-          + finalUserId + "': " + res.cause().getLocalizedMessage());
-        return;
+      // if (jwtTenant == null || !jwtTenant.equals(tenant)) {
+      //   logger.error("Expected tenant: {}, got tenant {}", tenant, jwtTenant);
+      //   endText(ctx, 403, "Invalid token for access");
+      //   return;
+      // }
+
+      // String tokenUserId = tokenClaims.getString(TOKEN_USER_ID_FIELD);
+      // if (tokenUserId != null) {
+      //   if (userId != null) {
+      //     if (!userId.equals(tokenUserId)) {
+      //       endText(ctx, 403,
+      //       "Payload user id of '" + tokenUserId + "' does not match expected value");
+      //       return;
+      //     }
+      //   } else {
+      //     // Assign the userId to be whatever's in the token
+      //     userId = tokenUserId;
+      //   }
+      // } else {
+      //   logger.debug("No '{}' field found in token", TOKEN_USER_ID_FIELD);
+      // }
+
+      final String finalUserId = userId;
+
+      // Check and see if we have any module permissions defined
+      JsonArray extraPermissionsCandidate = Token.getClaims(authToken).getJsonArray(EXTRA_PERMS);
+      if (extraPermissionsCandidate == null) {
+        extraPermissionsCandidate = new JsonArray();
       }
 
-      JsonArray permissions = new JsonArray();
-      mergePerms(permissions, res.result().getUserPermissions());
-      mergePerms(permissions, res.result().getExpandedPermissions());
-      mergePerms(permissions, expandedSystemPermissions);
+      // In some rare cases (redirect) Okapi can pass extra permissions directly too
+      if (ctx.request().headers().contains(XOkapiHeaders.EXTRA_PERMISSIONS)) {
+        String extraPermString = ctx.request().headers().get(XOkapiHeaders.EXTRA_PERMISSIONS);
+        logger.debug("Extra permissions from {}: {}", XOkapiHeaders.EXTRA_PERMISSIONS, extraPermString);
+        for (String entry : extraPermString.split(",")) {
+          extraPermissionsCandidate.add(entry);
+        }
+      }
 
-      //Check that for all required permissions, we have them
-      for (Object o : permissionsRequired) {
-        if (!permissions.contains(o)
-          && !extraPermissions.contains(o)) {
-          logger.error(permissions.encode() + "{}(user permissions) nor {}"
-            + "(module permissions) do not contain {}",
-          permissions.encode(), extraPermissions.encode(), o);
+      final JsonArray extraPermissions = extraPermissionsCandidate;
+
+      // Instead of storing tokens, let's store an array of objects that each
+
+      JsonObject moduleTokens = new JsonObject();
+      /* TODO get module permissions (if they exist) */
+      if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
+        JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS));
+        for(String moduleName : modulePermissions.fieldNames()) {
+          JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
+          // JsonObject tokenPayload = new JsonObject();
+          // tokenPayload.put("sub", username);
+          // tokenPayload.put("tenant", tenant);
+          // tokenPayload.put("module", moduleName);
+          // tokenPayload.put(EXTRA_PERMS, permissionList);
+          // tokenPayload.put("user_id", finalUserId);
+          String moduleToken;
+          try {
+            //moduleToken = tokenCreator.createJWTToken(tokenPayload.encode());
+            moduleToken = new ModuleToken(tenant, username, finalUserId, moduleName, permissionList).encodeAsJWT();
+
+          } catch(Exception e) {
+            String message = String.format("Error creating moduleToken: %s",
+                e.getLocalizedMessage());
+            logger.error(message);
+            endText(ctx, 500, "Error generating module permissions token");
+            return;
+          }
+          moduleTokens.put(moduleName, moduleToken);
+      }
+      }
+      // Add the original token back into the module tokens
+      moduleTokens.put("_", authToken);
+
+      /*
+      When the initial request comes in, as a filter, we require that the auth.signtoken
+      permission exists in the module tokens. This means that even if a request has
+      the permission in its permissions list, it cannot request a token unless
+      it has been granted at the module level. If it passes the filter successfully,
+      a new permission, auth.signtoken.execute is attached to the outgoing request
+      which the /token handler will check for when it processes the actual request
+      */
+
+      for (AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
+        if (authRoutingEntry.handleRoute(ctx, authToken, moduleTokens.encode())) {
+          return;
+        }
+      }
+
+      //Populate the permissionsRequired array from the header
+      JsonArray permissionsRequired = new JsonArray();
+      JsonArray permissionsDesired = new JsonArray();
+
+      if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_REQUIRED)) {
+        String permissionsString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_REQUIRED);
+        for (String entry : permissionsString.split(",")) {
+          permissionsRequired.add(entry);
+        }
+      }
+
+      if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_DESIRED)) {
+        String permString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_DESIRED);
+        for (String entry : permString.split(",")) {
+          permissionsDesired.add(entry);
+        }
+      }
+
+      PermissionsSource usePermissionsSource;
+      boolean dummyPermissionSource = false;
+      if((tokenClaims.getBoolean("dummy") != null && tokenClaims.getBoolean("dummy"))
+              || username.startsWith(UNDEFINED_USER_NAME)) {
+        logger.debug("Using dummy permissions source");
+        usePermissionsSource = new DummyPermissionsSource();
+        dummyPermissionSource = true;
+      } else {
+        usePermissionsSource = permissionsSource;
+      }
+
+      if (zapCache) {
+        usePermissionsSource.clearCache();
+      }
+
+      //Retrieve the user permissions and populate the permissions header
+      logger.debug("Getting user permissions for {} (userId {})", username, userId);
+      long startTime = System.currentTimeMillis();
+
+      JsonArray expandedSystemPermissions = new JsonArray();
+
+      // Need to check if the user is still active
+      Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
+      if (!dummyPermissionSource && finalUserId != null && !finalUserId.trim().isEmpty()) {
+        activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
+      }
+      Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
+        if (b != null && b.booleanValue()) {
+          return permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
+              requestId);
+        } else {
+          String msg = "Invalid token: user with id " + finalUserId + " is not active";
+          endText(ctx, 401, msg);
+          return Future.failedFuture(msg);
+        }
+      }).compose(expandedPermissions -> {
+        expandedSystemPermissions.addAll(expandedPermissions);
+        // skip expanded system permissions
+        JsonArray extraPermsMinusSystemOnes = new JsonArray();
+        extraPermissions.forEach(it -> {
+          if (!((String)it).startsWith(PermService.SYS_PERM_PREFIX)) {
+            extraPermsMinusSystemOnes.add(it);
+          }
+        });
+        return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
+          permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
+      });
+
+      logger.debug("Retrieving permissions for userid {} and expanding permissions", userId);
+      retrievedPermissionsFuture.onComplete(res -> {
+        if (res.failed()) {
+          // Vert.x 4 warns about this.. And it's true : response already written 19 lines above
+          if (ctx.response().ended()) {
+            return;
+          }
+          long stopTime = System.currentTimeMillis();
+          logger.error("Unable to retrieve permissions for {}: {} request took {} ms",
+            username, res.cause().getMessage(), stopTime - startTime);
+          if (res.cause() instanceof UserService.UserServiceException) {
+            endText(ctx, 401, "Invalid token: " + res.cause().getLocalizedMessage());
+            return;
+          }
           // mod-authtoken should return the module tokens header even in case of errors.
           // If not, pre+post filters will NOT get modulePermissions from Okapi
           ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
-          endText(ctx, 403, "Access requires permission: " + o);
+          endText(ctx, 400, "Unable to retrieve permissions for user with id' "
+            + finalUserId + "': " + res.cause().getLocalizedMessage());
           return;
         }
-      }
 
-      //Remove all permissions not listed in permissionsRequired or permissionsDesired
-      List<Object> deleteList = new ArrayList<>();
-      for (Object o : permissions) {
-        if (!permissionsRequired.contains(o) && !Util.arrayContainsGlob(permissionsDesired, (String) o)) {
-          deleteList.add(o);
+        JsonArray permissions = new JsonArray();
+        mergePerms(permissions, res.result().getUserPermissions());
+        mergePerms(permissions, res.result().getExpandedPermissions());
+        mergePerms(permissions, expandedSystemPermissions);
+
+        //Check that for all required permissions, we have them
+        for (Object o : permissionsRequired) {
+          if (!permissions.contains(o)
+            && !extraPermissions.contains(o)) {
+            logger.error(permissions.encode() + "{}(user permissions) nor {}"
+              + "(module permissions) do not contain {}",
+            permissions.encode(), extraPermissions.encode(), o);
+            // mod-authtoken should return the module tokens header even in case of errors.
+            // If not, pre+post filters will NOT get modulePermissions from Okapi
+            ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
+            endText(ctx, 403, "Access requires permission: " + o);
+            return;
+          }
         }
-      }
 
-      for (Object o : deleteList) {
-        permissions.remove(o);
-      }
+        // Remove all permissions not listed in permissionsRequired or permissionsDesired
+        List<Object> deleteList = new ArrayList<>();
+        for (Object o : permissions) {
+          if (!permissionsRequired.contains(o) && !Util.arrayContainsGlob(permissionsDesired, (String) o)) {
+            deleteList.add(o);
+          }
+        }
 
-      //Create new JWT to pass back with request, include calling module field
-      JsonObject claims = getClaims(authToken);
+        for (Object o : deleteList) {
+          permissions.remove(o);
+        }
 
-      if (ctx.request().headers().contains(CALLING_MODULE_HEADER)) {
-        claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
-      }
+        // Create new JWT to pass back with request, include calling module field
+        JsonObject claims = Token.getClaims(authToken);
 
-      String token;
-      try {
-        token = tokenCreator.createJWTToken(claims.encode());
-      } catch(Exception e) {
-        String message = String.format("Error creating access token: %s", e.getMessage());
-        logger.error(message);
-        // mod-authtoken should return the module tokens header even in case of errors.
-        // If not, pre+post filters will NOT get modulePermissions from Okapi.
-        ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
-        endText(ctx, 500, "Error creating access token");
-        return;
-      }
+        if (ctx.request().headers().contains(CALLING_MODULE_HEADER)) {
+          claims.put("calling_module", ctx.request().headers().get(CALLING_MODULE_HEADER));
+        }
 
-      //Return header containing relevant permissions
-      ctx.response()
-              .setChunked(true)
-              .setStatusCode(202)
-              .putHeader(CONTENT_TYPE, "text/plain")
-              .putHeader(XOkapiHeaders.PERMISSIONS, permissions.encode())
-              .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
-              .putHeader("Authorization", "Bearer " + token)
-              .putHeader(XOkapiHeaders.TOKEN, token);
-      if (finalUserId != null) {
-        ctx.response().putHeader(XOkapiHeaders.USER_ID, finalUserId);
-      }
+        String token;
+        try {
+          token = tokenCreator.createJWTToken(claims.encode());
+        } catch(Exception e) {
+          String message = String.format("Error creating access token: %s", e.getMessage());
+          logger.error(message);
+          // mod-authtoken should return the module tokens header even in case of errors.
+          // If not, pre+post filters will NOT get modulePermissions from Okapi.
+          ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
+          endText(ctx, 500, "Error creating access token");
+          return;
+        }
 
-      ctx.response().end();
+        // Return header containing relevant permissions
+        ctx.response()
+                .setChunked(true)
+                .setStatusCode(202)
+                .putHeader(CONTENT_TYPE, "text/plain")
+                .putHeader(XOkapiHeaders.PERMISSIONS, permissions.encode())
+                .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
+                .putHeader("Authorization", "Bearer " + token)
+                .putHeader(XOkapiHeaders.TOKEN, token);
+        if (finalUserId != null) {
+          ctx.response().putHeader(XOkapiHeaders.USER_ID, finalUserId);
+        }
+
+        ctx.response().end();
+      });
     });
   }
 
@@ -794,33 +844,33 @@ public class MainVerticle extends AbstractVerticle {
     return new JsonObject(decodedJson);
   }
 
-  private String mintNewAuthToken(String tenant, JsonObject refreshTokenClaims)
-      throws JOSEException, ParseException {
-    JsonObject newJWTPayload = new JsonObject();
-    long nowTime = Instant.now().getEpochSecond();
-    newJWTPayload
-        .put("sub", refreshTokenClaims.getString("sub"))
-        .put("tenant", tenant)
-        .put("iat", nowTime)
-        .put("exp", nowTime + 600) //10 minute TTL
-        .put("user_id", refreshTokenClaims.getString("user_id"));
-    return tokenCreator.createJWTToken(newJWTPayload.encode());
-  }
+  // private String mintNewAuthToken(String tenant, JsonObject refreshTokenClaims)
+  //     throws JOSEException, ParseException {
+  //   JsonObject newJWTPayload = new JsonObject();
+  //   long nowTime = Instant.now().getEpochSecond();
+  //   newJWTPayload
+  //       .put("sub", refreshTokenClaims.getString("sub"))
+  //       .put("tenant", tenant)
+  //       .put("iat", nowTime)
+  //       .put("exp", nowTime + 600) //10 minute TTL
+  //       .put("user_id", refreshTokenClaims.getString("user_id"));
+  //   return tokenCreator.createJWTToken(newJWTPayload.encode());
+  // }
 
-  protected String generateRefreshToken(String tenant, String userId, String address,
-      String subject) throws JOSEException {
-    JsonObject payload = new JsonObject();
-    long nowTime = Instant.now().getEpochSecond();
-    payload.put("user_id", userId)
-        .put("address", address)
-        .put("tenant", tenant)
-        .put("sub", subject)
-        .put("iat", nowTime)
-        .put("exp", nowTime + (60 * 60 * 24))
-        .put("jti", UUID.randomUUID().toString())
-        .put("prn", "refresh");
-    return tokenCreator.createJWEToken(payload.encode());
-  }
+  // protected String generateRefreshToken(String tenant, String userId, String address,
+  //     String subject) throws JOSEException {
+  //   JsonObject payload = new JsonObject();
+  //   long nowTime = Instant.now().getEpochSecond();
+  //   payload.put("user_id", userId)
+  //       .put("address", address)
+  //       .put("tenant", tenant)
+  //       .put("sub", subject)
+  //       .put("iat", nowTime)
+  //       .put("exp", nowTime + (60 * 60 * 24))
+  //       .put("jti", UUID.randomUUID().toString())
+  //       .put("prn", "refresh");
+  //   return tokenCreator.createJWEToken(payload.encode());
+  // }
 
   private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
     String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);

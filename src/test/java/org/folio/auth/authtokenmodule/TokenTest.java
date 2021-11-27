@@ -26,11 +26,11 @@ public class TokenTest {
   public void accessTokenIsValidTest() throws JOSEException, ParseException, TokenValidationException {
     // Create an AT and encode it.
     var at = new AccessToken(tenant, username, userUUID);
-    var encoded = at.encode();
+    var encoded = at.encodeAsJWT();
 
     // Simulate receving an encoded token for validation.
-    Token t = TokenFactory.parseTokenType(encoded);
-    Future<Void> r = t.validate();
+    Token t = TokenFactory.parseJWTToken(encoded);
+    Future<Void> r = t.validate(null);
 
     assert(r.succeeded());
   }
@@ -42,8 +42,8 @@ public class TokenTest {
     String key = System.getProperty("jwt.signing.key");
     var source = new TokenCreator(key).createJWTToken(tokenMissingTenantClaim);
     
-    Token t = TokenFactory.parseTokenType(source);
-    Future<Void> r = t.validate();
+    Token t = TokenFactory.parseJWTToken(source);
+    Future<Void> r = t.validate(null);
 
     assert(r.failed());
   }

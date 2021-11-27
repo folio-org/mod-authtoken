@@ -1,6 +1,7 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.Future;
+import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
 import java.time.Instant;
 import java.util.UUID;
@@ -29,9 +30,9 @@ public class RefreshToken extends Token {
     claims = getClaims(sourceJwt);
   }
 
-  public Future<Void> validate() {
+  public Future<Void> validate(MultiMap headers) {
     try { 
-      validateCommon();
+      validateCommon(headers);
     } catch (Exception e) {
       return Future.failedFuture(e);
     }

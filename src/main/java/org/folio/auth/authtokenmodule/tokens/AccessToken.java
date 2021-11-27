@@ -2,6 +2,7 @@ package org.folio.auth.authtokenmodule.tokens;
 
 import java.time.Instant;
 import io.vertx.core.Future;
+import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
 
 public class AccessToken extends Token {
@@ -26,9 +27,9 @@ public class AccessToken extends Token {
     source = jwtSource;
   }
 
-  public Future<Void> validate() {
+  public Future<Void> validate(MultiMap headers) {
     try { 
-      validateCommon();
+      validateCommon(headers);
     } catch (Exception e) {
       return Future.failedFuture(e);
     }
