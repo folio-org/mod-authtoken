@@ -25,7 +25,6 @@ import java.util.regex.Pattern;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -39,7 +38,6 @@ import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.RequestToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
-import org.folio.auth.authtokenmodule.tokens.TokenFactory;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
@@ -56,11 +54,9 @@ public class MainVerticle extends AbstractVerticle {
   private static final String CALLING_MODULE_HEADER = "X-Okapi-Calling-Module";
   public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
-  private static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
-  private static final String TOKEN_USER_ID_FIELD = "user_id";
   static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
   private static final String MISSING_HEADER = "Missing header: ";
-  private static final int MAX_CACHED_TOKENS = 100; //Probably could be a LOT bigger
+  private static final int MAX_CACHED_TOKENS = 100; // Probably could be a LOT bigger
   private static final String EXTRA_PERMS = "extra_permissions";
 
   PermissionsSource permissionsSource;
@@ -344,6 +340,7 @@ public class MainVerticle extends AbstractVerticle {
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       String address = ctx.request().remoteAddress().host();
       String content = ctx.getBodyAsString();
+      // TODO Replace this with new Token.validate method
       JsonObject requestJson;
       try {
         requestJson = parseJsonObject(content,
@@ -354,8 +351,6 @@ public class MainVerticle extends AbstractVerticle {
       }
       String userId = requestJson.getString("userId");
       String sub = requestJson.getString("sub");
-      // TODO Remove
-      //String refreshToken = generateRefreshToken(tenant, userId, address, sub);
       String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE();
       JsonObject responseJson = new JsonObject()
         .put("refreshToken", refreshToken);
@@ -405,12 +400,6 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
 
-      // TODO Remove
-      // payload.put("tenant", tenant);
-      // Instant instant = Instant.now();
-      // payload.put("iat", instant.getEpochSecond());
-      // String token = tokenCreator.createJWTToken(payload.encode());
-      // TODO Does the payload _always_ have a user_id?
       String userId = payload.getString("user_id");
       String username = payload.getString("sub");
       String token = new AccessToken(tenant, username, userId).encodeAsJWT();
@@ -421,16 +410,6 @@ public class MainVerticle extends AbstractVerticle {
       endText(ctx, 400, e);
     }
   }
-
-  // create request token needed by mod-authtoken
-  // private String createRequestToken(String tenant, JsonArray perms) throws JOSEException, ParseException {
-  //   JsonObject tokenPayload = new JsonObject()
-  //     .put("sub", "_AUTHZ_MODULE_")
-  //     .put("tenant", tenant)
-  //     .put("dummy", true)
-  //     .put(EXTRA_PERMS, perms);
-  //   return tokenCreator.createJWTToken(tokenPayload.encode());
-  // }
 
   private void handleAuthorize(RoutingContext ctx) {
     String requestId = ctx.request().headers().get(XOkapiHeaders.REQUEST_ID);
@@ -480,18 +459,13 @@ public class MainVerticle extends AbstractVerticle {
       In order to make our request to the permissions or users modules
       we generate a custom token (since we have that power) that
       has the necessary permissions in it. This prevents an
-      ugly 'lookup loop'
+      ugly 'lookup loop'.
     */
     String permissionsRequestToken;
     String userRequestToken;
     try {
-      // permissionsRequestToken = createRequestToken(tenant, new JsonArray()
-      //     .add(PERMISSIONS_PERMISSION_READ_BIT)
-      //     .add(PERMISSIONS_USER_READ_BIT));
       var rtPerms = new JsonArray().add(PERMISSIONS_PERMISSION_READ_BIT).add(PERMISSIONS_USER_READ_BIT);
       permissionsRequestToken = new RequestToken(tenant, rtPerms).encodeAsJWT();
-      // userRequestToken = createRequestToken(tenant, new JsonArray()
-      //     .add(PERMISSIONS_USERS_ITEM_GET));
       var userRTPerms = new JsonArray().add(PERMISSIONS_USERS_ITEM_GET);
       userRequestToken = new RequestToken(tenant, userRTPerms).encodeAsJWT();
     } catch (Exception e) {
@@ -501,22 +475,7 @@ public class MainVerticle extends AbstractVerticle {
 
     if (candidateToken == null) {
       logger.debug("Generating dummy authtoken");
-      // JsonObject dummyPayload = new JsonObject();
-      // try {
-      //   // Generate a new "dummy" token
-      //   DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
-      //   Date now = Calendar.getInstance().getTime();
-      //   dummyPayload
-      //           .put("sub", UNDEFINED_USER_NAME + ctx.request().remoteAddress().toString() +
-      //                   "__" + df.format(now))
-      //           .put("tenant", tenant)
-      //           .put("dummy", true);
-      // } catch(Exception e) {
-      //   endText(ctx, 500,  "Error creating dummy token: ", e);
-      //   return;
-      // }
       try {
-        //candidateToken = tokenCreator.createJWTToken(dummyPayload.encode());
         candidateToken = new DummyToken(tenant, ctx.request().remoteAddress().toString()).encodeAsJWT();
       } catch(Exception e) {
         endText(ctx, 500, "Error creating candidate token: ", e);
@@ -527,74 +486,21 @@ public class MainVerticle extends AbstractVerticle {
     final String authToken = candidateToken;
     logger.debug("Final authToken is {}", authToken);
 
-    // final String errMsg = "Invalid token";
-    // try {
-    //   if (!tokenCache.contains(authToken)) {
-    //     tokenCreator.checkJWTToken(authToken);
-    //     tokenCache.add(authToken);
-    //   }
-    // } catch (ParseException p) {
-    //   logger.error("Malformed token: {}", authToken, p);
-    //   endText(ctx, 401, errMsg);
-    //   return;
-    // } catch (JOSEException j) {
-    //   logger.error("Unable to verify token token {}, {}", authToken, j.getMessage());
-    //   endText(ctx, 401, errMsg);
-    //   return;
-    // } catch (BadSignatureException b) {
-    //   logger.error("Unsupported JWT format", b);
-    //   endText(ctx, 401, errMsg);
-    //   return;
-    // }
 
-    Token tokenToValidate = null;
-    try {
-      tokenToValidate = TokenFactory.parseJWTToken(authToken);
-    } catch (TokenValidationException e) {
-      logger.error(e.toString());
-      System.out.println("parseTokenType failed: " + e.getMessage());
-      endText(ctx, e.httpResponseCode, "Unable to parse token");
-      return;
-    }
-    Future<Void> tokenValidationResult = tokenToValidate.validate(ctx.request().headers());
+    Future<Token> tokenValidationResult = Token.validate(authToken, ctx.request().headers());
     tokenValidationResult.onFailure(h -> {
-      System.out.println("tokenValidationResult.onFalure reached");
-      // TODO It is possible that not all exceptions will be of this type so we should probably check
-      // before casting.
       var e = (TokenValidationException)h;
-      System.out.println("msg in tokenValidationResult: " + e.getMessage());
       logger.error("Invalid token: {}", e.toString());
       endText(ctx, e.httpResponseCode, "Invalid token");
       return;
     });
     tokenValidationResult.onSuccess(h -> {
-      //JsonObject tokenClaims = getClaims(authToken);
+      // TODO Get these claims from the handler's Token.
       JsonObject tokenClaims = Token.getClaims(authToken);
+      System.out.println("Beginning token type is: " + tokenClaims.getString("type"));
       String username = tokenClaims.getString("sub");
-      //String jwtTenant = tokenClaims.getString("tenant");
 
-      // if (jwtTenant == null || !jwtTenant.equals(tenant)) {
-      //   logger.error("Expected tenant: {}, got tenant {}", tenant, jwtTenant);
-      //   endText(ctx, 403, "Invalid token for access");
-      //   return;
-      // }
-
-      // String tokenUserId = tokenClaims.getString(TOKEN_USER_ID_FIELD);
-      // if (tokenUserId != null) {
-      //   if (userId != null) {
-      //     if (!userId.equals(tokenUserId)) {
-      //       endText(ctx, 403,
-      //       "Payload user id of '" + tokenUserId + "' does not match expected value");
-      //       return;
-      //     }
-      //   } else {
-      //     // Assign the userId to be whatever's in the token
-      //     userId = tokenUserId;
-      //   }
-      // } else {
-      //   logger.debug("No '{}' field found in token", TOKEN_USER_ID_FIELD);
-      // }
-
+      // TODO This assignment is no longer necessary since validation checks that the header user id is the same as the token's.
       final String finalUserId = userId;
 
       // Check and see if we have any module permissions defined
@@ -622,17 +528,9 @@ public class MainVerticle extends AbstractVerticle {
         JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS));
         for(String moduleName : modulePermissions.fieldNames()) {
           JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
-          // JsonObject tokenPayload = new JsonObject();
-          // tokenPayload.put("sub", username);
-          // tokenPayload.put("tenant", tenant);
-          // tokenPayload.put("module", moduleName);
-          // tokenPayload.put(EXTRA_PERMS, permissionList);
-          // tokenPayload.put("user_id", finalUserId);
           String moduleToken;
           try {
-            //moduleToken = tokenCreator.createJWTToken(tokenPayload.encode());
             moduleToken = new ModuleToken(tenant, username, finalUserId, moduleName, permissionList).encodeAsJWT();
-
           } catch(Exception e) {
             String message = String.format("Error creating moduleToken: %s",
                 e.getLocalizedMessage());
@@ -641,7 +539,7 @@ public class MainVerticle extends AbstractVerticle {
             return;
           }
           moduleTokens.put(moduleName, moduleToken);
-      }
+        }
       }
       // Add the original token back into the module tokens
       moduleTokens.put("_", authToken);
@@ -682,7 +580,7 @@ public class MainVerticle extends AbstractVerticle {
       PermissionsSource usePermissionsSource;
       boolean dummyPermissionSource = false;
       if((tokenClaims.getBoolean("dummy") != null && tokenClaims.getBoolean("dummy"))
-              || username.startsWith(UNDEFINED_USER_NAME)) {
+              || username.startsWith(DummyToken.UNDEFINED_USER_NAME)) {
         logger.debug("Using dummy permissions source");
         usePermissionsSource = new DummyPermissionsSource();
         dummyPermissionSource = true;
@@ -711,6 +609,7 @@ public class MainVerticle extends AbstractVerticle {
               requestId);
         } else {
           String msg = "Invalid token: user with id " + finalUserId + " is not active";
+          System.out.println("msg is " + msg);
           endText(ctx, 401, msg);
           return Future.failedFuture(msg);
         }
@@ -781,6 +680,8 @@ public class MainVerticle extends AbstractVerticle {
           permissions.remove(o);
         }
 
+        // TODO No need to create the token here since we already have one.
+        // TODO Add a method to add calling module on Token.
         // Create new JWT to pass back with request, include calling module field
         JsonObject claims = Token.getClaims(authToken);
 
@@ -843,34 +744,6 @@ public class MainVerticle extends AbstractVerticle {
     String decodedJson = new String(Base64.getDecoder().decode(encodedJson));
     return new JsonObject(decodedJson);
   }
-
-  // private String mintNewAuthToken(String tenant, JsonObject refreshTokenClaims)
-  //     throws JOSEException, ParseException {
-  //   JsonObject newJWTPayload = new JsonObject();
-  //   long nowTime = Instant.now().getEpochSecond();
-  //   newJWTPayload
-  //       .put("sub", refreshTokenClaims.getString("sub"))
-  //       .put("tenant", tenant)
-  //       .put("iat", nowTime)
-  //       .put("exp", nowTime + 600) //10 minute TTL
-  //       .put("user_id", refreshTokenClaims.getString("user_id"));
-  //   return tokenCreator.createJWTToken(newJWTPayload.encode());
-  // }
-
-  // protected String generateRefreshToken(String tenant, String userId, String address,
-  //     String subject) throws JOSEException {
-  //   JsonObject payload = new JsonObject();
-  //   long nowTime = Instant.now().getEpochSecond();
-  //   payload.put("user_id", userId)
-  //       .put("address", address)
-  //       .put("tenant", tenant)
-  //       .put("sub", subject)
-  //       .put("iat", nowTime)
-  //       .put("exp", nowTime + (60 * 60 * 24))
-  //       .put("jti", UUID.randomUUID().toString())
-  //       .put("prn", "refresh");
-  //   return tokenCreator.createJWEToken(payload.encode());
-  // }
 
   private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
     String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);

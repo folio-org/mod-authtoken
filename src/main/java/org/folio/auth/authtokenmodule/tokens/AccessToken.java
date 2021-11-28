@@ -27,16 +27,16 @@ public class AccessToken extends Token {
     source = jwtSource;
   }
 
-  public Future<Void> validate(MultiMap headers) {
+  public Future<Token> validate(MultiMap headers) {
     try { 
       validateCommon(headers);
-    } catch (Exception e) {
+    } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     }
 
-    // TODO Validate the exp claim andn put behind a system flag.
+    // TODO Validate the exp claim and put behind a system flag.
 
-    return Future.succeededFuture();
+    return Future.succeededFuture(this);
   }
 
 }

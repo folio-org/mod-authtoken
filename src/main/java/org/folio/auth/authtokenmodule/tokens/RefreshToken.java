@@ -30,7 +30,7 @@ public class RefreshToken extends Token {
     claims = getClaims(sourceJwt);
   }
 
-  public Future<Void> validate(MultiMap headers) {
+  public Future<Token> validate(MultiMap headers) {
     try { 
       validateCommon(headers);
     } catch (Exception e) {
@@ -40,7 +40,7 @@ public class RefreshToken extends Token {
     // TODO Check the exp claim.
     // TODO Validate the RT against the stored token.
 
-    return Future.succeededFuture();
+    return Future.succeededFuture(this);
   }
 
 }

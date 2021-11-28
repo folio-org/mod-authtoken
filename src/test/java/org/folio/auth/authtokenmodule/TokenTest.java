@@ -5,7 +5,6 @@ import com.nimbusds.jose.JOSEException;
 
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
-import org.folio.auth.authtokenmodule.tokens.TokenFactory;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,11 +27,12 @@ public class TokenTest {
     var at = new AccessToken(tenant, username, userUUID);
     var encoded = at.encodeAsJWT();
 
-    // Simulate receving an encoded token for validation.
-    Token t = TokenFactory.parseJWTToken(encoded);
-    Future<Void> r = t.validate(null);
+    Future<Token> result = Token.validate(encoded, null);
 
-    assert(r.succeeded());
+    assert(result.succeeded());
+    result.onSuccess(token -> {
+      assert(token instanceof AccessToken);
+    });
   }
 
   @Test
@@ -40,12 +40,16 @@ public class TokenTest {
     String tokenMissingTenantClaim =
       "{\"iat\":1637696002,\"sub\":\"test-username\",\"user_id\":\"007d31d2-1441-4291-9bb8-d6e2c20e399a\",\"type\":\"access\"}";
     String key = System.getProperty("jwt.signing.key");
-    var source = new TokenCreator(key).createJWTToken(tokenMissingTenantClaim);
+    String source = new TokenCreator(key).createJWTToken(tokenMissingTenantClaim);
     
-    Token t = TokenFactory.parseJWTToken(source);
-    Future<Void> r = t.validate(null);
+    Future<Token> result = Token.validate(source, null);
 
-    assert(r.failed());
+    assert(result.failed());
+    result.onFailure(e -> {
+      assert(e instanceof TokenValidationException);
+      var tve = (TokenValidationException)e;
+      assert(tve.httpResponseCode == 500);
+    });
   }
 
 }

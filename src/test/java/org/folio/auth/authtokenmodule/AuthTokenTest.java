@@ -21,6 +21,7 @@ import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
+import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.junit.AfterClass;
@@ -81,61 +82,25 @@ public class AuthTokenTest {
       .put("tenant", tenant)
       .put("dummy", true)
       .put("sub", "jones");
-    payloadBad = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("dummy", true)
-      .put("sub", "jawnes");
-    payload2 = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("sub", "jones");
-    payload3 = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("sub", "jones")
-      .put("extra_permissions", new JsonArray().add("auth.signtoken"));
-    // TODO What exactly is going on here?
-    payload404 = new JsonObject()
-      .put("user_id", "404")
-      .put("tenant", tenant)
-      .put("sub", "jones");
-    // TODO Same here -- who is creating these tokens that are really error states?
-    payloadInactive = new JsonObject()
-      .put("user_id", "inactive")
-      .put("tenant", tenant)
-      .put("sub", "jones");
-    payloadSystemPermission = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("sub", "jones")
-      .put("extra_permissions", new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def"));
-    //String passPhrase = "TheOriginalCorrectBatteryHorseStapleGun";
-    String passPhrase = "CorrectBatteryHorseStaple";
-    String badPassPhrase = "IncorrectBatteryHorseStaple";
-    System.setProperty("jwt.signing.key", passPhrase);
 
-    tokenCreator = new TokenCreator(passPhrase);
-    badTokenCreator = new TokenCreator(badPassPhrase);
-    // TODO The tests here seem to conflate dummy tokens and access tokens or are they the same thing?
-    // TODO Is a dummy token an access token?
-    // TODO Is a module token an access token?
-    //basicToken = tokenCreator.createJWTToken(payload.encode());
-    basicToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT();
-    //basicToken2 = tokenCreator.createJWTToken(payload2.encode());
-    basicToken2 = new AccessToken(tenant, "jones", userUUID).encodeAsJWT();
-    //basicToken3 = tokenCreator.createJWTToken(payload3.encode());
-    basicToken3 = new ModuleToken(tenant, "jones", userUUID, "", new JsonArray().add("auth.signtoken")).encodeAsJWT();
-    System.setProperty("jwt.signing.key", badPassPhrase);
-    //basicBadToken = badTokenCreator.createJWTToken(payloadBad.encode());
-    basicBadToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT();
+    // Create some good tokens.
+    String passPhrase = "CorrectBatteryHorseStaple";
     System.setProperty("jwt.signing.key", passPhrase);
-    token404 = tokenCreator.createJWTToken(payload404.encode());
-    tokenInactive = tokenCreator.createJWTToken(payloadInactive.encode());
-    //tokenSystemPermission = tokenCreator.createJWTToken(payloadSystemPermission.encode());
+    tokenCreator = new TokenCreator(passPhrase);
+    basicToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT();
+    basicToken2 = new AccessToken(tenant, "jones", userUUID).encodeAsJWT();
+    basicToken3 = new ModuleToken(tenant, "jones", userUUID, "", new JsonArray().add("auth.signtoken")).encodeAsJWT();
     var extraPerms = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms).encodeAsJWT();
 
+    // Create some bad tokens, including one with a bad signing key.
+    token404 = new AccessToken(tenant, "jones", "404").encodeAsJWT();
+    tokenInactive = new AccessToken(tenant, "jones", "inactive").encodeAsJWT();
+    String badPassPhrase = "IncorrectBatteryHorseStaple";
+    System.setProperty("jwt.signing.key", badPassPhrase);
+    basicBadToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT();
+    System.setProperty("jwt.signing.key", passPhrase);
+    
     httpClient = vertx.createHttpClient();
 
     RestAssured.port = port;
@@ -200,6 +165,7 @@ public class AuthTokenTest {
     JsonObject ob = new JsonObject()
       .put("sub", "Ronald McDonald")
       .put("foo", "bar");
+    // TODO Replace with new token type
     String jweToken = tokenCreator.createJWEToken(ob.encode());
     String reprocessedJson = tokenCreator.decodeJWEToken(jweToken);
     JsonObject reProcOb = new JsonObject(reprocessedJson);
@@ -424,29 +390,27 @@ public class AuthTokenTest {
         .then()
         .statusCode(403);
 
-    // TODO Commenting out for now until I better understand what is going on here.
-    // logger.info("Test with 404 user token");
-    // given()
-    //   .header("X-Okapi-Tenant", tenant)
-    //   .header("X-Okapi-Token", token404)
-    //   .header("X-Okapi-Url", "http://localhost:" + mockPort)
-    //   .header("X-Okapi-User-Id", "404")
-    //   .get("/bar")
-    //   .then()
-    //   .statusCode(401)
-    //   .assertThat().body(containsString("not exist"));
+    logger.info("Test with 404 user token");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", token404)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-User-Id", "404")
+      .get("/bar")
+      .then()
+      .statusCode(401)
+      .assertThat().body(containsString("not exist"));
 
-    // TODO Commenting out until I understand what type of token this is.
-    // logger.info("Test with inactive user token");
-    // given()
-    //   .header("X-Okapi-Tenant", tenant)
-    //   .header("X-Okapi-Token", tokenInactive)
-    //   .header("X-Okapi-Url", "http://localhost:" + mockPort)
-    //   .header("X-Okapi-User-Id", "inactive")
-    //   .get("/bar")
-    //   .then()
-    //   .statusCode(401)
-    //   .assertThat().body(containsString("not active"));
+    logger.info("Test with inactive user token");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", tokenInactive)
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-User-Id", "inactive")
+      .get("/bar")
+      .then()
+      .statusCode(401)
+      .assertThat().body(containsString("not active"));
 
     logger.info("Test with basicBadToken");
     given()

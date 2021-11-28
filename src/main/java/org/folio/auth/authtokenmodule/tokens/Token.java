@@ -17,70 +17,134 @@ public abstract class Token {
   protected JsonObject claims;
   protected String source;
 
-  public static JsonObject getClaims(String jwt) {
-    String encodedJson = jwt.split("\\.")[1];
-    String decodedJson = new String(Base64.getDecoder().decode(encodedJson));
-    return new JsonObject(decodedJson);
-  }
-
-  public abstract Future<Void> validate(MultiMap headers);
-
-  protected void validateCommon(MultiMap headers) throws TokenValidationException {
-
-    // Check that the token has a source.
-    if (source == null)
-      throw new TokenValidationException("Token has no source defined", 500);
-
-    // Check that the token is parsable and signed.
-    final String invalidTokenMsg = "Invalid token"; // Be intentionally vague.
-    try {
-      // TODO Is there a penalty here? Should the TokenCreator be passed in as an arg?
-      var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
-      tc.checkJWTToken(source);
-    } catch (ParseException p) {
-      throw new TokenValidationException(invalidTokenMsg, p, 401);
-    } catch (JOSEException j) {
-      throw new TokenValidationException(invalidTokenMsg, j, 401);
-    } catch (BadSignatureException b) {
-      throw new TokenValidationException(invalidTokenMsg, b, 401);
-    }
-
-    // Check that the claims have been created.
-    if (claims == null)
-      throw new TokenValidationException("Token has no claims", 500);
-
-    // Check some claims that all tokens must have.
-    String[] requiredClaims = new String[] { "sub", "tenant", "type" };
-    for (String c : requiredClaims) {
-      if (!claims.containsKey(c)) {
-        throw new TokenValidationException(String.format("Token is missing %s claim", c), 500);
-      }
-    }
-
-    if (headers == null)
-      return;
-
-    // Check that some items in the headers match what are in the token.
-    String headerTenant = headers.get(XOkapiHeaders.TENANT);
-    if (!claims.getString("tenant").equals(headerTenant))
-      throw new TokenValidationException("Tenant in header does not equal tenant in token", 403);
-
-    String headerUserId = headers.get(XOkapiHeaders.USER_ID);
-    if (headerUserId != null && !claims.getString("user_id").equals(headerUserId))
-      throw new TokenValidationException("User id in header does not equal userid in token", 403);
-  }
-
   public String encodeAsJWT() throws JOSEException, ParseException {
-    // TODO Is there a penalty here? Should the TokenCreator be passed in as an arg?
     String key = System.getProperty("jwt.signing.key");
     String encodedClaims = claims.encode();
     return new TokenCreator(key).createJWTToken(encodedClaims);
   }
 
   public String encodeAsJWE() throws JOSEException, ParseException {
-    // TODO Is there a penalty here? Should the TokenCreator be passed in as an arg?
     String key = System.getProperty("jwt.signing.key");
     String encodedClaims = claims.encode();
     return new TokenCreator(key).createJWEToken(encodedClaims);
   }
+
+  public static JsonObject getClaims(String jwt) {
+    String encodedJson = jwt.split("\\.")[1];
+    String decodedJson = new String(Base64.getDecoder().decode(encodedJson));
+    return new JsonObject(decodedJson);
+  }
+
+  /** 
+   * Validates the provided JWT token.
+   * @param jwt The JWT token to validate.
+   * @param requestHeaders The headers in the http context where the token is being provided.
+   * @return Future<Token> A Future containing the Token if it has passed validation.
+   * The Future may also contain a TokenValidationException if the validation has failed.
+   * @see TokenValidationException.
+   */
+  public static Future<Token> validate(String jwt, MultiMap requestHeaders) {
+    Token token = null;
+    try {
+      token = parse(jwt);
+    } catch (TokenValidationException e) {
+      return Future.failedFuture(e);
+    } catch (Exception e) {
+      return Future.failedFuture(new TokenValidationException("Unexpected token parse exception", e, 500));
+    }
+
+    return token.validate(requestHeaders);
+  }
+
+  protected abstract Future<Token> validate(MultiMap requestHeaders);
+
+  protected void validateCommon(MultiMap headers) throws TokenValidationException {
+    try {
+      // Check that the token has a source.
+      if (source == null)
+        throw new TokenValidationException("Token has no source defined", 500);
+
+      // Check that the token is parsable and signed.
+      final String invalidTokenMsg = "Invalid token"; // Be intentionally vague.
+      try {
+        // TODO Is there a penalty here? Should the TokenCreator be passed in as an arg?
+        var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
+        tc.checkJWTToken(source);
+      } catch (ParseException p) {
+        throw new TokenValidationException(invalidTokenMsg, p, 401);
+      } catch (JOSEException j) {
+        throw new TokenValidationException(invalidTokenMsg, j, 401);
+      } catch (BadSignatureException b) {
+        throw new TokenValidationException(invalidTokenMsg, b, 401);
+      }
+
+      // Check that the claims have been created.
+      if (claims == null)
+        throw new TokenValidationException("Token has no claims", 500);
+
+      // Check some claims that all tokens must have.
+      String[] requiredClaims = new String[] { "sub", "tenant", "type" };
+      for (String c : requiredClaims) {
+        if (!claims.containsKey(c)) {
+          throw new TokenValidationException(String.format("Token is missing %s claim", c), 500);
+        }
+      }
+
+      if (headers == null)
+        return;
+
+      // Check that some items in the headers match what are in the token.
+      String headerTenant = headers.get(XOkapiHeaders.TENANT);
+      if (!claims.getString("tenant").equals(headerTenant))
+        throw new TokenValidationException("Tenant in header does not equal tenant in token", 403);
+
+      String headerUserId = headers.get(XOkapiHeaders.USER_ID);
+      if (headerUserId != null && !claims.getString("user_id").equals(headerUserId))
+        throw new TokenValidationException("User id in header does not equal userid in token", 403);
+
+    } catch (TokenValidationException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new TokenValidationException("Unexpected token validation exception", e, 500);
+    }
+  }
+
+  private static Token parse(String jwtSource) throws TokenValidationException {
+    Token token = null;
+    JsonObject claims = null;
+    try {
+      claims = Token.getClaims(jwtSource);
+    } catch (Exception e) {
+      throw new TokenValidationException("Unable to get token claims", e, 401);
+    }
+
+    String tokenType = claims.getString("type");
+    if (tokenType == null)
+      throw new TokenValidationException("Token has no type", 400);
+
+    switch (tokenType) {
+      case TokenType.ACCESS:
+        token = new AccessToken(jwtSource);
+        break;
+      case TokenType.REFRESH:
+        token = new RefreshToken(jwtSource);
+        break;
+      case TokenType.API:
+        token = new ApiToken(jwtSource);
+        break;
+      case TokenType.DUMMY:
+        token = new DummyToken(jwtSource);
+        break;
+      case TokenType.MODULE:
+        token = new ModuleToken(jwtSource);
+        break;
+      default:
+        break;
+    }
+
+    if (token == null)
+      throw new TokenValidationException("Unsupported token type", 400);
+    return token;
+  }
+
 }

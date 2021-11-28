@@ -22,14 +22,14 @@ public class ModuleToken extends Token {
     source = jwtSource;
   }
 
-  public Future<Void> validate(MultiMap headers) {
+  public Future<Token> validate(MultiMap headers) {
     try { 
       validateCommon(headers);
-    } catch (Exception e) {
+    } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     }
     // TODO Determine what to validate on here.
     // TODO Module tokens may not require validation .
-    return Future.succeededFuture();
+    return Future.succeededFuture(this);
   }
 }

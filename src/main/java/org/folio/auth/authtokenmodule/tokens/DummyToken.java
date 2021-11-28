@@ -28,8 +28,13 @@ public class DummyToken extends Token {
     source = jwtSource;
   }
 
-  public Future<Void> validate(MultiMap headers) {
-    // TODO Determine what to validate on here.
-    return Future.succeededFuture();
+  public Future<Token> validate(MultiMap headers) {
+    try { 
+      validateCommon(headers);
+    } catch (TokenValidationException e) {
+      return Future.failedFuture(e);
+    }
+
+    return Future.succeededFuture(this);
   }
 }
