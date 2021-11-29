@@ -7,12 +7,12 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.okapi.common.XOkapiHeaders;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import static org.folio.auth.authtokenmodule.MainVerticle.getClaims;
 
 /**
  *
@@ -42,7 +42,7 @@ public class AuthRoutingEntry {
   Return true if we're handling the route, false if pass-through
    */
   public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
-    JsonObject claims = getClaims(authToken);
+    JsonObject claims = Token.getClaims(authToken);
     JsonArray extraPermissions = claims.getJsonArray("extra_permissions");
     if (extraPermissions == null) {
       extraPermissions = new JsonArray();

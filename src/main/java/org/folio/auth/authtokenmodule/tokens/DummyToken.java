@@ -3,24 +3,33 @@ package org.folio.auth.authtokenmodule.tokens;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
+import io.vertx.core.http.HttpServerRequest;
 
 import java.util.Calendar;
 import java.util.Date;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import io.vertx.core.json.JsonArray;
 
 public class DummyToken extends Token {
-  public static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
-
   public DummyToken(String tenant, String remoteIpAddress) {
     DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     Date now = Calendar.getInstance().getTime();
-    String username = UNDEFINED_USER_NAME + remoteIpAddress + "__" + df.format(now);
-    claims = new JsonObject();
-    claims.put("type", TokenType.DUMMY);
-    claims.put("sub", username);
-    claims.put("tenant", tenant);
-    claims.put("dummy", true);
+    String username = Token.UNDEFINED_USER_NAME + remoteIpAddress + "__" + df.format(now);
+    claims = new JsonObject()
+    .put("type", TokenType.DUMMY)
+    .put("sub", username)
+    .put("tenant", tenant)
+    .put("dummy", true);
+  }
+
+  public DummyToken(String tenant, JsonArray extraPerms) {
+    claims = new JsonObject()
+    .put("type", TokenType.DUMMY)
+    .put("tenant", tenant)
+    .put("sub", "_AUTHZ_MODULE_")
+    .put("dummy", true)
+    .put("extra_perms", extraPerms);
   }
 
   public DummyToken(String jwtSource) {
@@ -28,9 +37,9 @@ public class DummyToken extends Token {
     source = jwtSource;
   }
 
-  public Future<Token> validate(MultiMap headers) {
+  protected Future<Token> validate(HttpServerRequest request) {
     try { 
-      validateCommon(headers);
+      validateCommon(request);
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     }

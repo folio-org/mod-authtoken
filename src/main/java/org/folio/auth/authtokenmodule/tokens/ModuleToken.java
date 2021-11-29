@@ -3,7 +3,7 @@ package org.folio.auth.authtokenmodule.tokens;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.Future;
-import io.vertx.core.MultiMap;
+import io.vertx.core.http.HttpServerRequest;
 
 public class ModuleToken extends Token {
 
@@ -22,9 +22,9 @@ public class ModuleToken extends Token {
     source = jwtSource;
   }
 
-  public Future<Token> validate(MultiMap headers) {
+  protected Future<Token> validate(HttpServerRequest request) {
     try { 
-      validateCommon(headers);
+      validateCommon(request);
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     }

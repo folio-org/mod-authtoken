@@ -995,7 +995,6 @@ public class AuthTokenTest {
 
     async.complete();
     logger.debug("AuthToken test1 done");
-
   }
 
   @Test
