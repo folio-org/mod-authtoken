@@ -262,56 +262,50 @@ public class MainVerticle extends AbstractVerticle {
   private void handleRefresh(RoutingContext ctx) {
     try {
       logger.debug("Token refresh request from {}", ctx.request().absoluteURI());
+  
       if (ctx.request().method() != HttpMethod.POST) {
         endText(ctx, 400, "Invalid method for this endpoint");
         return;
       }
+  
       String content = ctx.getBodyAsString();
       JsonObject requestJson;
+  
       try {
         requestJson = parseJsonObject(content, new String[] { "refreshToken" });
       } catch (Exception e) {
-        endText(ctx, 400, "Unable to parse content: ", e);
+        endText(ctx, 400, "Unable to parse content of refresh token request: ", e);
         return;
       }
-      String token = requestJson.getString("refreshToken");
-      String tokenContent;
-      JsonObject tokenClaims;
+  
+      String encryptedJWE = requestJson.getString("refreshToken");
+      Future<Token> tokenValidationResult = Token.validate(encryptedJWE, ctx.request());
 
+      tokenValidationResult.onFailure(h -> {
+        var e = (TokenValidationException)h;
+        logger.error("Invalid refresh token: {}", e.toString());
+        endText(ctx, e.httpResponseCode, "Invalid token");
+      });
 
+      tokenValidationResult.onSuccess(h -> {
+        Token token = (Token)h;
 
-      try {
-        tokenContent = tokenCreator.decodeJWEToken(token);
-        tokenClaims = new JsonObject(tokenContent);
-      } catch (Exception e) {
-        String message = String.format("Unable to decode token %s: %s",
-          token, e.getLocalizedMessage());
-        logger.error(message);
-        endText(ctx, 400, "Invalid token format");
-        return;
-      }
-      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      //Go ahead and make the new request token
-      //String newAuthToken = mintNewAuthToken(tenant, tokenClaims);
-      // TODO Maybe create a constructor that takes the claims of the RT.
-      String username = tokenClaims.getString("sub");
-      String userId = tokenClaims.getString("user_id");
-      String newAuthToken = new AccessToken(tenant, username, userId).encodeAsJWT();
-      validateRefreshToken(tokenClaims, ctx).onComplete(res -> {
-        if (res.failed()) {
-          endText(ctx, 500, res.cause());
+        String username = token.getClaims().getString("sub");
+        String userId = token.getClaims().getString("user_id");
+        String tenant = token.getClaims().getString("tenant");
+
+        try {
+          // TODO To do RTR we need to return both a new AT and a new RT here.
+          String at = new AccessToken(tenant, username, userId).encodeAsJWT();
+          JsonObject responseObject = new JsonObject().put("token", at);
+          endJson(ctx, 201, responseObject.encode());
+        } catch (Exception e) {
+          endText(ctx, 500, String.format("Unanticipated exception creating access token: %s", e.getMessage()));
           return;
         }
-        if (!res.result()) {
-          endText(ctx, 401, "Invalid refresh token");
-          return;
-        }
-        JsonObject responseObject = new JsonObject()
-          .put("token", newAuthToken);
-        endJson(ctx, 201, responseObject.encode());
       });
     } catch (Exception e) {
-      endText(ctx, 500, e);
+      endText(ctx, 500, String.format("Unanticipated exception when handling refresh: %s", e.getMessage()));
     }
   }
 
@@ -334,11 +328,9 @@ public class MainVerticle extends AbstractVerticle {
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       String address = ctx.request().remoteAddress().host();
       String content = ctx.getBodyAsString();
-      // TODO Replace this with new Token.validate method
       JsonObject requestJson;
       try {
-        requestJson = parseJsonObject(content,
-          new String[]{"userId", "sub"});
+        requestJson = parseJsonObject(content, new String[] { "userId", "sub" });
       } catch (Exception e) {
         endText(ctx, 400, "Unable to parse content: ", e);
         return;
@@ -389,7 +381,6 @@ public class MainVerticle extends AbstractVerticle {
       logger.debug("Payload to create token from is {}", payload.encode());
 
       if (!payload.containsKey("sub")) {
-        System.out.println("handleSignToken: payload contains no sub");
         endText(ctx, 400, "Payload must contain a 'sub' field");
         return;
       }
@@ -427,7 +418,6 @@ public class MainVerticle extends AbstractVerticle {
     String zapCacheString = ctx.request().headers().get(ZAP_CACHE_HEADER);
     boolean zapCache = "true".equals(zapCacheString);
 
-    //String requestToken = getRequestToken(ctx);
     String authHeader = ctx.request().headers().get("Authorization");
     String okapiTokenHeader = ctx.request().headers().get(XOkapiHeaders.TOKEN);
     String candidateToken;
@@ -449,6 +439,16 @@ public class MainVerticle extends AbstractVerticle {
       candidateToken = null;
     }
 
+    if (candidateToken == null) {
+      logger.debug("Generating dummy authtoken");
+      try {
+        candidateToken = new DummyToken(tenant, ctx.request().remoteAddress().toString()).encodeAsJWT();
+      } catch(Exception e) {
+        endText(ctx, 500, "Error creating candidate token: ", e);
+        return;
+      }
+    }
+    
     /*
       In order to make our request to the permissions or users modules
       we generate a custom token (since we have that power) that
@@ -467,26 +467,18 @@ public class MainVerticle extends AbstractVerticle {
       return;
     }
 
-    if (candidateToken == null) {
-      logger.debug("Generating dummy authtoken");
-      try {
-        candidateToken = new DummyToken(tenant, ctx.request().remoteAddress().toString()).encodeAsJWT();
-      } catch(Exception e) {
-        endText(ctx, 500, "Error creating candidate token: ", e);
-        return;
-      }
-    }
-
     final String authToken = candidateToken;
     logger.debug("Final authToken is {}", authToken);
 
     Future<Token> tokenValidationResult = Token.validate(authToken, ctx.request());
+
     tokenValidationResult.onFailure(h -> {
       var e = (TokenValidationException)h;
       logger.error("Invalid token: {}", e.toString());
       endText(ctx, e.httpResponseCode, "Invalid token");
       return;
     });
+    
     tokenValidationResult.onSuccess(h -> {
       Token token = (Token)h;
       logger.debug("Validated token of type: {}", token.getClaims().getString("type"));
@@ -717,38 +709,6 @@ public class MainVerticle extends AbstractVerticle {
       return matcher.group(1);
     }
     return null;
-  }
-
-  private Future<Boolean> validateRefreshToken(JsonObject tokenClaims, RoutingContext ctx) {
-    String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-    if (!tenant.equals(tokenClaims.getString("tenant"))) {
-      logger.error("Tenant mismatch for refresh token");
-      return Future.succeededFuture(Boolean.FALSE);
-    }
-    String address = ctx.request().remoteAddress().host();
-    if (!address.equals(tokenClaims.getString("address"))) {
-      logger.error("Issuing address does not match for refresh token");
-      return Future.succeededFuture(Boolean.FALSE);
-    }
-    Long nowTime = Instant.now().getEpochSecond();
-    Long expiration = tokenClaims.getLong("exp");
-    if (expiration < nowTime) {
-      logger.error("Attempt to refresh with expired refresh token");
-      return Future.succeededFuture(Boolean.FALSE);
-    }
-    return checkRefreshTokenRevoked(tokenClaims).compose(res -> {
-      if (res) {
-        logger.error("Attempt to refresh with revoked token");
-        return Future.succeededFuture(Boolean.FALSE);
-      } else {
-        return Future.succeededFuture(Boolean.TRUE);
-      }
-    });
-  }
-
-  private Future<Boolean> checkRefreshTokenRevoked(JsonObject tokenClaims) {
-    //Stub function until we implement a shared revocation list
-    return Future.succeededFuture(Boolean.FALSE);
   }
 
   private JsonObject parseJsonObject(String encoded, String[] requiredMembers)

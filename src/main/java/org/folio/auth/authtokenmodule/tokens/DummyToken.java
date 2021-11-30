@@ -2,7 +2,6 @@ package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Future;
-import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpServerRequest;
 
 import java.util.Calendar;
@@ -32,8 +31,8 @@ public class DummyToken extends Token {
     .put("extra_perms", extraPerms);
   }
 
-  public DummyToken(String jwtSource) {
-    claims = getClaims(jwtSource);
+  public DummyToken(String jwtSource, JsonObject sourceClaims) {
+    claims = sourceClaims;
     source = jwtSource;
   }
 

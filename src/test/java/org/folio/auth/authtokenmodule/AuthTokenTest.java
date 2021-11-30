@@ -40,14 +40,7 @@ public class AuthTokenTest {
   private static final String tenant = "Roskilde";
   private static HttpClient httpClient;
   private static TokenCreator tokenCreator;
-  private static TokenCreator badTokenCreator;
   private static JsonObject payload;
-  private static JsonObject payloadBad;
-  private static JsonObject payload2;
-  private static JsonObject payload3;
-  private static JsonObject payload404;
-  private static JsonObject payloadInactive;
-  private static JsonObject payloadSystemPermission;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String basicToken;
   private static String basicToken2;
@@ -276,7 +269,6 @@ public class AuthTokenTest {
       .header("X-Okapi-Module-Tokens", not(emptyString()))
       .extract().response();
     final String modTokens = r.getHeader("X-Okapi-Module-Tokens");
-    //System.out.println("modTokens: " + modTokens);
     JsonObject modtoks = new JsonObject(modTokens);
     String barToken = modtoks.getString("bar");
 
@@ -370,7 +362,6 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions", "[\"extra.first\",\"extra.second\"]");
 
     logger.info("Test with basicToken");
-    System.out.println("basicToken is " + basicToken);
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken)
@@ -806,7 +797,7 @@ public class AuthTokenTest {
       .body("{")
       .post("/refresh")
       .then()
-      .statusCode(400).body(containsString("Unable to parse content: "));
+      .statusCode(400).body(containsString("Unable to parse content of refresh token request: "));
 
     logger.info("POST /refresh with bad refreshToken");
     given()
@@ -818,13 +809,15 @@ public class AuthTokenTest {
       .body(new JsonObject().put("refreshToken", basicBadToken).encode())
       .post("/refresh")
       .then()
-      .statusCode(400).body(containsString("Invalid token format"));
+      .statusCode(401).body(containsString("Invalid token"));
 
     String tokenContent = tokenCreator.decodeJWEToken(refreshToken);
 
     logger.info("POST refresh token with bad tenant");
-    String refreshTokenBadTenant = tokenCreator.createJWEToken(
-      new JsonObject(tokenContent).put("tenant", "foo").encode());
+    String payloadBadTenant = new JsonObject(tokenContent).put("tenant", "foo").encode();
+    System.out.println("payloadBadTenant: " + payloadBadTenant);
+    String refreshTokenBadTenant = tokenCreator.createJWEToken(payloadBadTenant);
+    System.out.println("refreshTokenBadTenant: " + refreshTokenBadTenant);
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
@@ -834,7 +827,7 @@ public class AuthTokenTest {
       .body(new JsonObject().put("refreshToken", refreshTokenBadTenant).encode())
       .post("/refresh")
       .then()
-      .statusCode(401).body(containsString("Invalid refresh token"));
+      .statusCode(403).body(containsString("Invalid token"));
 
     logger.info("POST refresh token with bad address");
 
@@ -849,7 +842,7 @@ public class AuthTokenTest {
       .body(new JsonObject().put("refreshToken", refreshTokenBadAddress).encode())
       .post("/refresh")
       .then()
-      .statusCode(401).body(containsString("Invalid refresh token"));
+      .statusCode(401).body(containsString("Invalid token"));
 
     logger.info("POST refresh token with bad expiry");
     String refreshTokenBadExpiry = tokenCreator.createJWEToken(
@@ -863,7 +856,7 @@ public class AuthTokenTest {
       .body(new JsonObject().put("refreshToken", refreshTokenBadExpiry).encode())
       .post("/refresh")
       .then()
-      .statusCode(401).body(containsString("Invalid refresh token"));
+      .statusCode(401).body(containsString("Invalid token"));
 
     logger.info("POST refresh token to get a new access token");
     r = given()

@@ -20,8 +20,8 @@ public class AccessToken extends Token {
     claims.put("user_id", userId);
   }
 
-  public AccessToken(String jwtSource) {
-    claims = getClaims(jwtSource);
+  public AccessToken(String jwtSource, JsonObject sourceClaims) {
+    claims = sourceClaims;
     source = jwtSource;
   }
 

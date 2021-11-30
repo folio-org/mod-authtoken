@@ -1,8 +1,8 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.Future;
-import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import java.time.Instant;
 import java.util.UUID;
@@ -26,9 +26,9 @@ public class RefreshToken extends Token {
     .put("prn", "refresh");
   }
 
-  public RefreshToken(String sourceJwt) {
+  public RefreshToken(String sourceJwt, JsonObject sourceClaims) {
     source = sourceJwt;
-    claims = getClaims(sourceJwt);
+    claims = sourceClaims;
   }
 
   protected Future<Token> validate(HttpServerRequest request) {
@@ -40,8 +40,19 @@ public class RefreshToken extends Token {
 
     String address = request.remoteAddress().host();
     if (!address.equals(claims.getString("address"))) {
-      return Future.failedFuture(new TokenValidationException("", 401));
+      var e = new TokenValidationException("Issuing address does not match for refresh token", 401);
+      return Future.failedFuture(e);
     }
+
+    Long nowTime = Instant.now().getEpochSecond();
+    Long expiration = claims.getLong("exp");
+    if (expiration < nowTime) {
+      var e = new TokenValidationException("Attempt to refresh with expired refresh token", 401);
+      return Future.failedFuture(e);
+    }
+
+    // TODO Check storage to ensure that token has not yet been used.
+    // TODO If the token has been used, revoke all RTs for this user_id.
 
     return Future.succeededFuture(this);
   }

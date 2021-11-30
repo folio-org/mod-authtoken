@@ -23,7 +23,6 @@ public class TokenTest {
  
   @Test
   public void accessTokenIsValidTest() throws JOSEException, ParseException, TokenValidationException {
-    // Create an AT and encode it.
     var at = new AccessToken(tenant, username, userUUID);
     var encoded = at.encodeAsJWT();
 
@@ -52,4 +51,12 @@ public class TokenTest {
     });
   }
 
+  @Test
+  public void tokenIsEncryptedTest() throws TokenValidationException {
+    String encryptedToken = "eyJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiZGlyIn0..PNNav7SsSbygYW8u.IQBkS3q28Nh-jTYLkKfEEVp6X_7lULUBcOR_qftzR_tM1SOoVUyZCvofIclfu-bNUYOIZgXhD3MNjv1DWfxBMcSYnlGdD6BFbouUbWO6sAvgh00q4vt11At-ZQCt39S3Xb5mkWZobQ5dAlrOB4io7zpQ-15sJ91ZPHOhPIV9yUviQ1LJmsJ3qlMTZcgj6V69-KIGY-PeDhcxkMCIt9ZlNeaUdX8bvUZYkE55LfZgAGFDgQipodkXhncPLNbyERc-uzQBrSqvTGUoq5bZLaZSFjyDQfdy.4AZKI_y-NMe3qBXQ6gv6Jg";
+    String unencryptedToken = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb25lcyIsInVzZXJfaWQiOiIwMDdkMzFkMi0xNDQxLTQyOTEtOWJiOC1kNmUyYzIwZTM5OWEiLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjM4Mjg3NjIyLCJpYXQiOjE2MzgyODcwMjIsInRlbmFudCI6IlJvc2tpbGRlIn0.65MsB_AqnFMs1Lwh6X6DoyEmvcN2XJpJhw5c96UxprE";
+
+    assert(Token.isEncrypted(encryptedToken));
+    assert(!Token.isEncrypted(unencryptedToken));
+  }
 }

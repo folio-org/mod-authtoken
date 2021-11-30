@@ -17,8 +17,8 @@ public class ModuleToken extends Token {
     .put("extra_permissions", permissionList);
   }
 
-  public ModuleToken(String jwtSource) {
-    claims = getClaims(jwtSource);
+  public ModuleToken(String jwtSource, JsonObject sourceClaims) {
+    claims = sourceClaims;
     source = jwtSource;
   }
 

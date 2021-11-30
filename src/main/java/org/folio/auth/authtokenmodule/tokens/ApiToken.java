@@ -21,8 +21,8 @@ public class ApiToken extends Token {
     // TODO Determine what other properties API tokens need.
   }
 
-  public ApiToken(String jwtSource) {
-    claims = getClaims(jwtSource);
+  public ApiToken(String jwtSource, JsonObject sourceClaims) {
+    claims = sourceClaims;
     source = jwtSource;
   }
 

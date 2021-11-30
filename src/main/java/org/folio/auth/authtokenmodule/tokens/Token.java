@@ -7,17 +7,23 @@ import io.vertx.core.json.JsonObject;
 import java.util.Base64;
 import com.nimbusds.jose.JOSEException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.folio.auth.authtokenmodule.BadSignatureException;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.okapi.common.XOkapiHeaders;
-
 import java.text.ParseException;
 
+/**
+ * An abstract class that all token types should extend, with one required method
+ * that all must implement to handle their validation logic. This class also exposes
+ * a handful of static methods which provide convenient ways of working with tokens,
+ * including a method to parse and validate a token in one step.
+ */
 public abstract class Token {
   private static final String CALLING_MODULE_HEADER = "X-Okapi-Calling-Module";
+  private boolean usesDummyPermissionsSource;
   protected static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   protected String source;
-  private boolean usesDummyPermissionsSource;
 
   /**
    * Gets the claims for this token.
@@ -28,26 +34,40 @@ public abstract class Token {
   }
   protected JsonObject claims;
 
+  /**
+   * All implementors of Token are required to implement this method. Validation should
+   * consist of all operations necessary to determine whether the token can authorize
+   * the request.
+   * @param request The http request context that where the token is being provided.
+   * @return If the token is valid, implementors should return a Future with a Token object.
+   * If the token is not valid, implementors should return a Future with a
+   * TokenValidationException.
+   * @see TokenValidationException
+   */
+  protected abstract Future<Token> validate(HttpServerRequest request);
+
   /** 
-   * Validates the provided JWT token. Validation includes checking everything needed
+   * Validates the provided token. Validation includes checking everything needed
    * to determine whether the token should be authorized, including the signature and
    * any special validation required by its type.
-   * @param jwt The JWT token to validate.
+   * @param sourceToken The JWT or JWE token to validate.
    * @param request The request in the http context where the token is being provided.
    * @return Future<Token> A Future containing the Token if it has passed validation.
    * The Future may also contain a TokenValidationException if the validation has failed.
    * @see TokenValidationException.
    */
-  public static Future<Token> validate(String jwt, HttpServerRequest request) {
+  public static Future<Token> validate(String sourceToken, HttpServerRequest request) {
     Token token = null;
     try {
-      token = parse(jwt);
+      token = parse(sourceToken);
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     } catch (Exception e) {
       return Future.failedFuture(new TokenValidationException("Unexpected token parse exception", e, 500));
     }
 
+    // Call the validate implementation of the underlying token type (AccessToken, RefreshToken, etc.).
+    // See those classes for the validation logic specific to each type.
     return token.validate(request);
   }
 
@@ -89,45 +109,73 @@ public abstract class Token {
     }
   }
 
+  /**
+   * Encodes the token as a JWT token.
+   * @return The encoded token.
+   * @throws JOSEException
+   * @throws ParseException
+   */
   public String encodeAsJWT() throws JOSEException, ParseException {
     String key = System.getProperty("jwt.signing.key");
     String encodedClaims = claims.encode();
     return new TokenCreator(key).createJWTToken(encodedClaims);
   }
 
+  /**
+   * Encodes the token as a JWE token.
+   * @return The encoded token.
+   * @throws JOSEException
+   * @throws ParseException
+   */
   public String encodeAsJWE() throws JOSEException, ParseException {
     String key = System.getProperty("jwt.signing.key");
     String encodedClaims = claims.encode();
     return new TokenCreator(key).createJWEToken(encodedClaims);
   }
 
+  /**
+   * Gets the claims from the provided JWT.
+   * @param jwt A string representing the JWT.
+   * @return A JsonObject representing the claims.
+   */
   public static JsonObject getClaims(String jwt) {
     String encodedJson = jwt.split("\\.")[1];
     String decodedJson = new String(Base64.getDecoder().decode(encodedJson));
     return new JsonObject(decodedJson);
   }
 
-  protected abstract Future<Token> validate(HttpServerRequest request);
+  /**
+   * Returns true if the token is encrypted, otherwise false.
+   * @param token A string version of the token to test.
+   * @return True if the token is encrypted, otherwise false.
+   * @throws TokenValidationException
+   */
+  public static boolean isEncrypted(String token) throws TokenValidationException {
+    // This is based on how JOSEObject parses encrypted tokens. It checks the number of "parts"
+    // which are equivalent to the number of "." separators in the token. If there are 5 parts
+    // it is considered to be encrypted. If there are not 5 it is rejected from JWE parsing.
+    // Our unencrypted tokens have 3 parts (and 2 separators).
+    int parts = StringUtils.countMatches(token, ".");
+    if (parts == 4)
+      return true;
 
+    if (parts == 2)
+      return false;
+    
+    throw new TokenValidationException("Unexpected token part count", 401);
+  }
+
+  /**
+   * Validate all the things that tokens have in common.
+   * @param request The http request context where the token is being provided.
+   * @throws TokenValidationException Throws this when any validation step fails, but may throw
+   * other exceptions as well.
+   */
   protected void validateCommon(HttpServerRequest request) throws TokenValidationException {
     try {
       // Check that the token has a source.
       if (source == null)
         throw new TokenValidationException("Token has no source defined", 500);
-
-      // Check that the token is parsable and signed.
-      final String invalidTokenMsg = "Invalid token"; // Be intentionally vague.
-      try {
-        // TODO Is there a penalty here? Should the TokenCreator be passed in as an arg?
-        var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
-        tc.checkJWTToken(source);
-      } catch (ParseException p) {
-        throw new TokenValidationException(invalidTokenMsg, p, 401);
-      } catch (JOSEException j) {
-        throw new TokenValidationException(invalidTokenMsg, j, 401);
-      } catch (BadSignatureException b) {
-        throw new TokenValidationException(invalidTokenMsg, b, 401);
-      }
 
       // Check that the claims have been created.
       if (claims == null)
@@ -160,38 +208,48 @@ public abstract class Token {
     }
   }
 
-  private static Token parse(String jwtSource) throws TokenValidationException {
+  private static Token parse(String sourceToken) throws TokenValidationException {
     Token token = null;
     JsonObject claims = null;
+    final String invalidTokenMsg = "Invalid token";
+    String key = System.getProperty("jwt.signing.key");
+
     try {
-      claims = getClaims(jwtSource);
-    } catch (Exception e) {
-      throw new TokenValidationException("Unable to get token claims", e, 401);
+      if (isEncrypted(sourceToken)) {
+        String tokenContent = new TokenCreator(key).decodeJWEToken(sourceToken);
+        claims = new JsonObject(tokenContent);
+      } else {
+        new TokenCreator(key).checkJWTToken(sourceToken);
+        claims = getClaims(sourceToken);
+      }
+    } catch (ParseException p) {
+      throw new TokenValidationException(invalidTokenMsg, p, 401);
+    } catch (JOSEException j) {
+      throw new TokenValidationException(invalidTokenMsg, j, 401);
+    } catch (BadSignatureException b) {
+      throw new TokenValidationException(invalidTokenMsg, b, 401);
     }
 
     String tokenType = claims.getString("type");
     if (tokenType == null)
       throw new TokenValidationException("Token has no type", 400);
 
-    // TODO Pass token claims in here so that we don't have to get them twice.
-    // This is now fine since these constructors are protected.
     switch (tokenType) {
       case TokenType.ACCESS:
-        token = new AccessToken(jwtSource);
+        token = new AccessToken(sourceToken, claims);
         break;
       case TokenType.REFRESH:
-        token = new RefreshToken(jwtSource);
+        token = new RefreshToken(sourceToken, claims);
         break;
       case TokenType.API:
-        token = new ApiToken(jwtSource);
+        token = new ApiToken(sourceToken, claims);
         break;
       case TokenType.DUMMY:
-        token = new DummyToken(jwtSource);
+        token = new DummyToken(sourceToken, claims);
         break;
       case TokenType.MODULE:
-        token = new ModuleToken(jwtSource);
+        token = new ModuleToken(sourceToken, claims);
         break;
-      // TODO Why is this working without tokens of type Request?
       default:
         break;
     }
@@ -200,5 +258,4 @@ public abstract class Token {
       throw new TokenValidationException("Unsupported token type", 400);
     return token;
   }
-
 }
