@@ -22,9 +22,6 @@ public class ApiToken extends Token {
     // It could be that these belong to the user who manages the API token.
     // However the permissions need to be bound to the API token, not the user
     // since each API token should have its own permissions.
-    // since all API tokens need 
-    // claims.put("sub", username);
-    // claims.put("user_id", userId);
 
     // TODO Determine what other properties API tokens need.
   }
