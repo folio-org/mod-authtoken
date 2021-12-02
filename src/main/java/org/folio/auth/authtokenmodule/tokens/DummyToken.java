@@ -10,7 +10,19 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import io.vertx.core.json.JsonArray;
 
+/**
+ * Dummy tokens are created by this module in two situations:
+ * 1) When a user hasn't yet authenticated.
+ * 2) When requesting permissions to prevent a lookup loop.
+ */
 public class DummyToken extends Token {
+
+  /**
+   * Create a new dummy token for a user who hasn't yet authenticated.
+   * @param tenant The current tenant.
+   * @param remoteIpAddress The remote ip address of the user requiring the dummy
+   * token.
+   */
   public DummyToken(String tenant, String remoteIpAddress) {
     DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     Date now = Calendar.getInstance().getTime();
@@ -22,6 +34,11 @@ public class DummyToken extends Token {
     .put("dummy", true);
   }
 
+  /**
+   * Create a dummy token to be used to request permissions.
+   * @param tenant The current tenant.
+   * @param extraPerms The permissions in scope.
+   */
   public DummyToken(String tenant, JsonArray extraPerms) {
     claims = new JsonObject()
     .put("type", TokenType.DUMMY)
@@ -31,6 +48,12 @@ public class DummyToken extends Token {
     .put("extra_perms", extraPerms);
   }
 
+  /**
+   * Instantiate a dummy token object from a token which has been provided for
+   * authorization. 
+   * @param jwtSource The token that has been provided.
+   * @param sourceClaims The claims for the source token.
+   */
   public DummyToken(String jwtSource, JsonObject sourceClaims) {
     claims = sourceClaims;
     source = jwtSource;

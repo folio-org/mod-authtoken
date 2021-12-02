@@ -80,19 +80,19 @@ public class AuthTokenTest {
     String passPhrase = "CorrectBatteryHorseStaple";
     System.setProperty("jwt.signing.key", passPhrase);
     tokenCreator = new TokenCreator(passPhrase);
-    basicToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT();
-    basicToken2 = new AccessToken(tenant, "jones", userUUID).encodeAsJWT();
-    basicToken3 = new ModuleToken(tenant, "jones", userUUID, "", new JsonArray().add("auth.signtoken")).encodeAsJWT();
-    var extraPerms = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
-    tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms).encodeAsJWT();
+    basicToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(tokenCreator);
+    basicToken2 = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(tokenCreator);
+    var extraPerms1 = new JsonArray().add("auth.signtoken");
+    basicToken3 = new ModuleToken(tenant, "jones", userUUID, "", extraPerms1).encodeAsJWT(tokenCreator);
+    var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
+    tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
 
     // Create some bad tokens, including one with a bad signing key.
-    token404 = new AccessToken(tenant, "jones", "404").encodeAsJWT();
-    tokenInactive = new AccessToken(tenant, "jones", "inactive").encodeAsJWT();
+    token404 = new AccessToken(tenant, "jones", "404").encodeAsJWT(tokenCreator);
+    tokenInactive = new AccessToken(tenant, "jones", "inactive").encodeAsJWT(tokenCreator);
     String badPassPhrase = "IncorrectBatteryHorseStaple";
-    System.setProperty("jwt.signing.key", badPassPhrase);
-    basicBadToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT();
-    System.setProperty("jwt.signing.key", passPhrase);
+    var badTokenCreator = new TokenCreator(badPassPhrase);
+    basicBadToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(badTokenCreator);
     
     httpClient = vertx.createHttpClient();
 

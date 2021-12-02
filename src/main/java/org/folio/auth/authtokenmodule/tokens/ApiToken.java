@@ -4,8 +4,16 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpServerRequest;
 
+/**
+ * An API token is a non-expiring token that authorizes API Access.
+ */
 public class ApiToken extends Token {
-  public ApiToken(String tenant, String username, String userId) {
+  /**
+   * Create a new ApiToken.
+   * @param tenant The current tenant.
+   * @param userId The user id of the user who is associated with the token.
+   */
+  public ApiToken(String tenant, String userId) {
     claims = new JsonObject();
     claims.put("type", TokenType.API);
     claims.put("tenant", tenant);
@@ -21,6 +29,12 @@ public class ApiToken extends Token {
     // TODO Determine what other properties API tokens need.
   }
 
+  /**
+   * Instantiate an ApiToken object from a token which has been provided for
+   * authorization.
+   * @param jwtSource The token that has been provided.
+   * @param sourceClaims The claims for the source token.
+   */
   public ApiToken(String jwtSource, JsonObject sourceClaims) {
     claims = sourceClaims;
     source = jwtSource;
@@ -33,7 +47,8 @@ public class ApiToken extends Token {
       return Future.failedFuture(e);
     }
 
-    // TODO Validate the API token by checking that it exists in storage.
+    // TODO Validate the API token by checking that it exists in storage,
+    // hasn't been revoked, etc.
 
     return Future.succeededFuture(this);
   }

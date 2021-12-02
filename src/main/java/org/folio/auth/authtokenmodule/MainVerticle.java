@@ -13,11 +13,9 @@ import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -49,7 +47,6 @@ public class MainVerticle extends AbstractVerticle {
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
   static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
   private static final String MISSING_HEADER = "Missing header: ";
-  private static final int MAX_CACHED_TOKENS = 100; // Probably could be a LOT bigger
   private static final String EXTRA_PERMS = "extra_permissions";
 
   PermissionsSource permissionsSource;
@@ -64,8 +61,6 @@ public class MainVerticle extends AbstractVerticle {
   private PermService permService;
 
   private TokenCreator tokenCreator;
-
-  private LimitedSizeQueue<String> tokenCache;
 
   private List<AuthRoutingEntry> authRoutingEntryList;
 
@@ -142,7 +137,6 @@ public class MainVerticle extends AbstractVerticle {
 
     clientTokenCreatorMap = new HashMap<>();
 
-    tokenCache = new LimitedSizeQueue<>(MAX_CACHED_TOKENS);
     setLogLevel(System.getProperty("log.level", null));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
@@ -279,7 +273,7 @@ public class MainVerticle extends AbstractVerticle {
       }
   
       String encryptedJWE = requestJson.getString("refreshToken");
-      Future<Token> tokenValidationResult = Token.validate(encryptedJWE, ctx.request());
+      Future<Token> tokenValidationResult = Token.validate(encryptedJWE, tokenCreator, ctx.request());
 
       tokenValidationResult.onFailure(h -> {
         var e = (TokenValidationException)h;
@@ -296,7 +290,7 @@ public class MainVerticle extends AbstractVerticle {
 
         try {
           // TODO To do RTR we need to return both a new AT and a new RT here.
-          String at = new AccessToken(tenant, username, userId).encodeAsJWT();
+          String at = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
           JsonObject responseObject = new JsonObject().put("token", at);
           endJson(ctx, 201, responseObject.encode());
         } catch (Exception e) {
@@ -337,9 +331,8 @@ public class MainVerticle extends AbstractVerticle {
       }
       String userId = requestJson.getString("userId");
       String sub = requestJson.getString("sub");
-      String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE();
-      JsonObject responseJson = new JsonObject()
-        .put("refreshToken", refreshToken);
+      String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
+      JsonObject responseJson = new JsonObject().put("refreshToken", refreshToken);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);
@@ -387,7 +380,7 @@ public class MainVerticle extends AbstractVerticle {
 
       String userId = payload.getString("user_id");
       String username = payload.getString("sub");
-      String token = new AccessToken(tenant, username, userId).encodeAsJWT();
+      String token = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
 
       JsonObject responseObject = new JsonObject().put("token", token);
       endJson(ctx, 201, responseObject.encode());
@@ -442,7 +435,8 @@ public class MainVerticle extends AbstractVerticle {
     if (candidateToken == null) {
       logger.debug("Generating dummy authtoken");
       try {
-        candidateToken = new DummyToken(tenant, ctx.request().remoteAddress().toString()).encodeAsJWT();
+        candidateToken = new DummyToken(tenant,
+        ctx.request().remoteAddress().toString()).encodeAsJWT(tokenCreator);
       } catch(Exception e) {
         endText(ctx, 500, "Error creating candidate token: ", e);
         return;
@@ -459,9 +453,9 @@ public class MainVerticle extends AbstractVerticle {
     String userRequestToken;
     try {
       var rtPerms = new JsonArray().add(PERMISSIONS_PERMISSION_READ_BIT).add(PERMISSIONS_USER_READ_BIT);
-      permissionsRequestToken = new DummyToken(tenant, rtPerms).encodeAsJWT();
+      permissionsRequestToken = new DummyToken(tenant, rtPerms).encodeAsJWT(tokenCreator);
       var userRTPerms = new JsonArray().add(PERMISSIONS_USERS_ITEM_GET);
-      userRequestToken = new DummyToken(tenant, userRTPerms).encodeAsJWT();
+      userRequestToken = new DummyToken(tenant, userRTPerms).encodeAsJWT(tokenCreator);
     } catch (Exception e) {
       endText(ctx, 500, "Error creating request token: ", e);
       return;
@@ -470,7 +464,7 @@ public class MainVerticle extends AbstractVerticle {
     final String authToken = candidateToken;
     logger.debug("Final authToken is {}", authToken);
 
-    Future<Token> tokenValidationResult = Token.validate(authToken, ctx.request());
+    Future<Token> tokenValidationResult = Token.validate(authToken, tokenCreator, ctx.request());
 
     tokenValidationResult.onFailure(h -> {
       var e = (TokenValidationException)h;
@@ -512,7 +506,7 @@ public class MainVerticle extends AbstractVerticle {
           JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
           String moduleToken;
           try {
-            moduleToken = new ModuleToken(tenant, username, userId, moduleName, permissionList).encodeAsJWT();
+            moduleToken = new ModuleToken(tenant, username, userId, moduleName, permissionList).encodeAsJWT(tokenCreator);
           } catch(Exception e) {
             String message = String.format("Error creating moduleToken: %s",
                 e.getLocalizedMessage());
@@ -663,7 +657,7 @@ public class MainVerticle extends AbstractVerticle {
 
         String finalToken;
         try {
-          finalToken = token.encodeAsJWT();
+          finalToken = token.encodeAsJWT(tokenCreator);
         } catch(Exception e) {
           String message = String.format("Error creating final token: %s", e.getMessage());
           logger.error(message);

@@ -1,9 +1,13 @@
 package org.folio.auth.authtokenmodule;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import java.text.ParseException;
 import com.nimbusds.jose.JOSEException;
 
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
+import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.junit.Before;
@@ -24,13 +28,15 @@ public class TokenTest {
   @Test
   public void accessTokenIsValidTest() throws JOSEException, ParseException, TokenValidationException {
     var at = new AccessToken(tenant, username, userUUID);
-    var encoded = at.encodeAsJWT();
+    String key = System.getProperty("jwt.signing.key");
+    var tokenCreator = new TokenCreator(key);
+    var encoded = at.encodeAsJWT(tokenCreator);
 
-    Future<Token> result = Token.validate(encoded, null);
+    Future<Token> result = Token.validate(encoded, tokenCreator, null);
 
-    assert(result.succeeded());
+    assertTrue(result.succeeded());
     result.onSuccess(token -> {
-      assert(token instanceof AccessToken);
+      assertTrue(token instanceof AccessToken);
     });
   }
 
@@ -39,24 +45,29 @@ public class TokenTest {
     String tokenMissingTenantClaim =
       "{\"iat\":1637696002,\"sub\":\"test-username\",\"user_id\":\"007d31d2-1441-4291-9bb8-d6e2c20e399a\",\"type\":\"access\"}";
     String key = System.getProperty("jwt.signing.key");
-    String source = new TokenCreator(key).createJWTToken(tokenMissingTenantClaim);
+    var tokenCreator = new TokenCreator(key);
+    String source = tokenCreator.createJWTToken(tokenMissingTenantClaim);
     
-    Future<Token> result = Token.validate(source, null);
+    Future<Token> result = Token.validate(source, tokenCreator, null);
 
     assert(result.failed());
     result.onFailure(e -> {
-      assert(e instanceof TokenValidationException);
+      assertTrue(e instanceof TokenValidationException);
       var tve = (TokenValidationException)e;
-      assert(tve.httpResponseCode == 500);
+      assertTrue(tve.httpResponseCode == 500);
     });
   }
 
   @Test
-  public void tokenIsEncryptedTest() throws TokenValidationException {
-    String encryptedToken = "eyJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiZGlyIn0..PNNav7SsSbygYW8u.IQBkS3q28Nh-jTYLkKfEEVp6X_7lULUBcOR_qftzR_tM1SOoVUyZCvofIclfu-bNUYOIZgXhD3MNjv1DWfxBMcSYnlGdD6BFbouUbWO6sAvgh00q4vt11At-ZQCt39S3Xb5mkWZobQ5dAlrOB4io7zpQ-15sJ91ZPHOhPIV9yUviQ1LJmsJ3qlMTZcgj6V69-KIGY-PeDhcxkMCIt9ZlNeaUdX8bvUZYkE55LfZgAGFDgQipodkXhncPLNbyERc-uzQBrSqvTGUoq5bZLaZSFjyDQfdy.4AZKI_y-NMe3qBXQ6gv6Jg";
-    String unencryptedToken = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb25lcyIsInVzZXJfaWQiOiIwMDdkMzFkMi0xNDQxLTQyOTEtOWJiOC1kNmUyYzIwZTM5OWEiLCJ0eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjM4Mjg3NjIyLCJpYXQiOjE2MzgyODcwMjIsInRlbmFudCI6IlJvc2tpbGRlIn0.65MsB_AqnFMs1Lwh6X6DoyEmvcN2XJpJhw5c96UxprE";
+  public void tokenIsEncryptedTest() throws TokenValidationException, JOSEException, ParseException {
+    String key = System.getProperty("jwt.signing.key");
+    var tokenCreator = new TokenCreator(key);
+    String unencryptedToken =
+      new AccessToken("test-tenant", "username-1", "userid-1").encodeAsJWT(tokenCreator);
+    String encryptedToken =
+      new RefreshToken("test-tenant", "username-1", "userid-1", "http://localhost").encodeAsJWE(tokenCreator);
 
-    assert(Token.isEncrypted(encryptedToken));
-    assert(!Token.isEncrypted(unencryptedToken));
+    assertTrue(Token.isEncrypted(encryptedToken));
+    assertFalse(Token.isEncrypted(unencryptedToken));
   }
 }

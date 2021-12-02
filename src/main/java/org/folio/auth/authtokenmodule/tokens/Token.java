@@ -6,7 +6,6 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import java.util.Base64;
 import com.nimbusds.jose.JOSEException;
-
 import org.apache.commons.lang3.StringUtils;
 import org.folio.auth.authtokenmodule.BadSignatureException;
 import org.folio.auth.authtokenmodule.TokenCreator;
@@ -51,15 +50,18 @@ public abstract class Token {
    * to determine whether the token should be authorized, including the signature and
    * any special validation required by its type.
    * @param sourceToken The JWT or JWE token to validate.
+   * @param tokenCreator The TokenCreator used to encode the token.
    * @param request The request in the http context where the token is being provided.
    * @return Future<Token> A Future containing the Token if it has passed validation.
    * The Future may also contain a TokenValidationException if the validation has failed.
    * @see TokenValidationException.
    */
-  public static Future<Token> validate(String sourceToken, HttpServerRequest request) {
+  public static Future<Token> validate(String sourceToken,
+                                       TokenCreator tokenCreator,
+                                       HttpServerRequest request) {
     Token token = null;
     try {
-      token = parse(sourceToken);
+      token = parse(sourceToken, tokenCreator);
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     } catch (Exception e) {
@@ -111,26 +113,26 @@ public abstract class Token {
 
   /**
    * Encodes the token as a JWT token.
+   * @param tokenCreator The TokenCreator to use to encode the token.
    * @return The encoded token.
    * @throws JOSEException
    * @throws ParseException
    */
-  public String encodeAsJWT() throws JOSEException, ParseException {
-    String key = System.getProperty("jwt.signing.key");
+  public String encodeAsJWT(TokenCreator tokenCreator) throws JOSEException, ParseException {
     String encodedClaims = claims.encode();
-    return new TokenCreator(key).createJWTToken(encodedClaims);
+    return tokenCreator.createJWTToken(encodedClaims);
   }
 
   /**
    * Encodes the token as a JWE token.
+   * @param tokenCreator The TokenCreator to use to encode the token.
    * @return The encoded token.
    * @throws JOSEException
    * @throws ParseException
    */
-  public String encodeAsJWE() throws JOSEException, ParseException {
-    String key = System.getProperty("jwt.signing.key");
+  public String encodeAsJWE(TokenCreator tokenCreator) throws JOSEException { 
     String encodedClaims = claims.encode();
-    return new TokenCreator(key).createJWEToken(encodedClaims);
+    return tokenCreator.createJWEToken(encodedClaims);
   }
 
   /**
@@ -199,7 +201,7 @@ public abstract class Token {
 
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
       if (headerUserId != null && !claims.getString("user_id").equals(headerUserId))
-        throw new TokenValidationException("User id in header does not equal userid in token", 403);
+        throw new TokenValidationException("User id in header does not equal user id in token", 403);
 
     } catch (TokenValidationException e) {
       throw e;
@@ -208,18 +210,17 @@ public abstract class Token {
     }
   }
 
-  private static Token parse(String sourceToken) throws TokenValidationException {
+  private static Token parse(String sourceToken, TokenCreator tokenCreator) throws TokenValidationException {
     Token token = null;
     JsonObject claims = null;
     final String invalidTokenMsg = "Invalid token";
-    String key = System.getProperty("jwt.signing.key");
 
     try {
       if (isEncrypted(sourceToken)) {
-        String tokenContent = new TokenCreator(key).decodeJWEToken(sourceToken);
+        String tokenContent = tokenCreator.decodeJWEToken(sourceToken);
         claims = new JsonObject(tokenContent);
       } else {
-        new TokenCreator(key).checkJWTToken(sourceToken);
+        tokenCreator.checkJWTToken(sourceToken);
         claims = getClaims(sourceToken);
       }
     } catch (ParseException p) {
@@ -255,7 +256,7 @@ public abstract class Token {
     }
 
     if (token == null)
-      throw new TokenValidationException("Unsupported token type", 400);
+      throw new TokenValidationException("Unable to parse token", 400);
     return token;
   }
 }

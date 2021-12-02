@@ -2,16 +2,26 @@ package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpServerRequest;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Refresh tokens are provided to obtain a new access token.
+ * @see AccessToken
+ */
 public class RefreshToken extends Token {
 
   // TODO This could be obtained from the env.
   int expirationSeconds = 60 * 60 * 24;
 
+  /**
+   * Create a new refresh token.
+   * @param tenant The current tenant.
+   * @param username The username associated with the token.
+   * @param userId The user id associated with the token.
+   * @param address The http address of issuer of the token.
+   */
   public RefreshToken(String tenant, String username, String userId, String address) {
     long now = Instant.now().getEpochSecond();
     claims = new JsonObject()
@@ -26,6 +36,12 @@ public class RefreshToken extends Token {
     .put("prn", "refresh");
   }
 
+  /**
+   * Instantiate an refresh token object from a refresh token which has been provided
+   * to obtain a new access token.
+   * @param jwtSource The token that has been provided.
+   * @param sourceClaims The claims for the source token.
+   */
   public RefreshToken(String sourceJwt, JsonObject sourceClaims) {
     source = sourceJwt;
     claims = sourceClaims;
