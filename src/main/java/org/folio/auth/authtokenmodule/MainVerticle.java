@@ -479,6 +479,19 @@ public class MainVerticle extends AbstractVerticle {
 
       String username = token.getClaims().getString("sub");
 
+      // TODO I believe this block solves the issue that Adam found with functional testing.
+      // My approach of just making userId be equal to the X-Okapi-User-Id didn't
+      // give what is here and in the existing code called the finalUserId a value
+      // in this specific case of the tokenUserId having a value _and_ the X-Okapi-User-Id
+      // being null. I'd likek to better understand the circumstances under which these
+      // two variables can have this state and what it means.
+      String temporaryUserId = userId;
+      String tokenUserId = token.getClaims().getString("user_id");
+      if (tokenUserId != null && userId == null) {
+          temporaryUserId = tokenUserId;
+      }
+      final String finalUserId = temporaryUserId;
+
       // Check and see if we have any module permissions defined.
       JsonArray extraPermissionsCandidate = token.getClaims().getJsonArray(EXTRA_PERMS);
       if (extraPermissionsCandidate == null) {
@@ -506,7 +519,7 @@ public class MainVerticle extends AbstractVerticle {
           JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
           String moduleToken;
           try {
-            moduleToken = new ModuleToken(tenant, username, userId, moduleName, permissionList).encodeAsJWT(tokenCreator);
+            moduleToken = new ModuleToken(tenant, username, finalUserId, moduleName, permissionList).encodeAsJWT(tokenCreator);
           } catch(Exception e) {
             String message = String.format("Error creating moduleToken: %s",
                 e.getLocalizedMessage());
@@ -566,7 +579,7 @@ public class MainVerticle extends AbstractVerticle {
       }
 
       //Retrieve the user permissions and populate the permissions header
-      logger.debug("Getting user permissions for {} (userId {})", username, userId);
+      logger.debug("Getting user permissions for {} (finalUserId {})", username, finalUserId);
       long startTime = System.currentTimeMillis();
 
       JsonArray expandedSystemPermissions = new JsonArray();
@@ -574,14 +587,14 @@ public class MainVerticle extends AbstractVerticle {
       // Need to check if the user is still active.
       Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
       if (token.shouldCheckIfUserIsActive(ctx.request().headers())) {
-        activeUser = userService.isActiveUser(userId, tenant, okapiUrl, userRequestToken, requestId);
+        activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
       }
       Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
         if (b != null && b.booleanValue()) {
           return permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
               requestId);
         } else {
-          String msg = String.format("Invalid token: user with id {} is not active", userId);
+          String msg = String.format("Invalid token: user with id {} is not active", finalUserId);
           endText(ctx, 401, msg);
           return Future.failedFuture(msg);
         }
@@ -594,11 +607,12 @@ public class MainVerticle extends AbstractVerticle {
             extraPermsMinusSystemOnes.add(it);
           }
         });
-        return usePermissionsSource.getUserAndExpandedPermissions(userId, tenant, okapiUrl,
+        logger.error("finalUserId is {} and tokenUserId is {}", finalUserId, token.getClaims().getValue("user_id"));
+        return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
           permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
       });
 
-      logger.debug("Retrieving permissions for userid {} and expanding permissions", userId);
+      logger.debug("Retrieving permissions for userid {} and expanding permissions", finalUserId);
       retrievedPermissionsFuture.onComplete(res -> {
         if (res.failed()) {
           // Vert.x 4 warns about this.. And it's true : response already written 19 lines above
@@ -616,7 +630,7 @@ public class MainVerticle extends AbstractVerticle {
           // If not, pre+post filters will NOT get modulePermissions from Okapi
           ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
           String msg = String.format("Unable to retrieve permissions for user with id '%s': %s",
-            userId, res.cause().getLocalizedMessage());
+            finalUserId, res.cause().getLocalizedMessage());
           endText(ctx, 400, msg);
           return;
         }
@@ -677,8 +691,9 @@ public class MainVerticle extends AbstractVerticle {
                 .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
                 .putHeader("Authorization", "Bearer " + finalToken)
                 .putHeader(XOkapiHeaders.TOKEN, finalToken);
-        if (userId != null) {
-          ctx.response().putHeader(XOkapiHeaders.USER_ID, userId);
+
+        if (finalUserId != null) {
+          ctx.response().putHeader(XOkapiHeaders.USER_ID, finalUserId);
         }
 
         ctx.response().end();

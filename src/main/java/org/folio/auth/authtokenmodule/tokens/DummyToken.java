@@ -45,7 +45,7 @@ public class DummyToken extends Token {
     .put("tenant", tenant)
     .put("sub", "_AUTHZ_MODULE_")
     .put("dummy", true)
-    .put("extra_perms", extraPerms);
+    .put("extra_permissions", extraPerms);
   }
 
   /**

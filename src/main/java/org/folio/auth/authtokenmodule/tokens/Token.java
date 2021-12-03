@@ -199,6 +199,17 @@ public abstract class Token {
       if (!claims.getString("tenant").equals(headerTenant))
         throw new TokenValidationException("Tenant in header does not equal tenant in token", 403);
 
+      // TODO this is more like the flow in the existing code but I don't like it at all
+      // and I don't think it is necessary.
+      // String tokenUserId = claims.getString("user_id");
+      // if (tokenUserId != null) {
+      //   String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
+      //   if (headerUserId != null) {
+      //     if (!tokenUserId.equals(headerUserId)) {
+      //       throw new TokenValidationException("User id in header does not equal user id in token", 403);    
+      //     }
+      //   }
+      // }
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
       if (headerUserId != null && !claims.getString("user_id").equals(headerUserId))
         throw new TokenValidationException("User id in header does not equal user id in token", 403);
