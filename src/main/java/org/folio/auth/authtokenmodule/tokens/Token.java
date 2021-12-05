@@ -96,8 +96,8 @@ public abstract class Token {
    * @param requestHeaders The headers in the http context where the token is being provided.
    * @return True if the check should be made.
    */
-  public boolean shouldCheckIfUserIsActive(MultiMap requestHeaders) {
-    var userId = requestHeaders.get(XOkapiHeaders.USER_ID);
+  public boolean shouldCheckIfUserIsActive(String userId) {
+    //var userId = requestHeaders.get(XOkapiHeaders.USER_ID);
     return !usesDummyPermissionsSource && userId != null && !userId.trim().isEmpty();
   }
 
