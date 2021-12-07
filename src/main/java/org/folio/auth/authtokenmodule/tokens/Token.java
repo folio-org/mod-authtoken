@@ -1,12 +1,10 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.Future;
-import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import java.util.Base64;
 import com.nimbusds.jose.JOSEException;
-import org.apache.commons.lang3.StringUtils;
 import org.folio.auth.authtokenmodule.BadSignatureException;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.okapi.common.XOkapiHeaders;
