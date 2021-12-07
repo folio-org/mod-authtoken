@@ -54,7 +54,7 @@ public class TokenTest {
     result.onFailure(e -> {
       assertTrue(e instanceof TokenValidationException);
       var tve = (TokenValidationException)e;
-      assertTrue(tve.httpResponseCode == 500);
+      assertTrue(tve.getHttpResponseCode() == 500);
     });
   }
 

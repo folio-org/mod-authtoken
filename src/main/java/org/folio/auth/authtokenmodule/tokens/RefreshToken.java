@@ -11,6 +11,10 @@ import java.util.UUID;
  * @see AccessToken
  */
 public class RefreshToken extends Token {
+  /**
+   * A string representation of the type of this token.
+   */
+  public static final String type = "refresh";
 
   // TODO This could be obtained from the env.
   int expirationSeconds = 60 * 60 * 24;
@@ -25,7 +29,7 @@ public class RefreshToken extends Token {
   public RefreshToken(String tenant, String username, String userId, String address) {
     long now = Instant.now().getEpochSecond();
     claims = new JsonObject()
-    .put("type", TokenType.REFRESH)
+    .put("type", type)
     .put("exp", now + expirationSeconds)
     .put("iat", now)
     .put("sub", username)

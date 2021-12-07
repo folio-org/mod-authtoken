@@ -6,11 +6,18 @@ package org.folio.auth.authtokenmodule.tokens;
  * an opinion about what http response code should be returned to clients.
  */
 public class TokenValidationException extends Exception {
-  public int httpResponseCode;
+  /**
+   * Returns the HTTP response code to return when this exception is encountered.
+   * @return The HTTP response code.
+   */
+  public int getHttpResponseCode() {
+    return httpResponseCode;
+  }
+  private int httpResponseCode;
 
-  public TokenValidationException(String message, int responseCode) {
+  public TokenValidationException(String message, int httpResponseCode) {
     super(message);
-    httpResponseCode = responseCode;
+    this.httpResponseCode = httpResponseCode;
   }
 
   public TokenValidationException(String message, Exception cause, int responseCode) {

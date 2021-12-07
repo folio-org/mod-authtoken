@@ -9,13 +9,18 @@ import io.vertx.core.http.HttpServerRequest;
  */
 public class ApiToken extends Token {
   /**
+   * A string representation of the type of this token.
+   */
+  public static final String type = "api";
+
+  /**
    * Create a new ApiToken.
    * @param tenant The current tenant.
    * @param userId The user id of the user who is associated with the token.
    */
   public ApiToken(String tenant, String userId) {
     claims = new JsonObject();
-    claims.put("type", TokenType.API);
+    claims.put("type", type);
     claims.put("tenant", tenant);
 
     // TODO Determine if API tokens have a sub and a user_id.

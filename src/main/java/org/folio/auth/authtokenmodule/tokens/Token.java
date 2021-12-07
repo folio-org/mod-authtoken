@@ -19,7 +19,6 @@ import java.text.ParseException;
  * including a method to parse and validate a token in one step.
  */
 public abstract class Token {
-  private static final String CALLING_MODULE_HEADER = "X-Okapi-Calling-Module";
   private boolean usesDummyPermissionsSource;
   protected static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   protected String source;
@@ -81,12 +80,11 @@ public abstract class Token {
   public boolean shouldUseDummyPermissionsSource() {
     // Dummy tokens are not the only type of tokens that require the use of this
     // so checking the token type alone isn't enough. We also have to check the sub claim.
-    if ((claims.getBoolean("dummy") != null &&
-         claims.getBoolean("dummy"))
-      || claims.getString("sub").startsWith(Token.UNDEFINED_USER_NAME)) {
-        usesDummyPermissionsSource = true;
-        return true;
-      }
+    if (Boolean.TRUE.equals(claims.getBoolean("dummy")) ||
+      claims.getString("sub").startsWith(Token.UNDEFINED_USER_NAME)) {
+      usesDummyPermissionsSource = true;
+      return true;
+    }
 
     return false;
   }
@@ -99,16 +97,6 @@ public abstract class Token {
   public boolean shouldCheckIfUserIsActive(String userId) {
     //var userId = requestHeaders.get(XOkapiHeaders.USER_ID);
     return !usesDummyPermissionsSource && userId != null && !userId.trim().isEmpty();
-  }
-
-  /**
-   * Will add the calling module if the request headers require it.
-   * @param requestHeaders The headers in the http context where the token is being provided.
-   */
-  public void tryAddCallingModule(MultiMap requestHeaders) {
-    if (requestHeaders.contains(CALLING_MODULE_HEADER)) {
-      claims.put("calling_module", requestHeaders.get(CALLING_MODULE_HEADER));
-    }
   }
 
   /**
@@ -157,11 +145,11 @@ public abstract class Token {
     // which are equivalent to the number of "." separators in the token. If there are 5 parts
     // it is considered to be encrypted. If there are not 5 it is rejected from JWE parsing.
     // Our unencrypted tokens have 3 parts (and 2 separators).
-    int parts = StringUtils.countMatches(token, ".");
-    if (parts == 4)
+    int parts = token.split("\\.").length;
+    if (parts == 5)
       return true;
 
-    if (parts == 2)
+    if (parts == 3)
       return false;
     
     throw new TokenValidationException("Unexpected token part count", 401);
@@ -199,17 +187,6 @@ public abstract class Token {
       if (!claims.getString("tenant").equals(headerTenant))
         throw new TokenValidationException("Tenant in header does not equal tenant in token", 403);
 
-      // TODO this is more like the flow in the existing code but I don't like it at all
-      // and I don't think it is necessary.
-      // String tokenUserId = claims.getString("user_id");
-      // if (tokenUserId != null) {
-      //   String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
-      //   if (headerUserId != null) {
-      //     if (!tokenUserId.equals(headerUserId)) {
-      //       throw new TokenValidationException("User id in header does not equal user id in token", 403);    
-      //     }
-      //   }
-      // }
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
       if (headerUserId != null && !claims.getString("user_id").equals(headerUserId))
         throw new TokenValidationException("User id in header does not equal user id in token", 403);
@@ -247,19 +224,19 @@ public abstract class Token {
       throw new TokenValidationException("Token has no type", 400);
 
     switch (tokenType) {
-      case TokenType.ACCESS:
+      case AccessToken.type:
         token = new AccessToken(sourceToken, claims);
         break;
-      case TokenType.REFRESH:
+      case RefreshToken.type:
         token = new RefreshToken(sourceToken, claims);
         break;
-      case TokenType.API:
+      case ApiToken.type:
         token = new ApiToken(sourceToken, claims);
         break;
-      case TokenType.DUMMY:
+      case DummyToken.type:
         token = new DummyToken(sourceToken, claims);
         break;
-      case TokenType.MODULE:
+      case ModuleToken.type:
         token = new ModuleToken(sourceToken, claims);
         break;
       default:

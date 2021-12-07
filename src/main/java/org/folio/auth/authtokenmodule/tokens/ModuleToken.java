@@ -11,6 +11,10 @@ import io.vertx.core.http.HttpServerRequest;
  */
 
 public class ModuleToken extends Token {
+  /**
+   * A string representation of the type of this token.
+   */
+  public static final String type = "module";
 
   /**
    * Create a new module token.
@@ -22,7 +26,7 @@ public class ModuleToken extends Token {
    */
   public ModuleToken(String tenant, String username, String userId, String moduleName, JsonArray permissionList) {
     claims = new JsonObject()
-    .put("type", TokenType.MODULE)
+    .put("type", type)
     .put("tenant", tenant)
     .put("sub", username)
     .put("module", moduleName)

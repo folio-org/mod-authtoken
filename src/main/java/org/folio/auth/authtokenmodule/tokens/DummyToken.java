@@ -16,6 +16,10 @@ import io.vertx.core.json.JsonArray;
  * 2) When requesting permissions to prevent a lookup loop.
  */
 public class DummyToken extends Token {
+  /**
+   * A string representation of the type of this token.
+   */
+  public static final String type = "dummy";
 
   /**
    * Create a new dummy token for a user who hasn't yet authenticated.
@@ -28,7 +32,7 @@ public class DummyToken extends Token {
     Date now = Calendar.getInstance().getTime();
     String username = Token.UNDEFINED_USER_NAME + remoteIpAddress + "__" + df.format(now);
     claims = new JsonObject()
-    .put("type", TokenType.DUMMY)
+    .put("type", type)
     .put("sub", username)
     .put("tenant", tenant)
     .put("dummy", true);
@@ -41,7 +45,7 @@ public class DummyToken extends Token {
    */
   public DummyToken(String tenant, JsonArray extraPerms) {
     claims = new JsonObject()
-    .put("type", TokenType.DUMMY)
+    .put("type", type)
     .put("tenant", tenant)
     .put("sub", "_AUTHZ_MODULE_")
     .put("dummy", true)

@@ -15,6 +15,11 @@ public class AccessToken extends Token {
   int expirationSeconds = 60 * 10;
 
   /**
+   * A string representation of the type of this token.
+   */
+  public static final String type = "access";
+
+  /**
    * Create a new access token.
    * @param tenant The current tenant.
    * @param username The username associated with the token.
@@ -23,7 +28,7 @@ public class AccessToken extends Token {
   public AccessToken(String tenant, String username, String userId) {
     var now = Instant.now().getEpochSecond();
     claims = new JsonObject();
-    claims.put("type", TokenType.ACCESS);
+    claims.put("type", type);
     claims.put("iat", now);
     claims.put("exp", now + expirationSeconds);
     claims.put("tenant", tenant);

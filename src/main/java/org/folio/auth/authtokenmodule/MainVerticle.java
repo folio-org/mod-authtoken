@@ -276,14 +276,18 @@ public class MainVerticle extends AbstractVerticle {
       Future<Token> tokenValidationResult = Token.validate(encryptedJWE, tokenCreator, ctx.request());
 
       tokenValidationResult.onFailure(h -> {
-        var e = (TokenValidationException)h;
-        logger.error("Invalid refresh token: {}", e.toString());
-        endText(ctx, e.httpResponseCode, "Invalid token");
+        if (h instanceof TokenValidationException) {
+          var e = (TokenValidationException)h;
+          logger.error("Invalid refresh token: {}", e.toString());
+          endText(ctx, e.getHttpResponseCode(), "Invalid token");
+          return;
+        }
+        logger.error("Unexpected token exception in handleRefresh: {}", h.toString());
+        endText(ctx, 500, "Unexpected token exception in handleRefresh");
+        return;
       });
 
-      tokenValidationResult.onSuccess(h -> {
-        Token token = (Token)h;
-
+      tokenValidationResult.onSuccess(token -> {
         String username = token.getClaims().getString("sub");
         String userId = token.getClaims().getString("user_id");
         String tenant = token.getClaims().getString("tenant");
@@ -293,6 +297,7 @@ public class MainVerticle extends AbstractVerticle {
           String at = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
           JsonObject responseObject = new JsonObject().put("token", at);
           endJson(ctx, 201, responseObject.encode());
+          return;
         } catch (Exception e) {
           endText(ctx, 500, String.format("Unanticipated exception creating access token: %s", e.getMessage()));
           return;
@@ -467,30 +472,26 @@ public class MainVerticle extends AbstractVerticle {
     Future<Token> tokenValidationResult = Token.validate(authToken, tokenCreator, ctx.request());
 
     tokenValidationResult.onFailure(h -> {
-      var e = (TokenValidationException)h;
-      logger.error("Invalid token: {}", e.toString());
-      endText(ctx, e.httpResponseCode, "Invalid token");
+      if (h instanceof TokenValidationException) {
+        var e = (TokenValidationException)h;
+        logger.error("Invalid refresh token: {}", e.toString());
+        endText(ctx, e.getHttpResponseCode(), "Invalid token");
+        return;
+      }
+      logger.error("Unexpected token exception in handleAuthorize: {}", h.toString());
+      endText(ctx, 500, "Unexpected token exception in handleAuthorize");
       return;
     });
     
-    tokenValidationResult.onSuccess(h -> {
-      Token token = (Token)h;
+    tokenValidationResult.onSuccess(token -> {
       logger.debug("Validated token of type: {}", token.getClaims().getString("type"));
 
       String username = token.getClaims().getString("sub");
 
-      // TODO I believe this block solves the issue that Adam found with functional testing.
-      // My approach of just making userId be equal to the X-Okapi-User-Id didn't
-      // give what is here and in the existing code called the finalUserId a value
-      // in this specific case of the tokenUserId having a value _and_ the X-Okapi-User-Id
-      // being null. I'd likek to better understand the circumstances under which these
-      // two variables can have this state and what it means.
-      String temporaryUserId = userId;
-      String tokenUserId = token.getClaims().getString("user_id");
-      if (tokenUserId != null && userId == null) {
-          temporaryUserId = tokenUserId;
-      }
-      final String finalUserId = temporaryUserId;
+      // At this point, since we have validated what we can, if there is no userId
+      // in the header, we can get the userId from the token.
+      final String finalUserId = userId != null ? userId :
+        token.getClaims().getString("user_id");
 
       // Check and see if we have any module permissions defined.
       JsonArray extraPermissionsCandidate = token.getClaims().getJsonArray(EXTRA_PERMS);
@@ -666,8 +667,6 @@ public class MainVerticle extends AbstractVerticle {
         for (Object o : deleteList) {
           permissions.remove(o);
         }
-
-        token.tryAddCallingModule(ctx.request().headers());
 
         String finalToken;
         try {
