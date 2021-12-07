@@ -52,7 +52,7 @@ public class RefreshToken extends Token {
   }
 
   protected Future<Token> validate(HttpServerRequest request) {
-    try { 
+    try {
       validateCommon(request);
     } catch (Exception e) {
       return Future.failedFuture(e);

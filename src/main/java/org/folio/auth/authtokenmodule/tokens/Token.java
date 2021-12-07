@@ -9,6 +9,7 @@ import org.folio.auth.authtokenmodule.BadSignatureException;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.okapi.common.XOkapiHeaders;
 import java.text.ParseException;
+import static java.lang.Boolean.TRUE;
 
 /**
  * An abstract class that all token types should extend, with one required method
@@ -42,7 +43,7 @@ public abstract class Token {
    */
   protected abstract Future<Token> validate(HttpServerRequest request);
 
-  /** 
+  /**
    * Validates the provided token. Validation includes checking everything needed
    * to determine whether the token should be authorized, including the signature and
    * any special validation required by its type.
@@ -78,7 +79,7 @@ public abstract class Token {
   public boolean shouldUseDummyPermissionsSource() {
     // Dummy tokens are not the only type of tokens that require the use of this
     // so checking the token type alone isn't enough. We also have to check the sub claim.
-    if (Boolean.TRUE.equals(claims.getBoolean("dummy")) ||
+    if (TRUE.equals(claims.getBoolean("dummy")) ||
       claims.getString("sub").startsWith(Token.UNDEFINED_USER_NAME)) {
       usesDummyPermissionsSource = true;
       return true;
@@ -116,7 +117,7 @@ public abstract class Token {
    * @throws JOSEException
    * @throws ParseException
    */
-  public String encodeAsJWE(TokenCreator tokenCreator) throws JOSEException { 
+  public String encodeAsJWE(TokenCreator tokenCreator) throws JOSEException {
     String encodedClaims = claims.encode();
     return tokenCreator.createJWEToken(encodedClaims);
   }
@@ -149,7 +150,7 @@ public abstract class Token {
 
     if (parts == 3)
       return false;
-    
+
     throw new TokenValidationException("Unexpected token part count", 401);
   }
 

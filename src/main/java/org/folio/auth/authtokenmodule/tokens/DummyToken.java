@@ -54,7 +54,7 @@ public class DummyToken extends Token {
 
   /**
    * Instantiate a dummy token object from a token which has been provided for
-   * authorization. 
+   * authorization.
    * @param jwtSource The token that has been provided.
    * @param sourceClaims The claims for the source token.
    */
@@ -64,7 +64,7 @@ public class DummyToken extends Token {
   }
 
   protected Future<Token> validate(HttpServerRequest request) {
-    try { 
+    try {
       validateCommon(request);
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);

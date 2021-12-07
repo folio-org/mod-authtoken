@@ -24,7 +24,7 @@ public class TokenTest {
   public void setSigningKey() {
     System.setProperty("jwt.signing.key", passPhrase);
   }
- 
+
   @Test
   public void accessTokenIsValidTest() throws JOSEException, ParseException, TokenValidationException {
     var at = new AccessToken(tenant, username, userUUID);
@@ -47,7 +47,7 @@ public class TokenTest {
     String key = System.getProperty("jwt.signing.key");
     var tokenCreator = new TokenCreator(key);
     String source = tokenCreator.createJWTToken(tokenMissingTenantClaim);
-    
+
     Future<Token> result = Token.validate(source, tokenCreator, null);
 
     assert(result.failed());

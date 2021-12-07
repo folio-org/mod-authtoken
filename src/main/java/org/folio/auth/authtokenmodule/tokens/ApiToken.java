@@ -43,7 +43,7 @@ public class ApiToken extends Token {
   }
 
   protected Future<Token> validate(HttpServerRequest request) {
-    try { 
+    try {
       validateCommon(request);
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);

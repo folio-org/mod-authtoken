@@ -33,6 +33,7 @@ import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
+import static java.lang.Boolean.TRUE;
 
 /**
  *
@@ -256,22 +257,22 @@ public class MainVerticle extends AbstractVerticle {
   private void handleRefresh(RoutingContext ctx) {
     try {
       logger.debug("Token refresh request from {}", ctx.request().absoluteURI());
-  
+
       if (ctx.request().method() != HttpMethod.POST) {
         endText(ctx, 400, "Invalid method for this endpoint");
         return;
       }
-  
+
       String content = ctx.getBodyAsString();
       JsonObject requestJson;
-  
+
       try {
         requestJson = parseJsonObject(content, new String[] { "refreshToken" });
       } catch (Exception e) {
         endText(ctx, 400, "Unable to parse content of refresh token request: ", e);
         return;
       }
-  
+
       String encryptedJWE = requestJson.getString("refreshToken");
       Future<Token> tokenValidationResult = Token.validate(encryptedJWE, tokenCreator, ctx.request());
 
@@ -447,7 +448,7 @@ public class MainVerticle extends AbstractVerticle {
         return;
       }
     }
-    
+
     /*
       In order to make our request to the permissions or users modules
       we generate a custom token (since we have that power) that
@@ -482,7 +483,7 @@ public class MainVerticle extends AbstractVerticle {
       endText(ctx, 500, "Unexpected token exception in handleAuthorize");
       return;
     });
-    
+
     tokenValidationResult.onSuccess(token -> {
       logger.debug("Validated token of type: {}", token.getClaims().getString("type"));
 
@@ -591,7 +592,7 @@ public class MainVerticle extends AbstractVerticle {
         activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
       }
       Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
-        if (b != null && b.booleanValue()) {
+        if (TRUE.equals(b)) {
           return permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
               requestId);
         } else {

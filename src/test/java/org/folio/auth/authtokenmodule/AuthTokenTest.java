@@ -91,7 +91,7 @@ public class AuthTokenTest {
     String badPassPhrase = "IncorrectBatteryHorseStaple";
     var badTokenCreator = new TokenCreator(badPassPhrase);
     basicBadToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(badTokenCreator);
-    
+
     httpClient = vertx.createHttpClient();
 
     RestAssured.port = port;
