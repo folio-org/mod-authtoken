@@ -608,7 +608,6 @@ public class MainVerticle extends AbstractVerticle {
             extraPermsMinusSystemOnes.add(it);
           }
         });
-        logger.error("finalUserId is {} and tokenUserId is {}", finalUserId, token.getClaims().getValue("user_id"));
         return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
           permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
       });
