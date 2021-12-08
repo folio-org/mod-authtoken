@@ -63,9 +63,9 @@ public class DummyToken extends Token {
     source = jwtSource;
   }
 
-  protected Future<Token> validate(HttpServerRequest request) {
+  protected Future<Token> validateContext(TokenValidationContext context) {
     try {
-      validateCommon(request);
+      validateCommon(context.getHttpServerRequest());
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     }

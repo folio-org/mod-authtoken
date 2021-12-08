@@ -9,6 +9,7 @@ import com.nimbusds.jose.JOSEException;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.junit.Before;
 import org.junit.Test;
@@ -32,7 +33,8 @@ public class TokenTest {
     var tokenCreator = new TokenCreator(key);
     var encoded = at.encodeAsJWT(tokenCreator);
 
-    Future<Token> result = Token.validate(encoded, tokenCreator, null);
+    var context = new TokenValidationContext(null, tokenCreator, encoded);
+    Future<Token> result = Token.validate(context);
 
     assertTrue(result.succeeded());
     result.onSuccess(token -> {
@@ -48,7 +50,8 @@ public class TokenTest {
     var tokenCreator = new TokenCreator(key);
     String source = tokenCreator.createJWTToken(tokenMissingTenantClaim);
 
-    Future<Token> result = Token.validate(source, tokenCreator, null);
+    var context = new TokenValidationContext(null, tokenCreator, source);
+    Future<Token> result = Token.validate(context);
 
     assert(result.failed());
     result.onFailure(e -> {

@@ -34,5 +34,4 @@ public class TokenValidationException extends Exception {
 
     return String.format("TokenValidationException: %s", getMessage());
   }
-
 }

@@ -35,40 +35,36 @@ public abstract class Token {
    * All implementors of Token are required to implement this method. Validation should
    * consist of all operations necessary to determine whether the token can authorize
    * the request.
-   * @param request The http request context that where the token is being provided.
+   * @param context The context for the token validation.
    * @return If the token is valid, implementors should return a Future with a Token object.
    * If the token is not valid, implementors should return a Future with a
    * TokenValidationException.
    * @see TokenValidationException
    */
-  protected abstract Future<Token> validate(HttpServerRequest request);
+  protected abstract Future<Token> validateContext(TokenValidationContext context);
 
   /**
    * Validates the provided token. Validation includes checking everything needed
    * to determine whether the token should be authorized, including the signature and
    * any special validation required by its type.
-   * @param sourceToken The JWT or JWE token to validate.
-   * @param tokenCreator The TokenCreator used to encode the token.
-   * @param request The request in the http context where the token is being provided.
+   * @param context The context for the token validation.
    * @return Future<Token> A Future containing the Token if it has passed validation.
    * The Future may also contain a TokenValidationException if the validation has failed.
    * @see TokenValidationException.
    */
-  public static Future<Token> validate(String sourceToken,
-                                       TokenCreator tokenCreator,
-                                       HttpServerRequest request) {
+  public static Future<Token> validate(TokenValidationContext context) {
     Token token = null;
     try {
-      token = parse(sourceToken, tokenCreator);
+      token = parse(context.getTokenToValidate(), context.getTokenCreator());
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     } catch (Exception e) {
       return Future.failedFuture(new TokenValidationException("Unexpected token parse exception", e, 500));
     }
 
-    // Call the validate implementation of the underlying token type (AccessToken, RefreshToken, etc.).
-    // See those classes for the validation logic specific to each type.
-    return token.validate(request);
+    // Call the validateContext implementation of the underlying token type (AccessToken,
+    // RefreshToken, etc.). See those classes for the validation logic specific to each type.
+    return token.validateContext(context);
   }
 
   /**
@@ -224,26 +220,17 @@ public abstract class Token {
 
     switch (tokenType) {
       case AccessToken.type:
-        token = new AccessToken(sourceToken, claims);
-        break;
+        return new AccessToken(sourceToken, claims);
       case RefreshToken.type:
-        token = new RefreshToken(sourceToken, claims);
-        break;
+        return new RefreshToken(sourceToken, claims);
       case ApiToken.type:
-        token = new ApiToken(sourceToken, claims);
-        break;
+        return new ApiToken(sourceToken, claims);
       case DummyToken.type:
-        token = new DummyToken(sourceToken, claims);
-        break;
+        return new DummyToken(sourceToken, claims);
       case ModuleToken.type:
-        token = new ModuleToken(sourceToken, claims);
-        break;
+        return new ModuleToken(sourceToken, claims);
       default:
-        break;
+        throw new TokenValidationException("Unable to parse token", 400);
     }
-
-    if (token == null)
-      throw new TokenValidationException("Unable to parse token", 400);
-    return token;
   }
 }

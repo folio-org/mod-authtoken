@@ -30,6 +30,7 @@ import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
@@ -274,7 +275,8 @@ public class MainVerticle extends AbstractVerticle {
       }
 
       String encryptedJWE = requestJson.getString("refreshToken");
-      Future<Token> tokenValidationResult = Token.validate(encryptedJWE, tokenCreator, ctx.request());
+      var context = new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE);
+      Future<Token> tokenValidationResult = Token.validate(context);
 
       tokenValidationResult.onFailure(h -> {
         if (h instanceof TokenValidationException) {
@@ -470,7 +472,8 @@ public class MainVerticle extends AbstractVerticle {
     final String authToken = candidateToken;
     logger.debug("Final authToken is {}", authToken);
 
-    Future<Token> tokenValidationResult = Token.validate(authToken, tokenCreator, ctx.request());
+    var context = new TokenValidationContext(ctx.request(), tokenCreator, authToken);
+    Future<Token> tokenValidationResult = Token.validate(context);
 
     tokenValidationResult.onFailure(h -> {
       if (h instanceof TokenValidationException) {

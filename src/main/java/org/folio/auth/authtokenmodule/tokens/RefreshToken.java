@@ -51,14 +51,14 @@ public class RefreshToken extends Token {
     claims = sourceClaims;
   }
 
-  protected Future<Token> validate(HttpServerRequest request) {
+  protected Future<Token> validateContext(TokenValidationContext context) {
     try {
-      validateCommon(request);
+      validateCommon(context.getHttpServerRequest());
     } catch (Exception e) {
       return Future.failedFuture(e);
     }
 
-    String address = request.remoteAddress().host();
+    String address = context.getHttpServerRequest().remoteAddress().host();
     if (!address.equals(claims.getString("address"))) {
       var e = new TokenValidationException("Issuing address does not match for refresh token", 401);
       return Future.failedFuture(e);
