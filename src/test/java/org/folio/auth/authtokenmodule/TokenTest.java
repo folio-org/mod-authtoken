@@ -15,6 +15,10 @@ import org.junit.Before;
 import org.junit.Test;
 import io.vertx.core.Future;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 public class TokenTest {
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String passPhrase = "CorrectBatteryHorseStaple";
@@ -36,10 +40,9 @@ public class TokenTest {
     var context = new TokenValidationContext(null, tokenCreator, encoded);
     Future<Token> result = Token.validate(context);
 
-    assertTrue(result.succeeded());
-    result.onSuccess(token -> {
-      assertTrue(token instanceof AccessToken);
-    });
+    // Access token validation will never have async operations within their validation.
+    assertThat(result.succeeded(), is(true));
+    assertThat(result.result(), is(instanceOf(AccessToken.class)));
   }
 
   @Test
@@ -53,12 +56,10 @@ public class TokenTest {
     var context = new TokenValidationContext(null, tokenCreator, source);
     Future<Token> result = Token.validate(context);
 
-    assert(result.failed());
-    result.onFailure(e -> {
-      assertTrue(e instanceof TokenValidationException);
-      var tve = (TokenValidationException)e;
-      assertTrue(tve.getHttpResponseCode() == 500);
-    });
+    // Access tokens will never have async operations within their validation.
+    assertThat(result.failed(), is(true));
+    assertThat(result.cause(), is(instanceOf(TokenValidationException.class)));
+    assertThat(((TokenValidationException) result.cause()).getHttpResponseCode(), is(500));
   }
 
   @Test
@@ -70,7 +71,7 @@ public class TokenTest {
     String encryptedToken =
       new RefreshToken("test-tenant", "username-1", "userid-1", "http://localhost").encodeAsJWE(tokenCreator);
 
-    assertTrue(Token.isEncrypted(encryptedToken));
-    assertFalse(Token.isEncrypted(unencryptedToken));
+    assertThat(Token.isEncrypted(encryptedToken), is(true));
+    assertThat(Token.isEncrypted(unencryptedToken), is(false));
   }
 }

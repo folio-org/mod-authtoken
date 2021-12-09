@@ -50,10 +50,10 @@ public abstract class Token {
    * @param context The context for the token validation.
    * @return Future<Token> A Future containing the Token if it has passed validation.
    * The Future may also contain a TokenValidationException if the validation has failed.
-   * @see TokenValidationException.
+   * @see TokenValidationException
    */
   public static Future<Token> validate(TokenValidationContext context) {
-    Token token = null;
+    Token token;
     try {
       token = parse(context.getTokenToValidate(), context.getTokenCreator());
     } catch (TokenValidationException e) {
@@ -86,7 +86,7 @@ public abstract class Token {
 
   /**
    * Will return true if this this token requires a check that the user is active.
-   * @param requestHeaders The headers in the http context where the token is being provided.
+   * @param userId The user id from the request header.
    * @return True if the check should be made.
    */
   public boolean shouldCheckIfUserIsActive(String userId) {
@@ -111,7 +111,6 @@ public abstract class Token {
    * @param tokenCreator The TokenCreator to use to encode the token.
    * @return The encoded token.
    * @throws JOSEException
-   * @throws ParseException
    */
   public String encodeAsJWE(TokenCreator tokenCreator) throws JOSEException {
     String encodedClaims = claims.encode();
@@ -194,8 +193,7 @@ public abstract class Token {
   }
 
   private static Token parse(String sourceToken, TokenCreator tokenCreator) throws TokenValidationException {
-    Token token = null;
-    JsonObject claims = null;
+    JsonObject claims;
     final String invalidTokenMsg = "Invalid token";
 
     try {
