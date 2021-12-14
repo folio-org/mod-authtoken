@@ -1,3 +1,10 @@
+## 2.9.1 2021-12-14
+
+ * [MODAT-115](https://issues.folio.org/browse/MODAT-115) Log4j 2.16.0, disable JNDI
+ * [MODAT-113](https://issues.folio.org/browse/MODAT-113) Log4j 2.15.0 fixing remote execution
+ * [MODAT-108](https://issues.folio.org/browse/MODAT-108) Out of bounds exception
+ * [MODAT-107](https://issues.folio.org/browse/MODAT-107) X-Okapi-MOdule-Tokens, refactor
+
 ## 2.9.0 2021-09-29
 
  * Support /admin/health
