@@ -23,6 +23,7 @@ import org.folio.auth.authtokenmodule.CacheEntry;
 import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.PermissionData;
 import org.folio.auth.authtokenmodule.PermissionsSource;
+import org.folio.okapi.common.XOkapiHeaders;
 
 /**
  *
@@ -74,7 +75,7 @@ public class ModulePermissionsSource implements PermissionsSource {
 
   private Future<JsonArray> getPermissionsForUser(String userId, String tenant, String okapiUrl,
                                                   String requestToken, String requestId) {
-    logger.debug("gerPermissionsForUser userid={}", userId);
+    logger.debug("getPermissionsForUser userid={}", userId);
     String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userId;
     logger.debug("Requesting permissions user object from URL at {}", permUserRequestUrl);
     HttpRequest<Buffer> permUserReq = client.getAbs(permUserRequestUrl);
@@ -87,14 +88,12 @@ public class ModulePermissionsSource implements PermissionsSource {
             logger.error(message);
             return Future.failedFuture(message);
           }
-          JsonObject permUser = null;
-          try {
-            JsonObject permUserResults = permUserRes.bodyAsJsonObject();
-            permUser = permUserResults.getJsonArray("permissionUsers").getJsonObject(0);
-          } catch (Exception e) {
-            logger.error(e.getMessage());
-            return Future.failedFuture(e);
+          JsonObject permUserResults = permUserRes.bodyAsJsonObject();
+          JsonArray permissionUsers = permUserResults.getJsonArray("permissionUsers");
+          if (permissionUsers.isEmpty()) {
+            return Future.failedFuture( "User does not exist: " + permUserRequestUrl);
           }
+          JsonObject permUser = permissionUsers.getJsonObject(0);
           final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
           logger.debug("Requesting permissions from URL at {}", requestUrl);
           HttpRequest<Buffer> req = client.getAbs(requestUrl);
@@ -133,11 +132,11 @@ public class ModulePermissionsSource implements PermissionsSource {
   private void setHeaders(HttpRequest<Buffer> req, String requestToken,
                           String tenant, String requestId) {
     if (requestId != null) {
-      req.headers().add(MainVerticle.REQUESTID_HEADER, requestId);
+      req.headers().add(XOkapiHeaders.REQUEST_ID, requestId);
     }
     req.headers()
-        .add(MainVerticle.OKAPI_TOKEN_HEADER, requestToken)
-        .add(MainVerticle.OKAPI_TENANT_HEADER, tenant)
+        .add(XOkapiHeaders.TOKEN, requestToken)
+        .add(XOkapiHeaders.TENANT, tenant)
         .add(MainVerticle.CONTENT_TYPE, MainVerticle.APPLICATION_JSON)
         .add(MainVerticle.ACCEPT, MainVerticle.APPLICATION_JSON);
   }

@@ -7,13 +7,11 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.okapi.common.XOkapiHeaders;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import static org.folio.auth.authtokenmodule.MainVerticle.MODULE_TOKENS_HEADER;
-import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
-import static org.folio.auth.authtokenmodule.MainVerticle.PERMISSIONS_HEADER;
 import static org.folio.auth.authtokenmodule.MainVerticle.getClaims;
 
 /**
@@ -75,16 +73,16 @@ public class AuthRoutingEntry {
         ctx.response()
           .setChunked(true)
           .setStatusCode(202)
-          .putHeader(PERMISSIONS_HEADER, new JsonArray().add(magicPermission).encode())
-          .putHeader(OKAPI_TOKEN_HEADER, authToken)
-          .putHeader(MODULE_TOKENS_HEADER, moduleTokens)
+          .putHeader(XOkapiHeaders.PERMISSIONS, new JsonArray().add(magicPermission).encode())
+          .putHeader(XOkapiHeaders.TOKEN, authToken)
+          .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens)
           .end();
       }
       return true;
     } else {
       logger.debug("Body found in request for {}, treating as request", endpoint);
       JsonArray requestPerms = null;
-      String permissionsHeader = ctx.request().headers().get(PERMISSIONS_HEADER);
+      String permissionsHeader = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS);
       // Vert.x 3.5.4 accepted null for JsonArray constructor; Vert.x 3.9.1 does not
       if (permissionsHeader != null) {
         try {

@@ -18,6 +18,7 @@ import java.text.ParseException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -26,7 +27,6 @@ import org.junit.Test;
 import static io.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertTrue;
-import static org.folio.auth.authtokenmodule.MainVerticle.OKAPI_TOKEN_HEADER;
 
 @RunWith(VertxUnitRunner.class)
 public class AuthTokenTest {
@@ -193,6 +193,21 @@ public class AuthTokenTest {
   }
 
   @Test
+  public void testNoUser(TestContext context) {
+    PermsMock.handlePermsUsersEmpty = true;
+    given()
+      .header(MainVerticle.ZAP_CACHE_HEADER, "true")
+      .header(XOkapiHeaders.TENANT, tenant)
+      .header(XOkapiHeaders.TOKEN, basicToken2)
+      .header(XOkapiHeaders.URL, "http://localhost:" + mockPort)
+      .get("/bar")
+      .then()
+      .statusCode(400)
+      .body(containsString("User does not exist:"));
+    PermsMock.handlePermsUsersEmpty = false;
+  }
+
+  @Test
   public void test1(TestContext context) throws JOSEException, ParseException {
     async = context.async();
     logger.debug("AuthToken test1 starting");
@@ -232,10 +247,10 @@ public class AuthTokenTest {
       .statusCode(202)
       .header("X-Okapi-Permissions", "[]")
       .header("X-Okapi-Module-Tokens", startsWith("{\"_\":\""))
-      .header("X-Okapi-Token", not(isEmptyString()))
+      .header("X-Okapi-Token", not(emptyString()))
       .header("Authorization", startsWith("Bearer "))
       .extract().response();
-    final String noLoginToken = r.getHeader(OKAPI_TOKEN_HEADER);
+    final String noLoginToken = r.getHeader(XOkapiHeaders.TOKEN);
 
     // A request using the new nologin token with permissionRequired that will fail
     logger.info("Test with noLogin token and required perm");
@@ -246,7 +261,8 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Required", "[\"foo.req\"]")
       .get("/foo")
       .then()
-      .statusCode(403); // we don't have 'foo.req'
+      .statusCode(403) // we don't have 'foo.req'
+      .header("X-Okapi-Module-Tokens", not(emptyString()));
 
     // A request using the new nologin token with permissionDesired that will
     // succeed, but not give that perm
@@ -261,7 +277,7 @@ public class AuthTokenTest {
       .statusCode(202) // we don't have 'foo.req'
       .header("X-Okapi-Permissions", "[]")
       .header("X-Okapi-Module-Tokens", startsWith("{\"_\":\""))
-      .header("X-Okapi-Token", not(isEmptyString()));
+      .header("X-Okapi-Token", not(emptyString()));
 
     // A request with the nologin token, with some modulePermissions to be
     // included in a new token
@@ -276,7 +292,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(202)
       .header("X-Okapi-Permissions", "[]")
-      .header("X-Okapi-Module-Tokens", not(isEmptyString()))
+      .header("X-Okapi-Module-Tokens", not(emptyString()))
       .extract().response();
     final String modTokens = r.getHeader("X-Okapi-Module-Tokens");
     JsonObject modtoks = new JsonObject(modTokens);
@@ -442,7 +458,8 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Desired", "extra.*bar")
       .get("/bar")
       .then()
-      .statusCode(400).body(containsString("Connection refused"));
+      .statusCode(400).body(containsString("Connection refused"))
+      .header("X-Okapi-Module-Tokens", not(emptyString()));
     // used to be 401.. But connection refused is hardly forbidden..
 
     logger.info("Test /permss/users with bad status");

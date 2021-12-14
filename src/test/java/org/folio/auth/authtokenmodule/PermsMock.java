@@ -22,6 +22,7 @@ public class PermsMock extends AbstractVerticle {
   public static int handlePermsUsersPermissionsStatusCode = 200;
   public static int handlePermsPermissionsStatusCode = 200;
   public static boolean handlePermsUsersFail = false;
+  public static boolean handlePermsUsersEmpty = false;
   public static boolean handlePermsUsersPermissionsFail = false;
   public static boolean handlePermsPermissionsFail = false;
   public static String SYS_PERM_SET = PermService.SYS_PERM_PREFIX + "permset";
@@ -67,22 +68,22 @@ public class PermsMock extends AbstractVerticle {
         .end("{");
       return;
     }
-    JsonObject output = new JsonObject().put("permissionUsers", new JsonArray()
-      .add(new JsonObject()
+    JsonArray ar = new JsonArray();
+    if (!handlePermsUsersEmpty) {
+      ar.add(new JsonObject()
         .put("id", "773cb9d1-1e4f-416f-ba16-686ddeb6c789")
         .put("userId", "007d31d2-1441-4291-9bb8-d6e2c20e399a")
         .put("permissions", new JsonArray()
           .add("extra.foobar")
           .add("extra.foofish")
         )
-      )
-    );
-
+      );
+    }
+    JsonObject output = new JsonObject().put("permissionUsers", ar);
     context.response()
       .setStatusCode(handlePermsUsersStatusCode)
       .putHeader("Content-Type", "application/json")
       .end(output.encode());
-
   }
 
   private void handlePermUsersPermissions(RoutingContext context) {
@@ -107,7 +108,7 @@ public class PermsMock extends AbstractVerticle {
   }
 
   private void handlePermsPermissions(RoutingContext context) {
-    
+
     // SYS permission is expanded individually and only once
     String perms = context.queryParams().get("query");
     if (perms != null) {
@@ -133,7 +134,7 @@ public class PermsMock extends AbstractVerticle {
         return;
       }
     }
-    
+
     if (handlePermsPermissionsFail) {
       context.response()
         .setStatusCode(handlePermsPermissionsStatusCode)
