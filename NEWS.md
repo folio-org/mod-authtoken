@@ -1,3 +1,7 @@
+## 2.7.1 2021-12-15
+
+ * [MODAT-115](https://issues.folio.org/browse/MODAT-115) Log4j 2.16.0, disable JNDI
+
 ## 2.7.0 2021-03-01
 
 Update mod-authtoken to use same log format as RMB and Okapi. Upgrade from
