@@ -2,7 +2,6 @@ package org.folio.auth.authtokenmodule.tokens;
 
 import java.time.Instant;
 import io.vertx.core.Future;
-import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 
 /**
@@ -30,7 +29,8 @@ public class AccessToken extends Token {
     claims = new JsonObject();
     claims.put("type", type);
     claims.put("iat", now);
-    claims.put("exp", now + expirationSeconds);
+    // TODO comment this back in once we roll out RTR and actually expiring tokens.
+    // claims.put("exp", now + expirationSeconds);
     claims.put("tenant", tenant);
     claims.put("sub", username);
     claims.put("user_id", userId);

@@ -140,11 +140,13 @@ public abstract class Token {
     // it is considered to be encrypted. If there are not 5 it is rejected from JWE parsing.
     // Our unencrypted tokens have 3 parts (and 2 separators).
     int parts = token.split("\\.").length;
-    if (parts == 5)
+    if (parts == 5) {
       return true;
+    }
 
-    if (parts == 3)
+    if (parts == 3) {
       return false;
+    }
 
     throw new TokenValidationException("Unexpected token part count", 401);
   }
@@ -158,12 +160,14 @@ public abstract class Token {
   protected void validateCommon(HttpServerRequest request) throws TokenValidationException {
     try {
       // Check that the token has a source.
-      if (source == null)
+      if (source == null) {
         throw new TokenValidationException("Token has no source defined", 500);
+      }
 
       // Check that the claims have been created.
-      if (claims == null)
+      if (claims == null) {
         throw new TokenValidationException("Token has no claims", 500);
+      }
 
       // Check some claims that all tokens must have.
       String[] requiredClaims = new String[] { "sub", "tenant", "type" };
@@ -173,17 +177,20 @@ public abstract class Token {
         }
       }
 
-      if (request == null)
+      if (request == null) {
         return;
+      }
 
       // Check that some items in the headers match what are in the token.
       String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
-      if (!claims.getString("tenant").equals(headerTenant))
+      if (!claims.getString("tenant").equals(headerTenant)) {
         throw new TokenValidationException("Tenant in header does not equal tenant in token", 403);
+      }
 
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
-      if (headerUserId != null && !claims.getString("user_id").equals(headerUserId))
+      if (headerUserId != null && !claims.getString("user_id").equals(headerUserId)) {
         throw new TokenValidationException("User id in header does not equal user id in token", 403);
+      }
 
     } catch (TokenValidationException e) {
       throw e;
