@@ -46,4 +46,3 @@ public class MainVerticleTest {
     context.assertEquals(Level.INFO, last);
   }
 }
-

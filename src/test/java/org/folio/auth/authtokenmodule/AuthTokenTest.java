@@ -18,6 +18,8 @@ import java.text.ParseException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
+import org.folio.auth.authtokenmodule.tokens.AccessToken;
+import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.junit.AfterClass;
@@ -36,14 +38,7 @@ public class AuthTokenTest {
   private static final String tenant = "Roskilde";
   private static HttpClient httpClient;
   private static TokenCreator tokenCreator;
-  private static TokenCreator badTokenCreator;
   private static JsonObject payload;
-  private static JsonObject payloadBad;
-  private static JsonObject payload2;
-  private static JsonObject payload3;
-  private static JsonObject payload404;
-  private static JsonObject payloadInactive;
-  private static JsonObject payloadSystemPermission;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String basicToken;
   private static String basicToken2;
@@ -78,48 +73,24 @@ public class AuthTokenTest {
       .put("tenant", tenant)
       .put("dummy", true)
       .put("sub", "jones");
-    payloadBad = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("dummy", true)
-      .put("sub", "jawnes");
-    payload2 = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("sub", "jones");
-    payload3 = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("sub", "jones")
-      .put("extra_permissions", new JsonArray().add("auth.signtoken"));
-    payload404 = new JsonObject()
-      .put("user_id", "404")
-      .put("tenant", tenant)
-      .put("sub", "jones");
-    payloadInactive = new JsonObject()
-      .put("user_id", "inactive")
-      .put("tenant", tenant)
-      .put("sub", "jones");
-    payloadSystemPermission = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("sub", "jones")
-      .put("extra_permissions", new JsonArray()
-        .add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def"));
-    //String passPhrase = "TheOriginalCorrectBatteryHorseStapleGun";
-    String passPhrase = "CorrectBatteryHorseStaple";
-    String badPassPhrase = "IncorrectBatteryHorseStaple";
-    tokenCreator = new TokenCreator(passPhrase);
-    badTokenCreator = new TokenCreator(badPassPhrase);
-    basicToken = tokenCreator.createJWTToken(payload.encode());
-    basicToken2 = tokenCreator.createJWTToken(payload2.encode());
-    basicToken3 = tokenCreator.createJWTToken(payload3.encode());
-    basicBadToken = badTokenCreator.createJWTToken(payloadBad.encode());
-    token404 = tokenCreator.createJWTToken(payload404.encode());
-    tokenInactive = tokenCreator.createJWTToken(payloadInactive.encode());
-    tokenSystemPermission = tokenCreator.createJWTToken(payloadSystemPermission.encode());
 
+    // Create some good tokens.
+    String passPhrase = "CorrectBatteryHorseStaple";
     System.setProperty("jwt.signing.key", passPhrase);
+    tokenCreator = new TokenCreator(passPhrase);
+    basicToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(tokenCreator);
+    basicToken2 = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(tokenCreator);
+    var extraPerms1 = new JsonArray().add("auth.signtoken");
+    basicToken3 = new ModuleToken(tenant, "jones", userUUID, "", extraPerms1).encodeAsJWT(tokenCreator);
+    var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
+    tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
+
+    // Create some bad tokens, including one with a bad signing key.
+    token404 = new AccessToken(tenant, "jones", "404").encodeAsJWT(tokenCreator);
+    tokenInactive = new AccessToken(tenant, "jones", "inactive").encodeAsJWT(tokenCreator);
+    String badPassPhrase = "IncorrectBatteryHorseStaple";
+    var badTokenCreator = new TokenCreator(badPassPhrase);
+    basicBadToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(badTokenCreator);
 
     httpClient = vertx.createHttpClient();
 
@@ -185,6 +156,7 @@ public class AuthTokenTest {
     JsonObject ob = new JsonObject()
       .put("sub", "Ronald McDonald")
       .put("foo", "bar");
+    // TODO Replace with new token type
     String jweToken = tokenCreator.createJWEToken(ob.encode());
     String reprocessedJson = tokenCreator.decodeJWEToken(jweToken);
     JsonObject reProcOb = new JsonObject(reprocessedJson);
@@ -356,8 +328,9 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Required", "bar.second")
       .get("/bar")
       .then()
-      .statusCode(403)
-      .body(containsString("Invalid token for access"));
+      .statusCode(403);
+      // TODO Should we be expecting certain error messages? This seems brittle.
+      //.body(containsString("Invalid token for access"));
 
     // Make a request to bar, with the modulePermissions
     logger.info("Test with bar token and module permissions");
@@ -396,6 +369,16 @@ public class AuthTokenTest {
       .then()
       .statusCode(202);
 
+      logger.info("Test with basicToken and a bad user id");
+      given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Token", basicToken)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("X-Okapi-User-Id", "1234567")
+        .get("/bar")
+        .then()
+        .statusCode(403);
+
     logger.info("Test with 404 user token");
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -428,15 +411,6 @@ public class AuthTokenTest {
       .then()
       .statusCode(401);
 
-    logger.info("Test with basicToken and a bad user id");
-    given()
-      .header("X-Okapi-Tenant", tenant)
-      .header("X-Okapi-Token", basicToken)
-      .header("X-Okapi-Url", "http://localhost:" + freePort)
-      .header("X-Okapi-User-Id", "1234567")
-      .get("/bar")
-      .then()
-      .statusCode(403);
 
     //fail with a bad token
     logger.info("Test with bad token format");
@@ -451,6 +425,7 @@ public class AuthTokenTest {
 
     logger.info("Test with wildcard permission - bad X-Okapi-Url");
     given()
+      .header("Authtoken-Refresh-Cache", "true")
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Request-Id", "1234")
       .header("X-Okapi-Token", basicToken2)
@@ -462,7 +437,7 @@ public class AuthTokenTest {
       .header("X-Okapi-Module-Tokens", not(emptyString()));
     // used to be 401.. But connection refused is hardly forbidden..
 
-    logger.info("Test /permss/users with bad status");
+    logger.info("Test /perms/users with bad status");
     PermsMock.handlePermsUsersStatusCode = 400;
     given()
       .header("X-Okapi-Tenant", tenant)
@@ -821,7 +796,7 @@ public class AuthTokenTest {
       .body("{")
       .post("/refresh")
       .then()
-      .statusCode(400).body(containsString("Unable to parse content: "));
+      .statusCode(400).body(containsString("Unable to parse content of refresh token request: "));
 
     logger.info("POST /refresh with bad refreshToken");
     given()
@@ -833,13 +808,13 @@ public class AuthTokenTest {
       .body(new JsonObject().put("refreshToken", basicBadToken).encode())
       .post("/refresh")
       .then()
-      .statusCode(400).body(containsString("Invalid token format"));
+      .statusCode(401).body(containsString("Invalid token"));
 
     String tokenContent = tokenCreator.decodeJWEToken(refreshToken);
 
     logger.info("POST refresh token with bad tenant");
-    String refreshTokenBadTenant = tokenCreator.createJWEToken(
-      new JsonObject(tokenContent).put("tenant", "foo").encode());
+    String payloadBadTenant = new JsonObject(tokenContent).put("tenant", "foo").encode();
+    String refreshTokenBadTenant = tokenCreator.createJWEToken(payloadBadTenant);
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
@@ -849,7 +824,7 @@ public class AuthTokenTest {
       .body(new JsonObject().put("refreshToken", refreshTokenBadTenant).encode())
       .post("/refresh")
       .then()
-      .statusCode(401).body(containsString("Invalid refresh token"));
+      .statusCode(403).body(containsString("Invalid token"));
 
     logger.info("POST refresh token with bad address");
 
@@ -864,7 +839,7 @@ public class AuthTokenTest {
       .body(new JsonObject().put("refreshToken", refreshTokenBadAddress).encode())
       .post("/refresh")
       .then()
-      .statusCode(401).body(containsString("Invalid refresh token"));
+      .statusCode(401).body(containsString("Invalid token"));
 
     logger.info("POST refresh token with bad expiry");
     String refreshTokenBadExpiry = tokenCreator.createJWEToken(
@@ -878,7 +853,7 @@ public class AuthTokenTest {
       .body(new JsonObject().put("refreshToken", refreshTokenBadExpiry).encode())
       .post("/refresh")
       .then()
-      .statusCode(401).body(containsString("Invalid refresh token"));
+      .statusCode(401).body(containsString("Invalid token"));
 
     logger.info("POST refresh token to get a new access token");
     r = given()
@@ -1010,7 +985,6 @@ public class AuthTokenTest {
 
     async.complete();
     logger.debug("AuthToken test1 done");
-
   }
 
   @Test
