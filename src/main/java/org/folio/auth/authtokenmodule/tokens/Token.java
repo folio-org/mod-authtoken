@@ -8,7 +8,6 @@ import com.nimbusds.jose.JOSEException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.BadSignatureException;
-import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.okapi.common.XOkapiHeaders;
 import java.text.ParseException;

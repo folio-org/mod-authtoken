@@ -86,7 +86,6 @@ public class AuthTokenTest {
     var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
 
-
     // Create some bad tokens, including one with a bad signing key.
     token404 = new AccessToken(tenant, "jones", "404").encodeAsJWT(tokenCreator);
     tokenInactive = new AccessToken(tenant, "jones", "inactive").encodeAsJWT(tokenCreator);
