@@ -19,6 +19,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
+import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
@@ -84,6 +85,7 @@ public class AuthTokenTest {
     basicToken3 = new ModuleToken(tenant, "jones", userUUID, "", extraPerms1).encodeAsJWT(tokenCreator);
     var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
+
 
     // Create some bad tokens, including one with a bad signing key.
     token404 = new AccessToken(tenant, "jones", "404").encodeAsJWT(tokenCreator);
@@ -378,6 +380,17 @@ public class AuthTokenTest {
         .get("/bar")
         .then()
         .statusCode(403);
+
+    logger.info("Test with dummyToken and a bad user id");
+    String dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", dummyToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("X-Okapi-User-Id", "1234567")
+      .get("/bar")
+      .then()
+      .statusCode(202);
 
     logger.info("Test with 404 user token");
     given()
