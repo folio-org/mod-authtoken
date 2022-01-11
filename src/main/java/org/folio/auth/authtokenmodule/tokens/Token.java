@@ -5,7 +5,10 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import java.util.Base64;
 import com.nimbusds.jose.JOSEException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.BadSignatureException;
+import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.okapi.common.XOkapiHeaders;
 import java.text.ParseException;
@@ -18,6 +21,7 @@ import static java.lang.Boolean.TRUE;
  * including a method to parse and validate a token in one step.
  */
 public abstract class Token {
+  private static final Logger logger = LogManager.getLogger(Token.class);
   private boolean usesDummyPermissionsSource;
   protected static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   protected String source;
@@ -186,15 +190,15 @@ public abstract class Token {
       if (!claims.getString("tenant").equals(headerTenant)) {
         throw new TokenValidationException("Tenant in header does not equal tenant in token", 403);
       }
-
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
-      if (headerUserId != null && !claims.getString("user_id").equals(headerUserId)) {
+      String claimsUserId = claims.getString("user_id");
+      if (headerUserId != null && claimsUserId != null && !claimsUserId.equals(headerUserId)) {
         throw new TokenValidationException("User id in header does not equal user id in token", 403);
       }
-
     } catch (TokenValidationException e) {
       throw e;
     } catch (Exception e) {
+      logger.error(e.getMessage(), e);
       throw new TokenValidationException("Unexpected token validation exception", e, 500);
     }
   }
