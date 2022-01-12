@@ -34,6 +34,8 @@ import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
+import org.folio.tlib.RouterCreator;
+
 import static java.lang.Boolean.TRUE;
 
 /**
