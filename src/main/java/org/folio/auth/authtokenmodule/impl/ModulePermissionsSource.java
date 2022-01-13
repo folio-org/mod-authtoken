@@ -84,10 +84,9 @@ public class ModulePermissionsSource implements PermissionsSource {
       .compose(res -> {
         if (res.statusCode() == 404) {
           return Future.failedFuture( "User does not exist: " + userId);
-        }
-        else if (res.statusCode() != 200) {
+        } else if (res.statusCode() != 200) {
           String failMessage = "Unable to retrieve permissions (code " + res.statusCode() + "): " + res.bodyAsString();
-          logger.debug(failMessage);
+          logger.error(failMessage);
           return Future.failedFuture(failMessage);
         }
         // 200
