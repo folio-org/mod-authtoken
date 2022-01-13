@@ -13,6 +13,8 @@ public interface PermissionsSource {
       String requestToken, String requestId, JsonArray permissions);
 
   void clearCache();
+
+  void clearCacheUser(String userId, String tenant);
 }
 
 
