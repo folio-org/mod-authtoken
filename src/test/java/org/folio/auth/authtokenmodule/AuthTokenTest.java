@@ -35,7 +35,6 @@ import static org.junit.Assert.assertTrue;
 public class AuthTokenTest {
 
   private static final Logger logger = LogManager.getLogger("AuthTokenTest");
-  private static final String LS = System.lineSeparator();
   private static final String tenant = "Roskilde";
   private static HttpClient httpClient;
   private static TokenCreator tokenCreator;
@@ -449,32 +448,6 @@ public class AuthTokenTest {
       .header("X-Okapi-Module-Tokens", not(emptyString()));
     // used to be 401.. But connection refused is hardly forbidden..
 
-    logger.info("Test /perms/users with bad status");
-    PermsMock.handlePermsUsersStatusCode = 400;
-    given()
-      .header("X-Okapi-Tenant", tenant)
-      .header("X-Okapi-Request-Id", "1234")
-      .header("X-Okapi-Token", basicToken2)
-      .header("X-Okapi-Url", "http://localhost:" + mockPort)
-      .header("X-Okapi-Permissions-Desired", "extra.*bar")
-      .get("/bar")
-      .then()
-      .statusCode(400);
-    PermsMock.handlePermsUsersStatusCode = 200;
-
-    logger.info("Test /perms/users with bad response");
-    PermsMock.handlePermsUsersFail = true;
-    given()
-      .header("X-Okapi-Tenant", tenant)
-      .header("X-Okapi-Request-Id", "1234")
-      .header("X-Okapi-Token", basicToken2)
-      .header("X-Okapi-Url", "http://localhost:" + mockPort)
-      .header("X-Okapi-Permissions-Desired", "extra.*bar")
-      .get("/bar")
-      .then()
-      .statusCode(400);
-    PermsMock.handlePermsUsersFail = false;
-
     logger.info("Test with wildcard 400 /perms/users/id/permissions");
     PermsMock.handlePermsUsersPermissionsStatusCode = 400;
     given()
@@ -511,8 +484,7 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Desired", "extra.*bar")
       .get("/bar")
       .then()
-      .statusCode(202)
-      .header("X-Okapi-Permissions", "[]");
+      .statusCode(400);
     PermsMock.handlePermsUsersPermissionsStatusCode = 200;
 
     //pass a desired permission through as a wildcard
