@@ -54,6 +54,12 @@ public class ModulePermissionsSource implements PermissionsSource {
     permissionsForUserMap.clear();
   }
 
+  @Override
+  public void clearCacheUser(String userId, String tenant) {
+    final String key = tenant + "_" + userId;
+    permissionsForUserMap.remove(key);
+  }
+
   public static void setCacheTimeout(int sec) {
     expandPermissionsTimeout = permissionsForUserTimeout = sec;
   }

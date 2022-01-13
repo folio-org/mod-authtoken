@@ -122,6 +122,7 @@ public class MainVerticle extends AbstractVerticle {
     authRoutingEntryList.add(new AuthRoutingEntry("/encrypted-token/decode",
         new String[] {}, this::handleDecodeEncryptedToken));
     Router router = Router.router(vertx);
+
     HttpServer server = vertx.createHttpServer();
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
@@ -387,6 +388,9 @@ public class MainVerticle extends AbstractVerticle {
       }
 
       String userId = payload.getString("user_id");
+      if (userId != null) {
+        permissionsSource.clearCacheUser(userId, tenant);
+      }
       String username = payload.getString("sub");
       String token = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
 
