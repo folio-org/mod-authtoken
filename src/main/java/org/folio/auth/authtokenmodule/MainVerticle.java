@@ -6,6 +6,11 @@ import io.vertx.core.http.HttpServerOptions;
 import org.folio.tlib.RouterCreator;
 import io.vertx.ext.web.client.WebClient;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.config.Configurator;
+
+
 /**
  *
  * @author kurt
@@ -18,21 +23,19 @@ public class MainVerticle extends AbstractVerticle {
   static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
 
   @Override
-  public void start(Promise<Void> promise) {
+  public void start(Promise<Void> promise) throws MissingAlgorithmException {
     // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
     final String portStr = System.getProperty("http.port", System.getProperty("port", defaultPort));
     final int port = Integer.parseInt(portStr);
 
-    // TODO How to also bind the body ahdnler.
-    //router.route("/*").handler(BodyHandler.create());
+    setLogLevel(System.getProperty("log.level", null));
 
     RouterCreator[] routerCreators = {
       new HealthApi(),
       new AuthorizeApi(vertx)
     };
-    HttpServerOptions so = new HttpServerOptions()
-        .setHandle100ContinueAutomatically(true);
+    HttpServerOptions so = new HttpServerOptions().setHandle100ContinueAutomatically(true);
 
     RouterCreator.mountAll(vertx, WebClient.create(vertx), routerCreators)
         .compose(route ->
@@ -43,4 +46,18 @@ public class MainVerticle extends AbstractVerticle {
         .<Void>mapEmpty()
         .onComplete(promise);
   }
+
+  static void setLogLevel(String name) {
+    if (name == null) {
+      return;
+    }
+    setLogLevel(Level.toLevel(name));
+  }
+
+  static Level setLogLevel(Level level) {
+    Level existing = LogManager.getRootLogger().getLevel();
+    Configurator.setAllLevels(LogManager.getRootLogger().getName(), level);
+    return existing;
+  }
+
 }

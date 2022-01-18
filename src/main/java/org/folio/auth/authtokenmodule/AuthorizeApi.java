@@ -1,6 +1,7 @@
 package org.folio.auth.authtokenmodule;
 
 import com.nimbusds.jose.JOSEException;
+import io.vertx.core.Promise;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
@@ -17,10 +18,8 @@ import java.util.regex.Pattern;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.Configurator;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
@@ -93,20 +92,9 @@ public class AuthorizeApi implements RouterCreator {
     endText(ctx, code, "Error: ", t);
   }
 
-  static void setLogLevel(String name) {
-    if (name == null) {
-      return;
-    }
-    setLogLevel(Level.toLevel(name));
-  }
+  public AuthorizeApi() {}
 
-  static Level setLogLevel(Level level) {
-    Level existing = LogManager.getRootLogger().getLevel();
-    Configurator.setAllLevels(LogManager.getRootLogger().getName(), level);
-    return existing;
-  }
-
-  public AuthorizeApi(Vertx vertx) {
+  public AuthorizeApi(Vertx vertx) throws MissingAlgorithmException {
     authRoutingEntryList = new ArrayList<>();
     authRoutingEntryList.add(new AuthRoutingEntry("/token",
         new String[] {SIGN_TOKEN_PERMISSION}, this::handleSignToken));
@@ -129,15 +117,13 @@ public class AuthorizeApi implements RouterCreator {
       tokenCreator = getTokenCreator();
       tokenCreator.dryRunAlgorithms();
     } catch(Exception e) {
-      throw new RuntimeException("Unable to initialize TokenCreator: " + e.getLocalizedMessage(), e);
+      throw new MissingAlgorithmException("Unable to initialize TokenCreator: " + e.getMessage(), e);
     }
 
     clientTokenCreatorMap = new HashMap<>();
 
-    setLogLevel(System.getProperty("log.level", null));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
-    // TODO Is this ok here?
     userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
     permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds, sysPermCachePurgeInSeconds);
   }
@@ -145,6 +131,7 @@ public class AuthorizeApi implements RouterCreator {
   @Override
   public Future<Router> createRouter(Vertx vertx, WebClient webClient) {
     Router router = Router.router(vertx);
+    router.route("/*").handler(BodyHandler.create());
     router.route("/*").handler(this::handleAuthorize);
     return Future.succeededFuture(router);
   }
