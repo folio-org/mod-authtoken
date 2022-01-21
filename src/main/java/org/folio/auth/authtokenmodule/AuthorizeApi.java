@@ -1,7 +1,6 @@
 package org.folio.auth.authtokenmodule;
 
 import com.nimbusds.jose.JOSEException;
-import io.vertx.core.Promise;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
@@ -65,10 +64,10 @@ public class AuthorizeApi implements RouterCreator {
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
 
-  TokenCreator getTokenCreator() throws JOSEException {
-    String keySetting = System.getProperty("jwt.signing.key");
-    return new TokenCreator(keySetting);
-  }
+  // TokenCreator getTokenCreator() throws JOSEException {
+  //   String keySetting = System.getProperty("jwt.signing.key");
+  //   return new TokenCreator(keySetting);
+  // }
 
   private static void endText(RoutingContext ctx, int code, String msg) {
     logger.error(msg);
@@ -94,7 +93,7 @@ public class AuthorizeApi implements RouterCreator {
 
   public AuthorizeApi() {}
 
-  public AuthorizeApi(Vertx vertx) throws MissingAlgorithmException {
+  public AuthorizeApi(Vertx vertx, TokenCreator tc) {
     authRoutingEntryList = new ArrayList<>();
     authRoutingEntryList.add(new AuthRoutingEntry("/token",
         new String[] {SIGN_TOKEN_PERMISSION}, this::handleSignToken));
@@ -107,20 +106,15 @@ public class AuthorizeApi implements RouterCreator {
     authRoutingEntryList.add(new AuthRoutingEntry("/encrypted-token/decode",
         new String[] {}, this::handleDecodeEncryptedToken));
 
+    tokenCreator = tc;
+
+    clientTokenCreatorMap = new HashMap<>();
+
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
     int userCachePurgeInSeconds = Integer.parseInt(System.getProperty("user.cache.purge.seconds", "43200")); // 12 hours
     int sysPermCacheInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.seconds", "259200")); // 3 days
     int sysPermCachePurgeInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.purge.seconds", "43200")); // 12 hours
-
-    try {
-      tokenCreator = getTokenCreator();
-      tokenCreator.dryRunAlgorithms();
-    } catch(Exception e) {
-      throw new MissingAlgorithmException("Unable to initialize TokenCreator: " + e.getMessage(), e);
-    }
-
-    clientTokenCreatorMap = new HashMap<>();
 
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
