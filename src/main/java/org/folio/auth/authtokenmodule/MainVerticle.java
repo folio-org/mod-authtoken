@@ -392,9 +392,13 @@ public class MainVerticle extends AbstractVerticle {
         permissionsSource.clearCacheUser(userId, tenant);
       }
       String username = payload.getString("sub");
-      String token = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
-
-      JsonObject responseObject = new JsonObject().put("token", token);
+      Token token;
+      if (payload.getBoolean("dummy", Boolean.FALSE)) {
+        token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"));
+      } else {
+        token = new AccessToken(tenant, username, userId);
+      }
+      JsonObject responseObject = new JsonObject().put("token", token.encodeAsJWT(tokenCreator));
       endJson(ctx, 201, responseObject.encode());
     } catch (Exception e) {
       endText(ctx, 400, e);
