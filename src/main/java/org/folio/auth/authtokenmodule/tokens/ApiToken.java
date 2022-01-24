@@ -2,7 +2,6 @@ package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Future;
-import io.vertx.core.http.HttpServerRequest;
 
 /**
  * An API token is a non-expiring token that authorizes API Access.

@@ -32,7 +32,10 @@ import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
 
 import org.folio.tlib.RouterCreator;
+import org.folio.tlib.TenantInitHooks;
 import io.vertx.ext.web.client.WebClient;
+
+import org.apache.commons.lang3.NotImplementedException;
 
 import static java.lang.Boolean.TRUE;
 
@@ -40,7 +43,7 @@ import static java.lang.Boolean.TRUE;
  *
  * @author kurt
  */
-public class AuthorizeApi implements RouterCreator {
+public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
   public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
@@ -64,10 +67,7 @@ public class AuthorizeApi implements RouterCreator {
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
 
-  // TokenCreator getTokenCreator() throws JOSEException {
-  //   String keySetting = System.getProperty("jwt.signing.key");
-  //   return new TokenCreator(keySetting);
-  // }
+  private TokenStore tokenStore;
 
   private static void endText(RoutingContext ctx, int code, String msg) {
     logger.error(msg);
@@ -120,6 +120,8 @@ public class AuthorizeApi implements RouterCreator {
 
     userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
     permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds, sysPermCachePurgeInSeconds);
+
+    tokenStore = new TokenStore(vertx);
   }
 
   @Override
@@ -128,6 +130,11 @@ public class AuthorizeApi implements RouterCreator {
     router.route("/*").handler(BodyHandler.create());
     router.route("/*").handler(this::handleAuthorize);
     return Future.succeededFuture(router);
+  }
+
+  @Override
+  public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
+    throw new NotImplementedException("TODO");
   }
 
   private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {
@@ -519,7 +526,7 @@ public class AuthorizeApi implements RouterCreator {
         }
       }
 
-      //Populate the permissionsRequired array from the header
+      // Populate the permissionsRequired array from the header
       JsonArray permissionsRequired = new JsonArray();
       JsonArray permissionsDesired = new JsonArray();
 

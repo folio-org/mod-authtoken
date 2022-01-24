@@ -11,11 +11,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.config.Configurator;
 import com.nimbusds.jose.JOSEException;
 
-
-/**
- *
- * @author kurt
- */
 public class MainVerticle extends AbstractVerticle {
 
   public static final String APPLICATION_JSON = "application/json";
@@ -32,17 +27,6 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public void start(Promise<Void> promise) throws MissingAlgorithmException {
-
-    // int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
-    // int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
-    // int userCachePurgeInSeconds = Integer.parseInt(System.getProperty("user.cache.purge.seconds", "43200")); // 12 hours
-    // int sysPermCacheInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.seconds", "259200")); // 3 days
-    // int sysPermCachePurgeInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.purge.seconds", "43200")); // 12 hours
-
-    // permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
-    // userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
-    // permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds, sysPermCachePurgeInSeconds);
-
     // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
     final String portStr = System.getProperty("http.port", System.getProperty("port", defaultPort));
