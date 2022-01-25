@@ -21,6 +21,7 @@ import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
+import org.folio.okapi.common.OkapiToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.junit.AfterClass;
@@ -36,9 +37,7 @@ public class AuthTokenTest {
 
   private static final Logger logger = LogManager.getLogger("AuthTokenTest");
   private static final String tenant = "Roskilde";
-  private static HttpClient httpClient;
   private static TokenCreator tokenCreator;
-  private static JsonObject payload;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String basicToken;
   private static String basicToken2;
@@ -68,11 +67,6 @@ public class AuthTokenTest {
       .put("port", Integer.toString(port));
     DeploymentOptions opt = new DeploymentOptions()
       .setConfig(conf);
-    payload = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("dummy", true)
-      .put("sub", "jones");
 
     // Create some good tokens.
     String passPhrase = "CorrectBatteryHorseStaple";
@@ -91,8 +85,6 @@ public class AuthTokenTest {
     String badPassPhrase = "IncorrectBatteryHorseStaple";
     var badTokenCreator = new TokenCreator(badPassPhrase);
     basicBadToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(badTokenCreator);
-
-    httpClient = vertx.createHttpClient();
 
     RestAssured.port = port;
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
@@ -183,6 +175,17 @@ public class AuthTokenTest {
   public void test1(TestContext context) throws JOSEException, ParseException {
     async = context.async();
     logger.debug("AuthToken test1 starting");
+
+    JsonObject payloadDummy = new JsonObject()
+      .put("user_id", userUUID)
+      .put("tenant", tenant)
+      .put("dummy", true)
+      .put("sub", "jones");
+
+    JsonObject payloadAccess = new JsonObject()
+      .put("user_id", userUUID)
+      .put("tenant", tenant)
+      .put("sub", "jones");
 
     Response r;
 
@@ -624,7 +627,7 @@ public class AuthTokenTest {
       .header("X-Okapi-Token", basicToken)
       .header("X-Okapi-Url", "http://localhost:" + freePort)
       .header("Content-type", "application/json")
-      .body(payload.encode())
+      .body(payloadDummy.encode())
       .post("/token")
       .then()
       .statusCode(403).body(containsString("Missing permissions to access endpoint '/token'"));
@@ -639,18 +642,36 @@ public class AuthTokenTest {
       .then()
       .statusCode(202);
 
-    //get a good token signing request
+    //get a good dummy token signing request
     logger.info("POST signing request with good token, good payload");
-    given()
+    String response = given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
       .header("X-Okapi-Url", "http://localhost:" + freePort)
       .header("Content-type", "application/json")
       .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
-      .body(new JsonObject().put("payload", payload).encode())
+      .body(new JsonObject().put("payload", payloadDummy).encode())
       .post("/token")
       .then()
-      .statusCode(201);
+      .statusCode(201).contentType("application/json").extract().body().asString();
+    JsonObject tokenResponse = new JsonObject(response);
+
+    //get a good accces token signing request
+    logger.info("POST signing request with good token, good payload");
+    response = given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", basicToken2)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("payload", payloadAccess).encode())
+      .post("/token")
+      .then()
+      .statusCode(201).contentType("application/json").extract().body().asString();
+    tokenResponse = new JsonObject(response);
+
+    OkapiToken okapiToken = new OkapiToken(tokenResponse.getString("token"));
+    context.assertEquals(payloadAccess.getString("sub"), okapiToken.getUsernameWithoutValidation());
 
     logger.info("PUT signing request with good token, good payload");
     given()
@@ -659,7 +680,7 @@ public class AuthTokenTest {
       .header("X-Okapi-Url", "http://localhost:" + freePort)
       .header("Content-type", "application/json")
       .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
-      .body(new JsonObject().put("payload", payload).encode())
+      .body(new JsonObject().put("payload", payloadDummy).encode())
       .put("/token")
       .then()
       .statusCode(400).body(containsString("Unsupported operation: PUT"));
@@ -683,7 +704,7 @@ public class AuthTokenTest {
       .header("X-Okapi-Url", "http://localhost:" + freePort)
       .header("Content-type", "application/json")
       .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
-      .body(new JsonObject().put("noload", payload).encode())
+      .body(new JsonObject().put("noload", payloadDummy).encode())
       .post("/token")
       .then()
       .statusCode(400).body(containsString("Valid 'payload' field is required"));
