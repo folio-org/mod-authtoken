@@ -393,6 +393,8 @@ public class MainVerticle extends AbstractVerticle {
       }
       String username = payload.getString("sub");
       Token token;
+      // auth 2.0 did not expose the "type" property which is now used internally.
+      // Only normal (access tokens) are exposed as well as dummy tokens (mod-users-bl).
       if (payload.getBoolean("dummy", Boolean.FALSE)) {
         token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"));
       } else {
