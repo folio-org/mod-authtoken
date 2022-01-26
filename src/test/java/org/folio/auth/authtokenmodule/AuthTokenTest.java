@@ -644,7 +644,7 @@ public class AuthTokenTest {
 
     //get a good dummy token signing request
     logger.info("POST signing request with good token, good payload");
-    String response = given()
+    String token = given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
       .header("X-Okapi-Url", "http://localhost:" + freePort)
@@ -653,14 +653,12 @@ public class AuthTokenTest {
       .body(new JsonObject().put("payload", payloadDummy).encode())
       .post("/token")
       .then()
-      .statusCode(201).contentType("application/json").extract().body().asString();
-    JsonObject tokenResponse = new JsonObject(response);
-    OkapiToken okapiToken = new OkapiToken(tokenResponse.getString("token"));
-    context.assertEquals(payloadDummy.getString("sub"), okapiToken.getUsernameWithoutValidation());
+      .statusCode(201).contentType("application/json").extract().path("token");
+    context.assertEquals(payloadDummy.getString("sub"), new OkapiToken(token).getUsernameWithoutValidation());
 
     //get a good access token signing request
     logger.info("POST signing request with good token, good payload");
-    response = given()
+    token = given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
       .header("X-Okapi-Url", "http://localhost:" + freePort)
@@ -669,10 +667,8 @@ public class AuthTokenTest {
       .body(new JsonObject().put("payload", payloadAccess).encode())
       .post("/token")
       .then()
-      .statusCode(201).contentType("application/json").extract().body().asString();
-    tokenResponse = new JsonObject(response);
-    okapiToken = new OkapiToken(tokenResponse.getString("token"));
-    context.assertEquals(payloadAccess.getString("sub"), okapiToken.getUsernameWithoutValidation());
+      .statusCode(201).contentType("application/json").extract().path("token");
+    context.assertEquals(payloadAccess.getString("sub"), new OkapiToken(token).getUsernameWithoutValidation());
 
     logger.info("PUT signing request with good token, good payload");
     given()
