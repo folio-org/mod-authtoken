@@ -185,7 +185,7 @@ public class AuthTokenTest {
     JsonObject payloadAccess = new JsonObject()
       .put("user_id", userUUID)
       .put("tenant", tenant)
-      .put("sub", "jones");
+      .put("sub", "joe");
 
     Response r;
 
@@ -655,8 +655,10 @@ public class AuthTokenTest {
       .then()
       .statusCode(201).contentType("application/json").extract().body().asString();
     JsonObject tokenResponse = new JsonObject(response);
+    OkapiToken okapiToken = new OkapiToken(tokenResponse.getString("token"));
+    context.assertEquals(payloadDummy.getString("sub"), okapiToken.getUsernameWithoutValidation());
 
-    //get a good accces token signing request
+    //get a good access token signing request
     logger.info("POST signing request with good token, good payload");
     response = given()
       .header("X-Okapi-Tenant", tenant)
@@ -669,8 +671,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(201).contentType("application/json").extract().body().asString();
     tokenResponse = new JsonObject(response);
-
-    OkapiToken okapiToken = new OkapiToken(tokenResponse.getString("token"));
+    okapiToken = new OkapiToken(tokenResponse.getString("token"));
     context.assertEquals(payloadAccess.getString("sub"), okapiToken.getUsernameWithoutValidation());
 
     logger.info("PUT signing request with good token, good payload");
