@@ -44,12 +44,22 @@ public class DummyToken extends Token {
    * @param extraPerms The permissions in scope.
    */
   public DummyToken(String tenant, JsonArray extraPerms) {
+    this(tenant, extraPerms,  "_AUTHZ_MODULE_");
+  }
+
+  /**
+   * Create a dummy token to be used to request permissions.
+   * @param tenant tenant that is token is part.
+   * @param extraPerms permissions to be given
+   * @param sub dummy user component.
+   */
+  public DummyToken(String tenant, JsonArray extraPerms, String sub) {
     claims = new JsonObject()
-    .put("type", type)
-    .put("tenant", tenant)
-    .put("sub", "_AUTHZ_MODULE_")
-    .put("dummy", true)
-    .put("extra_permissions", extraPerms);
+      .put("type", type)
+      .put("tenant", tenant)
+      .put("sub", sub)
+      .put("dummy", true)
+      .put("extra_permissions", extraPerms);
   }
 
   /**
