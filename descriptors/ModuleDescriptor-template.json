@@ -5,41 +5,53 @@
     {
       "id": "authtoken",
       "version": "2.0",
-      "handlers" : [
+      "handlers": [
         {
-          "methods" : [ "POST" ],
-          "pathPattern" : "/token",
-          "permissionsRequired": []
+          "methods": [ "POST" ],
+          "pathPattern": "/token",
+          "permissionsRequired": [ "auth.signtoken" ]
         },
         {
-          "methods" : [ "POST" ],
-          "pathPattern" : "/refreshtoken",
-          "permissionsRequired": []
+          "methods": [ "POST" ],
+          "pathPattern": "/refreshtoken",
+          "permissionsRequired": [ "auth.signrefreshtoken" ]
         },
         {
-          "methods" : [ "POST" ],
-          "pathPattern" : "/refresh",
+          "methods": [ "POST" ],
+          "pathPattern": "/refresh",
           "permissionsRequired": []
         }
       ]
     }
   ],
-  "requires" : [
+  "requires": [
     {
-      "id" : "permissions",
-      "version" : "5.3"
+      "id": "permissions",
+      "version": "5.3"
     },
     {
-      "id" : "users",
-      "version" : "15.0"
+      "id": "users",
+      "version": "15.0"
     }
   ],
-  "filters" : [
+  "permissionSets": [
     {
-      "methods" : [ "*" ],
-      "pathPattern" : "/*",
-      "phase" : "auth",
-      "type" : "headers"
+      "permissionName": "auth.signtoken",
+      "displayName": "auth-token - sign token",
+      "description": "sign token"
+    },
+    {
+      "permissionName": "auth.signrefreshtoken",
+      "displayName": "auth-token - sign refresh token",
+      "description": "sign refresh token"
+    }
+  ],
+  "filters": [
+    {
+      "methods": [ "*" ],
+      "pathPattern": "/*",
+      "phase": "auth",
+      "type": "headers"
     }
   ],
   "launchDescriptor": {
