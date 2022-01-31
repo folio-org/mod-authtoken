@@ -1,6 +1,10 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.json.JsonObject;
+
+import java.time.Instant;
+import java.util.UUID;
+
 import io.vertx.core.Future;
 
 /**
@@ -21,6 +25,9 @@ public class ApiToken extends Token {
     claims = new JsonObject();
     claims.put("type", type);
     claims.put("tenant", tenant);
+    long now = Instant.now().getEpochSecond();
+    claims.put("iat", now);
+    claims.put("jti", UUID.randomUUID().toString());
 
     // TODO Determine if API tokens have a sub and a user_id.
     // It could be that these belong to the user who manages the API token.

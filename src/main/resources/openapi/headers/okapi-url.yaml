@@ -1,0 +1,6 @@
+in: header
+name: X-Okapi-Url
+description: Okapi URL
+required: false
+schema:
+  type: string

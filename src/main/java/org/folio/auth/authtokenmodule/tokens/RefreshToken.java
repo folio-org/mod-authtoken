@@ -1,7 +1,6 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.Future;
-import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import java.time.Instant;
 import java.util.UUID;

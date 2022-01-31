@@ -3,13 +3,18 @@ package org.folio.auth.authtokenmodule;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
+import org.folio.tlib.api.HealthApi;
 import org.folio.tlib.RouterCreator;
+import org.folio.tlib.api.Tenant2Api;
+
 import io.vertx.ext.web.client.WebClient;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.config.Configurator;
 import com.nimbusds.jose.JOSEException;
+
+import org.folio.tlib.postgres.TenantPgPool;
 
 public class MainVerticle extends AbstractVerticle {
 
@@ -27,6 +32,8 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public void start(Promise<Void> promise) throws MissingAlgorithmException {
+    TenantPgPool.setModule("mod-authtoken"); // Postgres - schema separation
+
     // Get the port from context too, the unit test needs to set it there.
     final String defaultPort = context.config().getString("port", "8081");
     final String portStr = System.getProperty("http.port", System.getProperty("port", defaultPort));
@@ -41,13 +48,20 @@ public class MainVerticle extends AbstractVerticle {
       throw new MissingAlgorithmException("Unable to initialize TokenCreator: " + e.getMessage(), e);
     }
 
+    var authorizeApi = new AuthorizeApi(vertx, tokenCreator);
+    //var myApi = new MyApi();
     RouterCreator[] routerCreators = {
+      // TODO This works.
+      // myApi,
+      // new Tenant2Api(myApi),
+      // TODO This works in this order, but not with authorizeApi being first.
       new HealthApi(),
-      new AuthorizeApi(vertx, tokenCreator)
+      new Tenant2Api(authorizeApi),
+      authorizeApi,
     };
     HttpServerOptions so = new HttpServerOptions().setHandle100ContinueAutomatically(true);
 
-    RouterCreator.mountAll(vertx, WebClient.create(vertx), routerCreators)
+    RouterCreator.mountAll(vertx, routerCreators)
         .compose(route ->
             vertx.createHttpServer(so)
             .requestHandler(route)

@@ -1,0 +1,15 @@
+{
+  "description": "Titles response",
+  "type": "object",
+  "properties": {
+    "titles": {
+      "description": "List of titles",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "$ref": "title.json"
+      }
+    }
+  },
+  "additionalProperties": false
+}

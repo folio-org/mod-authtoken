@@ -6,6 +6,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.sqlclient.Tuple;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonArray;
@@ -16,6 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,7 +35,7 @@ import org.folio.okapi.common.logging.FolioLoggingContext;
 
 import org.folio.tlib.RouterCreator;
 import org.folio.tlib.TenantInitHooks;
-import io.vertx.ext.web.client.WebClient;
+import org.folio.tlib.postgres.TenantPgPool;
 
 import org.apache.commons.lang3.NotImplementedException;
 
@@ -91,14 +93,15 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     endText(ctx, code, "Error: ", t);
   }
 
-  public AuthorizeApi() {}
+  public AuthorizeApi() {
+  }
 
   public AuthorizeApi(Vertx vertx, TokenCreator tc) {
     authRoutingEntryList = new ArrayList<>();
     authRoutingEntryList.add(new AuthRoutingEntry("/token",
-        new String[] {SIGN_TOKEN_PERMISSION}, this::handleSignToken));
+        new String[] { SIGN_TOKEN_PERMISSION }, this::handleSignToken));
     authRoutingEntryList.add(new AuthRoutingEntry("/refreshtoken",
-        new String[] {SIGN_REFRESH_TOKEN_PERMISSION}, this::handleSignRefreshToken));
+        new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, this::handleSignRefreshToken));
     authRoutingEntryList.add(new AuthRoutingEntry("/refresh",
         new String[] {}, this::handleRefresh));
     authRoutingEntryList.add(new AuthRoutingEntry("/encrypted-token/create",
@@ -114,18 +117,20 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
     int userCachePurgeInSeconds = Integer.parseInt(System.getProperty("user.cache.purge.seconds", "43200")); // 12 hours
     int sysPermCacheInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.seconds", "259200")); // 3 days
-    int sysPermCachePurgeInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.purge.seconds", "43200")); // 12 hours
+    int sysPermCachePurgeInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.purge.seconds", "43200")); // 12
+                                                                                                                    // hours
 
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
-    permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds, sysPermCachePurgeInSeconds);
+    permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds,
+        sysPermCachePurgeInSeconds);
 
-    tokenStore = new TokenStore(vertx);
+    tokenStore = new TokenStore(vertx, tokenCreator);
   }
 
   @Override
-  public Future<Router> createRouter(Vertx vertx, WebClient webClient) {
+  public Future<Router> createRouter(Vertx vertx) {
     Router router = Router.router(vertx);
     router.route("/*").handler(BodyHandler.create());
     router.route("/*").handler(this::handleAuthorize);
@@ -134,7 +139,40 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
   @Override
   public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
-    throw new NotImplementedException("TODO");
+    // System.out.println("postInit is called");
+    // return TokenStore.createIfNotExists(vertx, tenant)
+    // .onFailure(h -> {
+    // System.out.println("Failure fired in postInit: " + h.getMessage());
+    // })
+    // .onComplete(h -> {
+    // System.out.println("Succeeded in postInit");
+    // });
+
+    logger.info("postInit fired");
+    if (!tenantAttributes.containsKey("module_to")) {
+      return Future.succeededFuture(); // doing nothing for disable
+    }
+    TenantPgPool pool = TenantPgPool.pool(vertx, tenant);
+    Future<Void> future = pool.query(
+        "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + ".mytable "
+            + "(id UUID PRIMARY key, title text)")
+        .execute().mapEmpty();
+    JsonArray parameters = tenantAttributes.getJsonArray("parameters");
+    if (parameters != null) {
+      for (int i = 0; i < parameters.size(); i++) {
+        JsonObject parameter = parameters.getJsonObject(i);
+        if ("loadSample".equals(parameter.getString("key"))
+            && "true".equals(parameter.getString("value"))) {
+          future = future.compose(x -> pool.preparedQuery("INSERT INTO " + pool.getSchema() + ".mytable"
+              + "(id, title) VALUES ($1, $2)")
+              .execute(Tuple.of(UUID.randomUUID(), "First title")).mapEmpty());
+          future = future.compose(x -> pool.preparedQuery("INSERT INTO " + pool.getSchema() + ".mytable"
+              + "(id, title) VALUES ($1, $2)")
+              .execute(Tuple.of(UUID.randomUUID(), "Second title")).mapEmpty());
+        }
+      }
+    }
+    return future;
   }
 
   private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {
@@ -158,19 +196,19 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       JsonObject requestJson;
       try {
         requestJson = parseJsonObject(content,
-          new String[]{"passPhrase", "payload"});
+            new String[] { "passPhrase", "payload" });
       } catch (Exception e) {
         String message = String.format("Unable to parse content: %s",
-          e.getLocalizedMessage());
+            e.getLocalizedMessage());
         endText(ctx, 400, message);
         return;
       }
       String passPhrase = requestJson.getString("passPhrase");
       TokenCreator localTokenCreator = lookupTokenCreator(passPhrase);
       String token = localTokenCreator.createJWEToken(requestJson.getJsonObject("payload")
-        .encode());
+          .encode());
       JsonObject responseJson = new JsonObject()
-        .put("token", token);
+          .put("token", token);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 400, e);
@@ -178,14 +216,14 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   }
 
   /*
-  Decode a provided JSON object into an encrypted token as a service
-  The content of the request should look like:
-  {
-      "passPhrase" : "",
-      "token" : {
-      }
-  }
-  */
+   * Decode a provided JSON object into an encrypted token as a service
+   * The content of the request should look like:
+   * {
+   * "passPhrase" : "",
+   * "token" : {
+   * }
+   * }
+   */
   private void handleDecodeEncryptedToken(RoutingContext ctx) {
     try {
       if (ctx.request().method() != HttpMethod.POST) {
@@ -197,10 +235,10 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       JsonObject requestJson;
       try {
         requestJson = parseJsonObject(content,
-          new String[]{"passPhrase", "token"});
+            new String[] { "passPhrase", "token" });
       } catch (Exception e) {
         String message = String.format("Unable to parse content: %s",
-          e.getLocalizedMessage());
+            e.getLocalizedMessage());
         endText(ctx, 400, message);
         return;
       }
@@ -209,25 +247,27 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       String token = requestJson.getString("token");
       String encodedJson = localTokenCreator.decodeJWEToken(token);
       JsonObject responseJson = new JsonObject()
-        .put("payload", new JsonObject(encodedJson));
+          .put("payload", new JsonObject(encodedJson));
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);
     }
   }
 
-   /*
-  In order to get a new access token, the client should issue a POST request
-  to the refresh endpoint, with the content being a JSON object with the following
-  structure:
-  {
-    "refreshToken" : ""
-  }. The module will then check the refresh token for validity, generate a new access token
-  and return it in the body of the response as a JSON object:
-  {
-    "token" : ""
-  }
-  */
+  /*
+   * In order to get a new access token, the client should issue a POST request
+   * to the refresh endpoint, with the content being a JSON object with the
+   * following
+   * structure:
+   * {
+   * "refreshToken" : ""
+   * }. The module will then check the refresh token for validity, generate a new
+   * access token
+   * and return it in the body of the response as a JSON object:
+   * {
+   * "token" : ""
+   * }
+   */
   private void handleRefresh(RoutingContext ctx) {
     try {
       logger.debug("Token refresh request from {}", ctx.request().absoluteURI());
@@ -253,7 +293,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
       tokenValidationResult.onFailure(h -> {
         if (h instanceof TokenValidationException) {
-          var e = (TokenValidationException)h;
+          var e = (TokenValidationException) h;
           logger.error("Invalid refresh token: {}", e.toString());
           endText(ctx, e.getHttpResponseCode(), "Invalid token");
           return;
@@ -285,18 +325,18 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   }
 
   /*
-  POST a request with a json payload, containing the following:
-  {
-    "userId" : "",
-    "sub" : ""
-  }
-  */
+   * POST a request with a json payload, containing the following:
+   * {
+   * "userId" : "",
+   * "sub" : ""
+   * }
+   */
   private void handleSignRefreshToken(RoutingContext ctx) {
     try {
       if (ctx.request().method() != HttpMethod.POST) {
         String message = String.format("Invalid method '%s' for this endpoint '%s'",
-          ctx.request().method().toString(),
-          ctx.request().absoluteURI());
+            ctx.request().method().toString(),
+            ctx.request().absoluteURI());
         endText(ctx, 400, message);
         return;
       }
@@ -323,10 +363,10 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   /*
    * Handle a request to sign a new token
    * (Typically used by login module)
-   Request content:
-  {
-    "payload" : { }
-  }
+   * Request content:
+   * {
+   * "payload" : { }
+   * }
    */
   private void handleSignToken(RoutingContext ctx) {
     try {
@@ -401,8 +441,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
         candidateToken = authToken;
       } else {
         endText(ctx, 400, "Conflicting token information in Authorization and "
-          + XOkapiHeaders.TOKEN + " headers. Please remove Authorization header "
-          + " and use " + XOkapiHeaders.TOKEN + " in the future");
+            + XOkapiHeaders.TOKEN + " headers. Please remove Authorization header "
+            + " and use " + XOkapiHeaders.TOKEN + " in the future");
         return;
       }
     } else if (okapiTokenHeader != null) {
@@ -417,19 +457,19 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       logger.debug("Generating dummy authtoken");
       try {
         candidateToken = new DummyToken(tenant,
-        ctx.request().remoteAddress().toString()).encodeAsJWT(tokenCreator);
-      } catch(Exception e) {
+            ctx.request().remoteAddress().toString()).encodeAsJWT(tokenCreator);
+      } catch (Exception e) {
         endText(ctx, 500, "Error creating candidate token: ", e);
         return;
       }
     }
 
     /*
-      In order to make our request to the permissions or users modules
-      we generate a custom token (since we have that power) that
-      has the necessary permissions in it. This prevents an
-      ugly 'lookup loop'.
-    */
+     * In order to make our request to the permissions or users modules
+     * we generate a custom token (since we have that power) that
+     * has the necessary permissions in it. This prevents an
+     * ugly 'lookup loop'.
+     */
     String permissionsRequestToken;
     String userRequestToken;
     try {
@@ -450,7 +490,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
     tokenValidationResult.onFailure(h -> {
       if (h instanceof TokenValidationException) {
-        var e = (TokenValidationException)h;
+        var e = (TokenValidationException) h;
         logger.error("Invalid refresh token: {}", e.toString());
         endText(ctx, e.getHttpResponseCode(), "Invalid token");
         return;
@@ -467,8 +507,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
       // At this point, since we have validated what we can, if there is no userId
       // in the header, we can get the userId from the token.
-      final String finalUserId = userId != null ? userId :
-        token.getClaims().getString("user_id");
+      final String finalUserId = userId != null ? userId : token.getClaims().getString("user_id");
 
       // Check and see if we have any module permissions defined.
       JsonArray extraPermissionsCandidate = token.getClaims().getJsonArray(EXTRA_PERMS);
@@ -493,12 +532,13 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       /* TODO get module permissions (if they exist) */
       if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
         JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS));
-        for(String moduleName : modulePermissions.fieldNames()) {
+        for (String moduleName : modulePermissions.fieldNames()) {
           JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
           String moduleToken;
           try {
-            moduleToken = new ModuleToken(tenant, username, finalUserId, moduleName, permissionList).encodeAsJWT(tokenCreator);
-          } catch(Exception e) {
+            moduleToken = new ModuleToken(tenant, username, finalUserId, moduleName, permissionList)
+                .encodeAsJWT(tokenCreator);
+          } catch (Exception e) {
             String message = String.format("Error creating moduleToken: %s",
                 e.getLocalizedMessage());
             logger.error(message);
@@ -512,13 +552,15 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       moduleTokens.put("_", authToken);
 
       /*
-      When the initial request comes in, as a filter, we require that the auth.signtoken
-      permission exists in the module tokens. This means that even if a request has
-      the permission in its permissions list, it cannot request a token unless
-      it has been granted at the module level. If it passes the filter successfully,
-      a new permission, auth.signtoken.execute is attached to the outgoing request
-      which the /token handler will check for when it processes the actual request
-      */
+       * When the initial request comes in, as a filter, we require that the
+       * auth.signtoken
+       * permission exists in the module tokens. This means that even if a request has
+       * the permission in its permissions list, it cannot request a token unless
+       * it has been granted at the module level. If it passes the filter
+       * successfully,
+       * a new permission, auth.signtoken.execute is attached to the outgoing request
+       * which the /token handler will check for when it processes the actual request
+       */
 
       for (AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
         if (authRoutingEntry.handleRoute(ctx, authToken, moduleTokens.encode())) {
@@ -556,7 +598,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
         usePermissionsSource.clearCache();
       }
 
-      //Retrieve the user permissions and populate the permissions header
+      // Retrieve the user permissions and populate the permissions header
       logger.debug("Getting user permissions for {} (finalUserId {})", username, finalUserId);
       long startTime = System.currentTimeMillis();
 
@@ -581,24 +623,25 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
         // Skip expanded system permissions.
         JsonArray extraPermsMinusSystemOnes = new JsonArray();
         extraPermissions.forEach(it -> {
-          if (!((String)it).startsWith(PermService.SYS_PERM_PREFIX)) {
+          if (!((String) it).startsWith(PermService.SYS_PERM_PREFIX)) {
             extraPermsMinusSystemOnes.add(it);
           }
         });
         return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
-          permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
+            permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
       });
 
       logger.debug("Retrieving permissions for userid {} and expanding permissions", finalUserId);
       retrievedPermissionsFuture.onComplete(res -> {
         if (res.failed()) {
-          // Vert.x 4 warns about this.. And it's true : response already written 19 lines above
+          // Vert.x 4 warns about this.. And it's true : response already written 19 lines
+          // above
           if (ctx.response().ended()) {
             return;
           }
           long stopTime = System.currentTimeMillis();
           logger.error("Unable to retrieve permissions for {}: {} request took {} ms",
-            username, res.cause().getMessage(), stopTime - startTime);
+              username, res.cause().getMessage(), stopTime - startTime);
           if (res.cause() instanceof UserService.UserServiceException) {
             endText(ctx, 401, "Invalid token: " + res.cause().getLocalizedMessage());
             return;
@@ -607,7 +650,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
           // If not, pre+post filters will NOT get modulePermissions from Okapi
           ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
           String msg = String.format("Unable to retrieve permissions for user with id '%s': %s",
-            finalUserId, res.cause().getLocalizedMessage());
+              finalUserId, res.cause().getLocalizedMessage());
           endText(ctx, 400, msg);
           return;
         }
@@ -617,13 +660,13 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
         mergePerms(permissions, res.result().getExpandedPermissions());
         mergePerms(permissions, expandedSystemPermissions);
 
-        //Check that for all required permissions, we have them
+        // Check that for all required permissions, we have them
         for (Object o : permissionsRequired) {
           if (!permissions.contains(o)
-            && !extraPermissions.contains(o)) {
+              && !extraPermissions.contains(o)) {
             logger.error(permissions.encode() + "{} (user permissions) nor {}"
-              + " (module permissions) do not contain {}",
-            permissions.encode(), extraPermissions.encode(), o);
+                + " (module permissions) do not contain {}",
+                permissions.encode(), extraPermissions.encode(), o);
             // mod-authtoken should return the module tokens header even in case of errors.
             // If not, pre+post filters will NOT get modulePermissions from Okapi
             ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
@@ -632,7 +675,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
           }
         }
 
-        // Remove all permissions not listed in permissionsRequired or permissionsDesired
+        // Remove all permissions not listed in permissionsRequired or
+        // permissionsDesired
         List<Object> deleteList = new ArrayList<>();
         for (Object o : permissions) {
           if (!permissionsRequired.contains(o) && !Util.arrayContainsGlob(permissionsDesired, (String) o)) {
@@ -647,7 +691,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
         String finalToken;
         try {
           finalToken = token.encodeAsJWT(tokenCreator);
-        } catch(Exception e) {
+        } catch (Exception e) {
           String message = String.format("Error creating final token: %s", e.getMessage());
           logger.error(message);
           // mod-authtoken should return the module tokens header even in case of errors.
@@ -659,13 +703,13 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
         // Return header containing relevant permissions
         ctx.response()
-                .setChunked(true)
-                .setStatusCode(202)
-                .putHeader(MainVerticle.CONTENT_TYPE, "text/plain")
-                .putHeader(XOkapiHeaders.PERMISSIONS, permissions.encode())
-                .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
-                .putHeader("Authorization", "Bearer " + finalToken)
-                .putHeader(XOkapiHeaders.TOKEN, finalToken);
+            .setChunked(true)
+            .setStatusCode(202)
+            .putHeader(MainVerticle.CONTENT_TYPE, "text/plain")
+            .putHeader(XOkapiHeaders.PERMISSIONS, permissions.encode())
+            .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
+            .putHeader("Authorization", "Bearer " + finalToken)
+            .putHeader(XOkapiHeaders.TOKEN, finalToken);
 
         if (finalUserId != null) {
           ctx.response().putHeader(XOkapiHeaders.USER_ID, finalUserId);
@@ -696,13 +740,13 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   }
 
   private JsonObject parseJsonObject(String encoded, String[] requiredMembers)
-    throws AuthtokenException {
+      throws AuthtokenException {
     JsonObject json;
     try {
       json = new JsonObject(encoded);
     } catch (Exception e) {
       throw new AuthtokenException(String.format("Unable to parse JSON %s: %s", encoded,
-        e.getLocalizedMessage()));
+          e.getLocalizedMessage()));
     }
     for (String s : requiredMembers) {
       if (!json.containsKey(s)) {

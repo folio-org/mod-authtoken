@@ -1,0 +1,19 @@
+{
+  "description": "A title",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Title identifier",
+      "format": "uuid"
+    },
+    "title": {
+      "type": "string",
+      "description": "Title text"
+    }
+  },
+  "required": [
+    "id", "title"
+  ],
+  "additionalProperties": false
+}

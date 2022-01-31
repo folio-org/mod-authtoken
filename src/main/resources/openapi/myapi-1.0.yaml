@@ -1,0 +1,72 @@
+openapi: 3.0.0
+info:
+  title: Tenant API
+  version: v2
+paths:
+  /titles:
+    parameters:
+      - $ref: headers/okapi-tenant.yaml
+      - $ref: headers/okapi-token.yaml
+      - $ref: headers/okapi-url.yaml
+    post:
+      description: create title
+      operationId: postTitles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/title"
+        required: true
+      responses:
+        "204":
+          description: Title created
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "500":
+          $ref: "#/components/responses/trait_500"
+    get:
+      description: Get titles
+      operationId: getTitles
+      parameters:
+      - in: query
+        name: query
+        required: false
+        description: CQL
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Titles returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/titles"
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "500":
+          $ref: "#/components/responses/trait_500"
+components:
+  responses:
+    trait_400:
+      description: Bad request
+      content:
+        text/plain:
+          schema:
+            type: string
+            example: Invalid JSON in request
+        application/json:
+          schema:
+            type: object
+            example: {"error":"Invalid JSON in request"}
+    trait_500:
+      description: Internal error
+      content:
+        text/plain:
+          schema:
+            type: string
+            example: Internal server error, contact administrator
+  schemas:
+    titles:
+      $ref: schemas/titles.json
+    title:
+      $ref: schemas/title.json
