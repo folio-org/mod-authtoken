@@ -6,6 +6,7 @@ import io.restassured.response.Response;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -22,6 +23,7 @@ import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
+import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -33,6 +35,7 @@ import org.junit.Test;
 import static io.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -1043,15 +1046,21 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void tenantInit(TestContext context) {
-    tenantOp(tenant, new JsonObject()
-        .put("module_to", "mod-mymodule-1.0.0")
-            .put("parameters", new JsonArray()
-                .add(new JsonObject().put("key", "loadSample").put("value", "true")))
-        , null);
+  public void testTokenStore(TestContext context) throws ParseException, JOSEException {
+    initializeTenant(tenant, new JsonObject(), null);
+
+    var ts = new TokenStore(vertx, tokenCreator);
+    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    ts.saveToken(rt).onComplete(context.asyncAssertSuccess(x -> {
+      ts.checkTokenRevoked(rt, revoked -> {
+        assertFalse(revoked);
+      });
+    }));
   }
 
-  void tenantOp(String tenant, JsonObject tenantAttributes, String expectedError) {
+  // TODO Write some tests that make use of the expectedError.
+  void initializeTenant(String tenant, JsonObject tenantAttributes, String expectedError) {
+    // This request triggers postInit inside of AuthorizeApi.
     ExtractableResponse<Response> response = RestAssured.given()
         .header(XOkapiHeaders.TENANT, tenant)
         .header(XOkapiHeaders.URL, "http://localhost:" + port)
@@ -1065,8 +1074,6 @@ public class AuthTokenTest {
       return;
     }
 
-    System.out.println("Response is " + response.body().asString());
-
     assertThat(response.statusCode(), is(201));
     String location = response.header("Location");
     JsonObject tenantJob = new JsonObject(response.asString());
@@ -1079,10 +1086,10 @@ public class AuthTokenTest {
         .body("complete", is(true))
         .body("error", is(expectedError));
 
-    RestAssured.given()
-        .header(XOkapiHeaders.TENANT, tenant)
-        .delete(location)
-        .then().statusCode(204);
+    // RestAssured.given()
+    //     .header(XOkapiHeaders.TENANT, tenant)
+    //     .delete(location)
+    //     .then().statusCode(204);
   }
 
 

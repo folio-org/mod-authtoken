@@ -139,40 +139,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
   @Override
   public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
-    // System.out.println("postInit is called");
-    // return TokenStore.createIfNotExists(vertx, tenant)
-    // .onFailure(h -> {
-    // System.out.println("Failure fired in postInit: " + h.getMessage());
-    // })
-    // .onComplete(h -> {
-    // System.out.println("Succeeded in postInit");
-    // });
-
     logger.info("postInit fired");
-    if (!tenantAttributes.containsKey("module_to")) {
-      return Future.succeededFuture(); // doing nothing for disable
-    }
-    TenantPgPool pool = TenantPgPool.pool(vertx, tenant);
-    Future<Void> future = pool.query(
-        "CREATE TABLE IF NOT EXISTS " + pool.getSchema() + ".mytable "
-            + "(id UUID PRIMARY key, title text)")
-        .execute().mapEmpty();
-    JsonArray parameters = tenantAttributes.getJsonArray("parameters");
-    if (parameters != null) {
-      for (int i = 0; i < parameters.size(); i++) {
-        JsonObject parameter = parameters.getJsonObject(i);
-        if ("loadSample".equals(parameter.getString("key"))
-            && "true".equals(parameter.getString("value"))) {
-          future = future.compose(x -> pool.preparedQuery("INSERT INTO " + pool.getSchema() + ".mytable"
-              + "(id, title) VALUES ($1, $2)")
-              .execute(Tuple.of(UUID.randomUUID(), "First title")).mapEmpty());
-          future = future.compose(x -> pool.preparedQuery("INSERT INTO " + pool.getSchema() + ".mytable"
-              + "(id, title) VALUES ($1, $2)")
-              .execute(Tuple.of(UUID.randomUUID(), "Second title")).mapEmpty());
-        }
-      }
-    }
-    return future;
+    return TokenStore.createIfNotExists(vertx, tenant);
   }
 
   private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {

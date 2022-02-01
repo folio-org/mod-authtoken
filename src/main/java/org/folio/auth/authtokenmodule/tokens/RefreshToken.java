@@ -15,6 +15,10 @@ public class RefreshToken extends Token {
    */
   public static final String type = "refresh";
 
+  public UUID getId() {
+    return UUID.fromString(claims.getString("jti"));
+  }
+
   // TODO This could be obtained from the env.
   int expirationSeconds = 60 * 60 * 24;
 

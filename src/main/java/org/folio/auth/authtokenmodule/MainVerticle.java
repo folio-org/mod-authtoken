@@ -49,12 +49,9 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     var authorizeApi = new AuthorizeApi(vertx, tokenCreator);
-    //var myApi = new MyApi();
     RouterCreator[] routerCreators = {
-      // TODO This works.
-      // myApi,
-      // new Tenant2Api(myApi),
-      // TODO This works in this order, but not with authorizeApi being first.
+      // TODO Make it more clear here what is going on.
+      // NOTE Adding these in this order is important.
       new HealthApi(),
       new Tenant2Api(authorizeApi),
       authorizeApi,

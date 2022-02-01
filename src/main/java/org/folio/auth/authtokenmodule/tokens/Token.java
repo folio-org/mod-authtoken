@@ -34,6 +34,10 @@ public abstract class Token {
   }
   protected JsonObject claims;
 
+  public String getTenant() {
+    return claims.getString("tenant");
+  }
+
   /**
    * All implementors of Token are required to implement this method. Validation should
    * consist of all operations necessary to determine whether the token can authorize
