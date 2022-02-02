@@ -13,6 +13,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.sqlclient.SqlConnection;
 import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
@@ -25,6 +26,7 @@ import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.okapi.common.XOkapiHeaders;
+import org.folio.tlib.postgres.TenantPgPool;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.junit.AfterClass;
@@ -1047,15 +1049,21 @@ public class AuthTokenTest {
 
   @Test
   public void testTokenStore(TestContext context) throws ParseException, JOSEException {
+    // Setting this makes it even more un-reliable.
+    //TenantPgPool.setMaxPoolSize("100");
     initializeTenant(tenant, new JsonObject(), null);
 
+    Async async1 = context.async();
+    Async async2 = context.async();
     var ts = new TokenStore(vertx, tokenCreator);
     var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
     ts.saveToken(rt).onComplete(context.asyncAssertSuccess(x -> {
-      ts.checkTokenRevoked(rt, revoked -> {
-        assertFalse(revoked);
-      });
+      async1.complete();
+      ts.checkTokenNotRevoked(rt).onComplete(context.asyncAssertSuccess(h -> {
+        async2.complete();
+      }));
     }));
+
   }
 
   // TODO Write some tests that make use of the expectedError.

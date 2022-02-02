@@ -18,6 +18,8 @@ import org.apache.logging.log4j.Logger;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.SqlConnection;
 import io.vertx.sqlclient.Tuple;
 
 import org.folio.tlib.postgres.TenantPgPool;
@@ -44,18 +46,13 @@ public class TokenStore {
         "(id UUID PRIMARY key, user_id UUID, token TEXT, " +
         "is_revoked BOOLEAN NOT NULL, issued_at INT8 NOT NULL)";
 
-    // TODO This comes back as Illegal state exception result is already complete
-    // Future<Void> future = pool.query(createType).execute().mapEmpty();
-    // return future.compose(x -> pool.query(createTable).execute().mapEmpty());
-
-    // This works.
     return pool.query(createTable).execute().mapEmpty();
   }
 
   public Future<Void> saveToken(RefreshToken rt) throws JOSEException, ParseException {
     UUID id = rt.getId();
+    // TODO Make these getters to clean this up a bit.
     UUID userId = UUID.fromString(rt.getClaims().getString("user_id"));
-    String tenant = rt.getClaims().getString("tenant");
     long issuedAt = rt.getClaims().getLong("iat");
     boolean isRevoked = false;
 
@@ -67,18 +64,13 @@ public class TokenStore {
     String insert = "INSERT INTO " + tableName(pool, "refresh") +
         "(id, user_id, token, is_revoked, issued_at) VALUES ($1, $2, $3, $4, $5)";
     var tuple = Tuple.of(id, userId, token, isRevoked, issuedAt);
-    return pool.preparedQuery(insert).execute(tuple).mapEmpty();
 
-    // TODO This works, but doing the query with the pattern below in
-    // checkTokenRevoked
-    // does not. I'm not sure if this is the fix for pool being occasionally closed.
-    // return withPool(tenant, pool -> {
-    // String insert = "INSERT INTO " + tableName(pool, "refresh") +
-    // "(id, user_id, token, is_revoked, issued_at) VALUES ($1, $2, $3, $4, $5)";
-    // var tuple = Tuple.of(id, userId, token, isRevoked, issuedAt);
+    log.info("Inserting token id {} into token store", id);
 
-    // return pool.preparedQuery(insert).execute(tuple).mapEmpty();
-    // });
+    return pool.preparedQuery(insert).execute(tuple).compose(x -> {
+      pool.close();
+      return Future.succeededFuture();
+    });
   }
 
   public Future<Void> saveToken(ApiToken t) throws JOSEException {
@@ -94,18 +86,24 @@ public class TokenStore {
     throw new NotImplementedException("TODO");
   }
 
-  public void checkTokenRevoked(RefreshToken rt, Handler<Boolean> resultHandler) {
-    log.info("calling checkTokenRevoked");
+  public Future<Void> checkTokenNotRevoked(RefreshToken rt) {
     TenantPgPool pool = TenantPgPool.pool(vertx, rt.getTenant());
-    String select = "SELECT * FROM " + tableName(pool, "refresh") + "WHERE id='" + rt.getId() + "'";
-    pool.query(select).execute(ar -> {
-      if (ar.succeeded()) {
-        log.info("Got rows {}", ar.result().rowCount());
-        resultHandler.handle(false);
-        return;
+    String select = "SELECT is_revoked FROM " + tableName(pool, "refresh") + "WHERE id=$1";
+    Tuple where = Tuple.of(rt.getId());
+    return pool.preparedQuery(select).execute(where).compose(rows -> {
+      if (rows.rowCount() == 0) {
+        log.error("Token with id {} not found in token store. Token is treated as revoked.", rt.getId());
+        pool.close();
+        return Future.failedFuture("Token not found");
       }
-      log.error("Error getting rows: {}", ar.cause().getMessage());
-      resultHandler.handle(true);
+      Row row = rows.iterator().next();
+      Boolean isRevoked = row.getBoolean("is_revoked");
+      log.info("Revoked status of token id {} is {}", rt.getId(), isRevoked);
+      pool.close();
+      if (!isRevoked) {
+        return Future.succeededFuture();
+      }
+      return Future.failedFuture("Token is revoked");
     });
   }
 
