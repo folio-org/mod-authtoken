@@ -6,14 +6,12 @@ import io.restassured.response.Response;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
 import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-import io.vertx.sqlclient.SqlConnection;
 import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
@@ -22,11 +20,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
+import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.okapi.common.XOkapiHeaders;
-import org.folio.tlib.postgres.TenantPgPool;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.junit.AfterClass;
@@ -129,6 +127,8 @@ public class AuthTokenTest {
         });
       }
     });
+
+    initializeTenantForTokenStore(tenant, new JsonObject(), null);
   }
 
   @AfterClass
@@ -140,8 +140,7 @@ public class AuthTokenTest {
     });
   }
 
-  public AuthTokenTest() {
-  }
+  public AuthTokenTest() {}
 
   /**
    * Test simple permission handling. Since this test will run without Okapi or
@@ -195,7 +194,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void test1(TestContext context) throws JOSEException, ParseException {
+  public void testHttpEndpoints(TestContext context) throws JOSEException, ParseException {
     async = context.async();
     logger.debug("AuthToken test1 starting");
 
@@ -1048,14 +1047,10 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testTokenStore(TestContext context) throws ParseException, JOSEException {
-    // Setting this makes it even more un-reliable.
-    //TenantPgPool.setMaxPoolSize("100");
-    initializeTenant(tenant, new JsonObject(), null);
-
+  public void testTokenStoreSaveRefreshToken(TestContext context) {
+    var ts = new TokenStore(vertx, tokenCreator);
     Async async1 = context.async();
     Async async2 = context.async();
-    var ts = new TokenStore(vertx, tokenCreator);
     var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
     ts.saveToken(rt).onComplete(context.asyncAssertSuccess(x -> {
       async1.complete();
@@ -1063,11 +1058,34 @@ public class AuthTokenTest {
         async2.complete();
       }));
     }));
-
   }
 
-  // TODO Write some tests that make use of the expectedError.
-  void initializeTenant(String tenant, JsonObject tenantAttributes, String expectedError) {
+  @Test
+  public void testTokenStoreTokenNotFound(TestContext context) {
+    var ts = new TokenStore(vertx, tokenCreator);
+    Async async2 = context.async();
+    var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(h -> {
+      async2.complete();
+    }));
+  }
+
+  @Test
+  public void testTokenStoreSaveApiToken(TestContext context) {
+    var ts = new TokenStore(vertx, tokenCreator);
+    Async async1 = context.async();
+    Async async2 = context.async();
+    var apiToken = new ApiToken(tenant);
+    ts.saveToken(apiToken).onComplete(context.asyncAssertSuccess(x -> {
+      async1.complete();
+      ts.checkTokenNotRevoked(apiToken).onComplete(context.asyncAssertSuccess(h -> {
+        async2.complete();
+      }));
+    }));
+  }
+
+  // Taken from folio-vertx-lib's tests.
+  static void initializeTenantForTokenStore(String tenant, JsonObject tenantAttributes, String expectedError) {
     // This request triggers postInit inside of AuthorizeApi.
     ExtractableResponse<Response> response = RestAssured.given()
         .header(XOkapiHeaders.TENANT, tenant)
@@ -1094,11 +1112,10 @@ public class AuthTokenTest {
         .body("complete", is(true))
         .body("error", is(expectedError));
 
+    // TODO Investigate what this does.
     // RestAssured.given()
     //     .header(XOkapiHeaders.TENANT, tenant)
     //     .delete(location)
     //     .then().statusCode(204);
   }
-
-
 }

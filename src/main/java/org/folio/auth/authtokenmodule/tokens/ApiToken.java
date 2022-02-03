@@ -16,12 +16,19 @@ public class ApiToken extends Token {
    */
   public static final String type = "api";
 
+  public UUID getId() {
+    return UUID.fromString(claims.getString("jti"));
+  }
+
+  public long getIssuedAt() {
+    return claims.getLong("iat");
+  }
+
   /**
    * Create a new ApiToken.
    * @param tenant The current tenant.
-   * @param userId The user id of the user who is associated with the token.
    */
-  public ApiToken(String tenant, String userId) {
+  public ApiToken(String tenant) {
     claims = new JsonObject();
     claims.put("type", type);
     claims.put("tenant", tenant);

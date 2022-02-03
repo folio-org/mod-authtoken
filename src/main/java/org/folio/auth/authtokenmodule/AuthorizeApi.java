@@ -140,7 +140,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   @Override
   public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
     logger.info("postInit fired");
-    return TokenStore.createIfNotExists(vertx, tenant);
+    // TODO Is it ok to new this here or can we assume that the TokenStore will exist?
+    return tokenStore.createIfNotExists(vertx, tenant);
   }
 
   private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {

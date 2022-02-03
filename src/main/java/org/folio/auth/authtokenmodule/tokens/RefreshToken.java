@@ -19,6 +19,14 @@ public class RefreshToken extends Token {
     return UUID.fromString(claims.getString("jti"));
   }
 
+  public UUID getUserId() {
+    return UUID.fromString(claims.getString("user_id"));
+  }
+
+  public long getIssuedAt() {
+    return claims.getLong("iat");
+  }
+
   // TODO This could be obtained from the env.
   int expirationSeconds = 60 * 60 * 24;
 
