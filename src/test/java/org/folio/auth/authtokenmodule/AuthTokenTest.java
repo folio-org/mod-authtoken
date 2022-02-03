@@ -19,6 +19,9 @@ import java.text.ParseException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
+import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
+import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
+import org.folio.auth.authtokenmodule.storage.TokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
@@ -1048,7 +1051,7 @@ public class AuthTokenTest {
 
   @Test
   public void testStoreSaveRefreshToken(TestContext context) {
-    var ts = new TokenStore(vertx, tokenCreator);
+    var ts = new RefreshTokenStore(vertx);
     Async async1 = context.async();
     Async async2 = context.async();
     var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
@@ -1062,7 +1065,7 @@ public class AuthTokenTest {
 
   @Test
   public void testStoreRefreshTokenNotFound(TestContext context) {
-    var ts = new TokenStore(vertx, tokenCreator);
+    var ts = new RefreshTokenStore(vertx);
     Async async = context.async();
     // A RefreshToken which doesn't exist is treated as revoked.
     var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
@@ -1073,7 +1076,7 @@ public class AuthTokenTest {
 
   @Test
   public void testStoreSaveApiToken(TestContext context) {
-    var ts = new TokenStore(vertx, tokenCreator);
+    var ts = new ApiTokenStore(vertx, tokenCreator);
     Async async1 = context.async();
     Async async2 = context.async();
     var apiToken = new ApiToken(tenant);
@@ -1087,7 +1090,7 @@ public class AuthTokenTest {
 
   @Test
   public void testStoreApiTokenNotFound(TestContext context) {
-    var ts = new TokenStore(vertx, tokenCreator);
+    var ts = new ApiTokenStore(vertx, tokenCreator);
     Async async = context.async();
     // A RefreshToken which doesn't exist in storage is treated as revoked.
     var unsavedToken = new ApiToken(tenant);

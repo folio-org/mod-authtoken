@@ -6,7 +6,6 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
-import io.vertx.sqlclient.Tuple;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonArray;
@@ -17,12 +16,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
+import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
+import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
+import org.folio.auth.authtokenmodule.storage.TokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
@@ -35,9 +36,6 @@ import org.folio.okapi.common.logging.FolioLoggingContext;
 
 import org.folio.tlib.RouterCreator;
 import org.folio.tlib.TenantInitHooks;
-import org.folio.tlib.postgres.TenantPgPool;
-
-import org.apache.commons.lang3.NotImplementedException;
 
 import static java.lang.Boolean.TRUE;
 
@@ -69,7 +67,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
 
-  private TokenStore tokenStore;
+  private RefreshTokenStore refreshTokenStore;
+  private ApiTokenStore apiTokenStore;
 
   private static void endText(RoutingContext ctx, int code, String msg) {
     logger.error(msg);
@@ -126,7 +125,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds,
         sysPermCachePurgeInSeconds);
 
-    tokenStore = new TokenStore(vertx, tokenCreator);
+    apiTokenStore = new ApiTokenStore(vertx, tokenCreator);
+    refreshTokenStore = new RefreshTokenStore(vertx);
   }
 
   @Override
@@ -139,9 +139,9 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
   @Override
   public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
-    logger.info("postInit fired");
-    // TODO Is it ok to new this here or can we assume that the TokenStore will exist?
-    return tokenStore.createIfNotExists(vertx, tenant);
+    return refreshTokenStore.createIfNotExists(vertx, tenant).compose(x -> {
+      return apiTokenStore.createIfNotExists(vertx, tenant);
+    });
   }
 
   private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {
