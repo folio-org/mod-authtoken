@@ -1047,7 +1047,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testTokenStoreSaveRefreshToken(TestContext context) {
+  public void testStoreSaveRefreshToken(TestContext context) {
     var ts = new TokenStore(vertx, tokenCreator);
     Async async1 = context.async();
     Async async2 = context.async();
@@ -1061,17 +1061,18 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testTokenStoreTokenNotFound(TestContext context) {
+  public void testStoreRefreshTokenNotFound(TestContext context) {
     var ts = new TokenStore(vertx, tokenCreator);
-    Async async2 = context.async();
+    Async async = context.async();
+    // A RefreshToken which doesn't exist is treated as revoked.
     var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
     ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(h -> {
-      async2.complete();
+      async.complete();
     }));
   }
 
   @Test
-  public void testTokenStoreSaveApiToken(TestContext context) {
+  public void testStoreSaveApiToken(TestContext context) {
     var ts = new TokenStore(vertx, tokenCreator);
     Async async1 = context.async();
     Async async2 = context.async();
@@ -1081,6 +1082,17 @@ public class AuthTokenTest {
       ts.checkTokenNotRevoked(apiToken).onComplete(context.asyncAssertSuccess(h -> {
         async2.complete();
       }));
+    }));
+  }
+
+  @Test
+  public void testStoreApiTokenNotFound(TestContext context) {
+    var ts = new TokenStore(vertx, tokenCreator);
+    Async async = context.async();
+    // A RefreshToken which doesn't exist in storage is treated as revoked.
+    var unsavedToken = new ApiToken(tenant);
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(h -> {
+      async.complete();
     }));
   }
 
