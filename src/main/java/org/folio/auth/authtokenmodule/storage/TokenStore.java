@@ -6,6 +6,7 @@ import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import io.netty.util.concurrent.SucceededFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.sqlclient.Row;
@@ -28,13 +29,7 @@ public class TokenStore {
     String select = "SELECT is_revoked FROM " + tableName(tenant, tableNameSuffix) + "WHERE id=$1";
     Tuple where = Tuple.of(tokenId);
 
-    return withPool(tenant, pool -> pool.preparedQuery(select).execute(where)).compose(rows -> {
-      if (rows.rowCount() == 0) {
-        String msg = "Token with id {} not found in {} token store. Token is treated as revoked.";
-        log.error(msg, tokenId, tableNameSuffix);
-        return Future.failedFuture("Token not found");
-      }
-      Row row = rows.iterator().next();
+    return getRow(tenant, select, where).compose(row -> {
       Boolean isRevoked = row.getBoolean("is_revoked");
 
       log.info("Revoked status of {} token id {} is {}", tableNameSuffix, tokenId, isRevoked);
@@ -43,6 +38,18 @@ public class TokenStore {
         return Future.succeededFuture();
       }
       return Future.failedFuture("Token is revoked");
+    });
+  }
+
+  protected Future<Row> getRow(String tenant, String select, Tuple where) {
+    return withPool(tenant, pool -> pool.preparedQuery(select).execute(where)).compose(rows -> {
+      if (rows.rowCount() == 0) {
+        String msg = "Token with id {} not found in token store";
+        log.error(msg, where.toString());
+        return Future.failedFuture("Token not found");
+      }
+      Row row = rows.iterator().next();
+      return Future.succeededFuture(row);
     });
   }
 

@@ -38,7 +38,7 @@ public class RefreshTokenStore extends TokenStore {
         "(id UUID PRIMARY key, user_id UUID NOT NULL, is_redeemed BOOLEAN NOT NULL, " +
         "is_revoked BOOLEAN NOT NULL, issued_at INT8 NOT NULL)";
 
-    log.info("Creating {} tables", TokenStore.class.getName());
+    log.info("Creating {} tables", RefreshTokenStore.class.getName());
 
     return withPool(tenant, pool -> pool.query(createTable).execute()).mapEmpty();
   }
@@ -61,9 +61,14 @@ public class RefreshTokenStore extends TokenStore {
   }
 
   public Future<Void> checkTokenNotRevoked(RefreshToken rt) {
-    // Get redeemed for token
-    // If redeemed is false, setTokenRedeemed, checkTokenNotRevoked
+    // TODO Implement this logic:
+    // Get is_redeemed for token. If token not found treat as revoked.
+    // If is_redeemed is false, setTokenRedeemed, checkTokenNotRevoked since it could have been revoked
+    // by another client or party attempting to redeem a different one or it. It doesn't matter.
     // Else setAllRefreshTokensRevokedForUser and return failedFuture
+
+    // If it has been redeemed, it's been leaked, since an RT can only be presented
+    // for redemption once.
 
     return checkTokenNotRevoked(rt.getTenant(), rt.getId(), REFRESH_TOKEN_SUFFIX);
   }
@@ -78,13 +83,7 @@ public class RefreshTokenStore extends TokenStore {
     String select = "SELECT is_redeemed FROM " + table + "WHERE id=$1";
     Tuple where = Tuple.of(tokenId);
 
-    return withPool(tenant, pool -> pool.preparedQuery(select).execute(where)).compose(rows -> {
-      if (rows.rowCount() == 0) {
-        String msg = "Token with id {} not found in {} token store. Token is treated as redeemed.";
-        log.error(msg, tokenId, REFRESH_TOKEN_SUFFIX);
-        return Future.failedFuture("Token not found, treated as redeemed");
-      }
-      Row row = rows.iterator().next();
+    return getRow(tenant, select, where).compose(row -> {
       Boolean isRedeemed = row.getBoolean("is_redeemed");
 
       log.info("Redeemed status of {} token id {} is {}", REFRESH_TOKEN_SUFFIX, tokenId, isRedeemed);
@@ -109,7 +108,8 @@ public class RefreshTokenStore extends TokenStore {
     return withPool(tenant, pool -> pool.preparedQuery(update).execute(where)).mapEmpty();
   }
 
-  private Future<Void> setAllRevokedForUser(String tenant, String userId) {
+  // TODO this should probably be done in a transaction.
+  private Future<Void> setAllRefreshTokensRevokedForUser(String tenant, String userId) {
     log.info("Setting all refresh tokens for user id {} to revoked", userId);
 
     String update = "UPDATE " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +

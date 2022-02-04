@@ -1099,6 +1099,13 @@ public class AuthTokenTest {
     }));
   }
 
+  @Test
+  public void testStoreRefreshSingleUse(TestContext context) {
+    // Add some refresh tokens for a user.
+    // Call checkTokenNotRevoked more than once for one of them. Should revoke all tokens for the user.
+    // Call checkTokenNotRevoked for another one. It should be revoked.
+  }
+
   // Taken from folio-vertx-lib's tests.
   static void initializeTenantForTokenStore(String tenant, JsonObject tenantAttributes, String expectedError) {
     // This request triggers postInit inside of AuthorizeApi.
