@@ -19,6 +19,7 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.appender.rolling.OnStartupTriggeringPolicy;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
@@ -66,9 +67,6 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   private List<AuthRoutingEntry> authRoutingEntryList;
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
-
-  private RefreshTokenStore refreshTokenStore;
-  private ApiTokenStore apiTokenStore;
 
   private static void endText(RoutingContext ctx, int code, String msg) {
     logger.error(msg);
@@ -124,9 +122,6 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
     permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds,
         sysPermCachePurgeInSeconds);
-
-    apiTokenStore = new ApiTokenStore(vertx, tokenCreator);
-    refreshTokenStore = new RefreshTokenStore(vertx);
   }
 
   @Override
@@ -139,8 +134,14 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
   @Override
   public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
-    return refreshTokenStore.createIfNotExists(vertx, tenant).compose(x -> {
-      return apiTokenStore.createIfNotExists(vertx, tenant);
+    var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
+    var apiTokenStore = new ApiTokenStore(vertx, tenant, tokenCreator);
+    return refreshTokenStore.connect().compose(conn -> {
+      return refreshTokenStore.createIfNotExists(conn);
+    }).compose(x -> {
+      return apiTokenStore.connect().compose(conn -> {
+        return apiTokenStore.createIfNotExists(conn);
+      });
     });
   }
 

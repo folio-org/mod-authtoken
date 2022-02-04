@@ -5,7 +5,10 @@ import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
+
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -28,6 +31,7 @@ import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.okapi.common.XOkapiHeaders;
+import org.folio.tlib.postgres.TenantPgPool;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.junit.AfterClass;
@@ -1051,51 +1055,59 @@ public class AuthTokenTest {
 
   @Test
   public void testStoreSaveRefreshToken(TestContext context) {
-    var ts = new RefreshTokenStore(vertx);
-    Async async1 = context.async();
-    Async async2 = context.async();
-    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    ts.saveToken(rt).onComplete(context.asyncAssertSuccess(x -> {
-      async1.complete();
-      ts.checkTokenNotRevoked(rt).onComplete(context.asyncAssertSuccess(h -> {
-        async2.complete();
+    var ts = new RefreshTokenStore(vertx, tenant);
+    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
+      Async async1 = context.async();
+      Async async2 = context.async();
+      var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+      ts.saveToken(conn, rt).onComplete(context.asyncAssertSuccess(x -> {
+        async1.complete();
+        ts.checkTokenNotRevoked(conn, rt).onComplete(context.asyncAssertSuccess(h -> {
+          async2.complete();
+        })).eventually(y -> conn.close());
       }));
     }));
   }
 
   @Test
   public void testStoreRefreshTokenNotFound(TestContext context) {
-    var ts = new RefreshTokenStore(vertx);
+    var ts = new RefreshTokenStore(vertx, tenant);
     Async async = context.async();
     // A RefreshToken which doesn't exist is treated as revoked.
     var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(h -> {
-      async.complete();
+    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
+      ts.checkTokenNotRevoked(conn, unsavedToken).onComplete(context.asyncAssertFailure(y -> {
+        async.complete();
+      })).eventually(z -> conn.close());
     }));
   }
 
   @Test
   public void testStoreSaveApiToken(TestContext context) {
-    var ts = new ApiTokenStore(vertx, tokenCreator);
+    var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
     Async async1 = context.async();
     Async async2 = context.async();
     var apiToken = new ApiToken(tenant);
-    ts.saveToken(apiToken).onComplete(context.asyncAssertSuccess(x -> {
-      async1.complete();
-      ts.checkTokenNotRevoked(apiToken).onComplete(context.asyncAssertSuccess(h -> {
-        async2.complete();
+    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
+      ts.saveToken(conn, apiToken).onComplete(context.asyncAssertSuccess(x -> {
+        async1.complete();
+        ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertSuccess(y -> {
+          async2.complete();
+        })).eventually(z -> conn.close());
       }));
     }));
   }
 
   @Test
   public void testStoreApiTokenNotFound(TestContext context) {
-    var ts = new ApiTokenStore(vertx, tokenCreator);
+    var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
     Async async = context.async();
     // A RefreshToken which doesn't exist in storage is treated as revoked.
     var unsavedToken = new ApiToken(tenant);
-    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(h -> {
-      async.complete();
+    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
+      ts.checkTokenNotRevoked(conn, unsavedToken).onComplete(context.asyncAssertFailure(x -> {
+        async.complete();
+      })).eventually(y -> conn.close());
     }));
   }
 
@@ -1104,6 +1116,22 @@ public class AuthTokenTest {
     // Add some refresh tokens for a user.
     // Call checkTokenNotRevoked more than once for one of them. Should revoke all tokens for the user.
     // Call checkTokenNotRevoked for another one. It should be revoked.
+    var ts = new RefreshTokenStore(vertx, tenant);
+    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
+      //var conn = ar.result();
+      Async async1 = context.async();
+      var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+      var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+      var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+      var s1 = ts.saveToken(conn, rt1);
+      var s2 = ts.saveToken(conn, rt2);
+      var s3 = ts.saveToken(conn, rt3);
+      CompositeFuture.all(s1, s2, s3).onComplete(context.asyncAssertSuccess(x -> {
+        logger.info("Saved multiple tokens");
+        conn.close();
+        async1.complete();
+      }));
+    }));
   }
 
   // Taken from folio-vertx-lib's tests.

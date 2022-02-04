@@ -6,10 +6,10 @@ import java.util.function.Function;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import io.netty.util.concurrent.SucceededFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.SqlConnection;
 import io.vertx.sqlclient.Tuple;
 
 import org.folio.tlib.postgres.TenantPgPool;
@@ -18,18 +18,26 @@ public class TokenStore {
   private static final Logger log = LogManager.getLogger(TokenStore.class);
 
   protected Vertx vertx;
+  protected String tenant;
+  protected TenantPgPool pool;
 
-  public TokenStore(Vertx vertx) {
+  public TokenStore(Vertx vertx, String tenant) {
     this.vertx = vertx;
+    this.tenant = tenant;
   }
 
-  protected Future<Void> checkTokenNotRevoked(String tenant, UUID tokenId, String tableNameSuffix) {
+  public Future<SqlConnection> connect() {
+    pool = TenantPgPool.pool(vertx, tenant);
+    return pool.getConnection();
+  }
+
+  protected Future<Void> checkTokenNotRevoked(SqlConnection conn, UUID tokenId, String tableNameSuffix) {
     log.info("Checking revoked status of {} token id {}", tableNameSuffix, tokenId);
 
     String select = "SELECT is_revoked FROM " + tableName(tenant, tableNameSuffix) + "WHERE id=$1";
     Tuple where = Tuple.of(tokenId);
 
-    return getRow(tenant, select, where).compose(row -> {
+    return getRow(conn, select, where).compose(row -> {
       Boolean isRevoked = row.getBoolean("is_revoked");
 
       log.info("Revoked status of {} token id {} is {}", tableNameSuffix, tokenId, isRevoked);
@@ -41,8 +49,8 @@ public class TokenStore {
     });
   }
 
-  protected Future<Row> getRow(String tenant, String select, Tuple where) {
-    return withPool(tenant, pool -> pool.preparedQuery(select).execute(where)).compose(rows -> {
+  protected Future<Row> getRow(SqlConnection conn, String select, Tuple where) {
+    return conn.preparedQuery(select).execute(where).compose(rows -> {
       if (rows.rowCount() == 0) {
         String msg = "Token with id {} not found in token store";
         log.error(msg, where.toString());
@@ -54,19 +62,6 @@ public class TokenStore {
   }
 
   protected String tableName(String tenant, String tableName) {
-    return getSchema(tenant) + "." + tableName + " ";
-  }
-
-  // NOTE: TenantPgPool exposes a method for this, but that makes using the
-  // withPool method impossible since if we use TenantPgPool.getSchema
-  // the pool needs to be constructed prior to calling apply using the mapper.
-  protected String getSchema(String tenant) {
-    return tenant + "_mod_authtoken";
-  }
-
-  protected <T> Future<T> withPool(String tenant, Function<TenantPgPool, Future<T>> mapper) {
-    TenantPgPool pool = TenantPgPool.pool(vertx, tenant);
-    Future<T> future = mapper.apply(pool);
-    return future.eventually(x -> pool.close());
+    return pool.getSchema() + "." + tableName + " ";
   }
 }

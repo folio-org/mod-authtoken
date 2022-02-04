@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.sqlclient.SqlConnection;
 import io.vertx.sqlclient.Tuple;
 
 public class ApiTokenStore extends TokenStore {
@@ -21,12 +22,12 @@ public class ApiTokenStore extends TokenStore {
   private static String API_TOKEN_SUFFIX = "api_tokens";
   private TokenCreator tokenCreator;
 
-  public ApiTokenStore(Vertx vertx, TokenCreator tokenCreator) {
-    super(vertx);
+  public ApiTokenStore(Vertx vertx, String tenant, TokenCreator tokenCreator) {
+    super(vertx, tenant);
     this.tokenCreator = tokenCreator;
   }
 
-  public Future<Void> createIfNotExists(Vertx vertx, String tenant) {
+  public Future<Void> createIfNotExists(SqlConnection conn) {
     // API tokens don't have an owning user. They are associated with a tenant
     // only. The token itself is persisted since it will need to be viewed by
     // end-users who have permission to see api tokens.
@@ -37,10 +38,10 @@ public class ApiTokenStore extends TokenStore {
 
     log.info("Creating {} tables", TokenStore.class.getName());
 
-    return withPool(tenant, pool -> pool.query(createTable).execute()).mapEmpty();
+    return conn.query(createTable).execute().mapEmpty();
   }
 
-  public Future<Void> saveToken(ApiToken apiToken) {
+  public Future<Void> saveToken(SqlConnection conn, ApiToken apiToken) {
     UUID id = apiToken.getId();
     long issuedAt = apiToken.getIssuedAt();
     boolean isRevoked = false;
@@ -61,7 +62,7 @@ public class ApiTokenStore extends TokenStore {
     var values = Tuple.of(id, token, isRevoked, issuedAt);
 
     // TODO Should we return the encoded API token to callers?
-    return withPool(tenant, pool -> pool.preparedQuery(insert).execute(values)).mapEmpty();
+    return conn.preparedQuery(insert).execute(values).mapEmpty();
   }
 
   // TODO Add a property already_used to the refresh token store.
@@ -75,7 +76,7 @@ public class ApiTokenStore extends TokenStore {
     throw new NotImplementedException("TODO");
   }
 
-  public Future<Void> checkTokenNotRevoked(ApiToken apiToken) {
-    return checkTokenNotRevoked(apiToken.getTenant(), apiToken.getId(), API_TOKEN_SUFFIX);
+  public Future<Void> checkTokenNotRevoked(SqlConnection conn, ApiToken apiToken) {
+    return checkTokenNotRevoked(conn, apiToken.getId(), API_TOKEN_SUFFIX);
   }
 }
