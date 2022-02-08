@@ -31,24 +31,6 @@ public class TokenStore {
     return pool.getConnection();
   }
 
-  protected Future<Void> checkTokenNotRevoked(SqlConnection conn, UUID tokenId, String tableNameSuffix) {
-    log.info("Checking revoked status of {} token id {}", tableNameSuffix, tokenId);
-
-    String select = "SELECT is_revoked FROM " + tableName(tenant, tableNameSuffix) + "WHERE id=$1";
-    Tuple where = Tuple.of(tokenId);
-
-    return getRow(conn, select, where).compose(row -> {
-      Boolean isRevoked = row.getBoolean("is_revoked");
-
-      log.info("Revoked status of {} token id {} is {}", tableNameSuffix, tokenId, isRevoked);
-
-      if (!isRevoked) {
-        return Future.succeededFuture();
-      }
-      return Future.failedFuture("Token is revoked");
-    });
-  }
-
   protected Future<Row> getRow(SqlConnection conn, String select, Tuple where) {
     return conn.preparedQuery(select).execute(where).compose(rows -> {
       if (rows.rowCount() == 0) {

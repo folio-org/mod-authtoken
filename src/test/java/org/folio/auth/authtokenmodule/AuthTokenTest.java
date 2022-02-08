@@ -1087,7 +1087,6 @@ public class AuthTokenTest {
     Async async = context.async();
     var apiToken = new ApiToken(tenant);
     ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      // TODO Do we need to call async.complete here?
       ts.saveToken(conn, apiToken).onComplete(context.asyncAssertSuccess(x -> {
         ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertSuccess(y -> {
           async.complete();
@@ -1110,6 +1109,25 @@ public class AuthTokenTest {
   }
 
   @Test
+  public void testStoreApiRevoked(TestContext context) {
+    var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
+    Async async = context.async();
+    // A ApiToken which doesn't exist in storage is treated as revoked.
+    var apiToken = new ApiToken(tenant);
+    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
+      ts.saveToken(conn, apiToken).onComplete(context.asyncAssertSuccess(a -> {
+        ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertSuccess(b -> {
+          ts.setTokenRevoked(conn, apiToken).onComplete(context.asyncAssertSuccess(c -> {
+            ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertFailure(d -> {
+              async.complete();
+            }));
+          }));
+        }));
+      }));
+    }));
+  }
+
+  @Test
   public void testStoreRefreshSingleUse(TestContext context) {
     Async async = context.async();
     var ts = new RefreshTokenStore(vertx, tenant);
@@ -1122,6 +1140,7 @@ public class AuthTokenTest {
       var s1 = ts.saveToken(conn, rt1);
       var s2 = ts.saveToken(conn, rt2);
       var s3 = ts.saveToken(conn, rt3);
+
       CompositeFuture.all(s1, s2, s3).onComplete(context.asyncAssertSuccess(a -> {
         // The first call to check the token r2 should succeed since it is the first check.
         ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertSuccess(b -> {

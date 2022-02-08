@@ -56,15 +56,29 @@ public class RefreshTokenStore extends TokenStore {
     return conn.preparedQuery(insert).execute(values).mapEmpty();
   }
 
+  /**
+   * Check that the token has not been revoked. This will return a failed future if
+   * the token has been revoked, otherwise it will return a succeeded future.
+   * @param conn An SqlConnection object to be used by the method to access the token
+   * store.
+   * @param rt The RefreshToken to check.
+   * @return A failed future if the token has been revoked. Otherwise a succeeded future
+   * is returned.
+   */
   public Future<Void> checkTokenNotRevoked(SqlConnection conn, RefreshToken rt) {
     // This is what this method does:
-    // 1. Get is_redeemed for token. If token not found treat as revoked.
-    // 2. If is_redeemed is false, call setTokenRedeemed, then checkTokenNotRevoked since it
-    //    could have been revoked by another client or party attempting to redeem a different
-    //    one or it. It doesn't matter.
-    // 3. If it is_redeemed true call revokeAllTokensForUser and return a failed future.
-    //    This is the second use of the token and it means the token has been leaked. We
+    // 1. Get isRedeemed and isRevoked for token. If token not found treat as revoked.
+    // 2. If it has been revoked, fail the future. We need to check this here since
+    //    other requests could have revoked the token anytime. We can't let these through.
+    // 3. If isRedeemed is false, call setTokenRedeemed and return a success. It is not
+    //    revoked or redeemed. This is the desired state. RTs can be used only once.
+    //    Any subsequent uses must be considered as a leaked (compromised) token.
+    // 4. If isRedeemed is true call revokeAllTokensForUser and return a failed future.
+    //    isRedeemed true means "someone tried to use it a second time". This is the
+    //    second use of the token and it means the token has been leaked. We
     //    consider the user's account compromised and revoke all their refresh tokens.
+    //    They will need to login again to get a new RefreshToken that isn't revoked
+    //    or redeemed.
     UUID tokenId = rt.getId();
     UUID userId = rt.getUserId();
     String table = tableName(tenant, REFRESH_TOKEN_SUFFIX);
@@ -85,12 +99,14 @@ public class RefreshTokenStore extends TokenStore {
       // If it has been revoked, all tokens should already have been revoked so we can safely
       // return.
       if (isRevoked) {
-        return Future.failedFuture("Token is revoked or redeemed");
+        log.info("Token {} has been revoked", tokenId);
+        return Future.failedFuture("Token is revoked");
       }
 
       if (!isRedeemed) {
         // Token has not been used more than once. Set it as redeemed so it can't be used again
         // and return a success.
+        log.info("Token {} has not yet been redeemed so it is not revoked", tokenId);
         return setTokenRedeemed(conn, rt);
       }
 

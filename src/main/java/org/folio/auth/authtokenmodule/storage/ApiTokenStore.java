@@ -2,7 +2,6 @@ package org.folio.auth.authtokenmodule.storage;
 
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
-import org.folio.auth.authtokenmodule.tokens.Token;
 
 import java.util.List;
 import java.util.UUID;
@@ -65,18 +64,39 @@ public class ApiTokenStore extends TokenStore {
     return conn.preparedQuery(insert).execute(values).mapEmpty();
   }
 
-  // TODO Add a property already_used to the refresh token store.
-
-  public Future<Void> setTokenRevoked(ApiToken apiToken) {
-    // Setting an ApiToken as revoked only revokes that token.
-    throw new NotImplementedException("TODO");
-  }
-
-  public Future<List<Token>> getApiTokensForTenant(String tenant) {
-    throw new NotImplementedException("TODO");
-  }
-
   public Future<Void> checkTokenNotRevoked(SqlConnection conn, ApiToken apiToken) {
-    return checkTokenNotRevoked(conn, apiToken.getId(), API_TOKEN_SUFFIX);
+    UUID tokenId = apiToken.getId();
+
+    log.info("Checking revoked status of {} api token id {}", API_TOKEN_SUFFIX, tokenId);
+
+    String select = "SELECT is_revoked FROM " + tableName(tenant, API_TOKEN_SUFFIX) +
+      "WHERE id=$1";
+    Tuple where = Tuple.of(tokenId);
+
+    return getRow(conn, select, where).compose(row -> {
+      Boolean isRevoked = row.getBoolean("is_revoked");
+
+      log.info("Revoked status of {} token id {} is {}", API_TOKEN_SUFFIX, tokenId, isRevoked);
+
+      if (!isRevoked) {
+        return Future.succeededFuture();
+      }
+      return Future.failedFuture("API token is revoked");
+    });
+  }
+
+  public Future<Void> setTokenRevoked(SqlConnection conn, ApiToken apiToken) {
+    UUID tokenId = apiToken.getId();
+    log.info("Revoking API token {}", tokenId);
+
+    String update = "UPDATE " + tableName(tenant, API_TOKEN_SUFFIX) +
+        "SET is_revoked=$1 WHERE id=$2";
+    Tuple where = Tuple.of(Boolean.TRUE, tokenId);
+
+    return conn.preparedQuery(update).execute(where).mapEmpty();
+  }
+
+  public Future<List<ApiToken>> getApiTokensForTenant(SqlConnection conn, String tenant) {
+    throw new NotImplementedException("TODO");
   }
 }
