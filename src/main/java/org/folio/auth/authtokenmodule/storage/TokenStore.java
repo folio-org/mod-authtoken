@@ -1,5 +1,6 @@
 package org.folio.auth.authtokenmodule.storage;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -9,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.sqlclient.Row;
+import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.SqlConnection;
 import io.vertx.sqlclient.Tuple;
 
@@ -43,7 +45,24 @@ public class TokenStore {
     });
   }
 
+  protected Future<RowSet<Row>> getRows(SqlConnection conn, String select, Tuple where) {
+    return conn.preparedQuery(select).execute(where).map(rows -> rows);
+  }
+
+  protected Future<RowSet<Row>> getRows(SqlConnection conn, String select) {
+    return conn.preparedQuery(select).execute().map(rows -> rows);
+  }
+
   protected String tableName(String tenant, String tableName) {
     return pool.getSchema() + "." + tableName + " ";
   }
+
+  public Future<Void> removeAll(SqlConnection conn, String suffix) {
+    log.info("Removing all tokens from storage");
+
+    String delete = "DELETE FROM " + tableName(tenant, suffix);
+
+    return conn.preparedQuery(delete).execute().mapEmpty();
+  }
+
 }

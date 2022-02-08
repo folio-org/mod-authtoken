@@ -23,8 +23,16 @@ public class RefreshToken extends Token {
     return UUID.fromString(claims.getString("user_id"));
   }
 
-  public long getIssuedAt() {
-    return claims.getLong("iat");
+  public long getExpiresAt() {
+    return claims.getLong("exp");
+  }
+
+  /**
+   * Should only be used by tests.
+   * @param to The epoch seconds time stamp to the iat claim to.
+   */
+  public void setExpiresAt(long to) {
+    claims.put("exp", to);
   }
 
   // TODO This could be obtained from the env.

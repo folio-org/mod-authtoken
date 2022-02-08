@@ -2,6 +2,7 @@ package org.folio.auth.authtokenmodule.storage;
 
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import org.apache.commons.lang3.NotImplementedException;
@@ -32,7 +33,7 @@ public class RefreshTokenStore extends TokenStore {
     String createTable = "CREATE TABLE IF NOT EXISTS " +
         tableName(tenant, REFRESH_TOKEN_SUFFIX) +
         "(id UUID PRIMARY key, user_id UUID NOT NULL, is_redeemed BOOLEAN NOT NULL, " +
-        "is_revoked BOOLEAN NOT NULL, issued_at INT8 NOT NULL)";
+        "is_revoked BOOLEAN NOT NULL, expires_at INT8 NOT NULL)";
 
     log.info("Creating {} tables", RefreshTokenStore.class.getName());
 
@@ -42,16 +43,16 @@ public class RefreshTokenStore extends TokenStore {
   public Future<Void> saveToken(SqlConnection conn, RefreshToken rt) {
     UUID id = rt.getId();
     UUID userId = rt.getUserId();
-    long issuedAt = rt.getIssuedAt();
+    long expiresAt = rt.getExpiresAt();
     String tenant = rt.getTenant();
     boolean isRevoked = false;
     boolean isRedeemed = false;
 
-    log.info("Inserting token id {} into {} token store", id, REFRESH_TOKEN_SUFFIX);
+    log.info("Inserting token id {} into {} token store: {}", id, REFRESH_TOKEN_SUFFIX, expiresAt);
 
     String insert = "INSERT INTO " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
-        "(id, user_id, is_revoked, is_redeemed, issued_at) VALUES ($1, $2, $3, $4, $5)";
-    var values = Tuple.of(id, userId, isRevoked, isRedeemed, issuedAt);
+        "(id, user_id, is_revoked, is_redeemed, expires_at) VALUES ($1, $2, $3, $4, $5)";
+    var values = Tuple.of(id, userId, isRevoked, isRedeemed, expiresAt);
 
     return conn.preparedQuery(insert).execute(values).mapEmpty();
   }
@@ -145,9 +146,23 @@ public class RefreshTokenStore extends TokenStore {
     return conn.preparedQuery(update).execute(where).mapEmpty();
   }
 
-  // TODO This is not all token types. Only RTs.
-  public Future<Void> cleanupExpiredTokens() {
-    // TODO Get the tenant from the token claim.
-    throw new NotImplementedException("TODO");
+  public Future<Void> cleanupExpiredTokens(SqlConnection conn) {
+    long now = Instant.now().getEpochSecond();
+    log.info("Cleaning up tokens which are older than: {}", now);
+
+    String delete = "DELETE FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
+      "WHERE expires_at<$1";
+    Tuple where = Tuple.of(now);
+
+    return conn.preparedQuery(delete).execute(where).mapEmpty();
+  }
+
+  public Future<Integer> countTokensStored(SqlConnection conn, String tenant) {
+    String select = "SELECT * FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX);
+    return getRows(conn, select).map(rows -> rows.rowCount());
+  }
+
+  public Future<Void> removeAll(SqlConnection conn) {
+    return removeAll(conn, REFRESH_TOKEN_SUFFIX);
   }
 }

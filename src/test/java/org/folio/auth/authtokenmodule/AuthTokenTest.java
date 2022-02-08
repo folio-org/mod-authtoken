@@ -8,31 +8,28 @@ import com.nimbusds.jose.util.Base64;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
-import io.vertx.core.Future;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-import io.vertx.sqlclient.Tuple;
 import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
+import java.time.Instant;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
-import org.folio.auth.authtokenmodule.storage.TokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.okapi.common.XOkapiHeaders;
-import org.folio.tlib.postgres.TenantPgPool;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.junit.AfterClass;
@@ -43,7 +40,6 @@ import org.junit.Test;
 import static io.restassured.RestAssured.*;
 import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -1112,7 +1108,6 @@ public class AuthTokenTest {
   public void testStoreApiRevoked(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
     Async async = context.async();
-    // A ApiToken which doesn't exist in storage is treated as revoked.
     var apiToken = new ApiToken(tenant);
     ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
       ts.saveToken(conn, apiToken).onComplete(context.asyncAssertSuccess(a -> {
@@ -1132,11 +1127,10 @@ public class AuthTokenTest {
     Async async = context.async();
     var ts = new RefreshTokenStore(vertx, tenant);
     ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      //var conn = ar.result();
+      // Create and save some tokens.
       var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
       var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
       var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-      // Save some tokens.
       var s1 = ts.saveToken(conn, rt1);
       var s2 = ts.saveToken(conn, rt2);
       var s3 = ts.saveToken(conn, rt3);
@@ -1153,6 +1147,46 @@ public class AuthTokenTest {
               ts.checkTokenNotRevoked(conn, rt3).onComplete(context.asyncAssertFailure(e -> {
                 async.complete();
                })).eventually(f -> conn.close());
+            }));
+          }));
+        }));
+      }));
+    }));
+  }
+
+  @Test
+  public void testStoreCleanupExpired(TestContext context) {
+    // Create some tokens.
+    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt4 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt5 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+
+    // Set a few tokens' expires at time to simulate expiration.
+    var now = Instant.now().getEpochSecond();
+    rt2.setExpiresAt(now - 10); // Would have expired 10 seconds ago.
+    rt4.setExpiresAt(now - 20); // Would have expired 20 seconds ago.
+
+    // Save the tokens.
+    Async async = context.async();
+    var ts = new RefreshTokenStore(vertx, tenant);
+
+    ts.connect().onComplete(context.asyncAssertSuccess(conn-> {
+      ts.removeAll(conn).onComplete(context.asyncAssertSuccess(a -> {
+        var s1 = ts.saveToken(conn, rt1);
+        var s2 = ts.saveToken(conn, rt2);
+        var s3 = ts.saveToken(conn, rt3);
+        var s4 = ts.saveToken(conn, rt4);
+        var s5 = ts.saveToken(conn, rt5);
+        CompositeFuture.all(s1, s2, s3, s4, s5).onComplete(context.asyncAssertSuccess(b-> {
+          ts.countTokensStored(conn, tenant).onComplete(context.asyncAssertSuccess(countBefore -> {
+            assertThat(countBefore, is(5));
+            ts.cleanupExpiredTokens(conn).onComplete(context.asyncAssertSuccess(c -> {
+              ts.countTokensStored(conn, tenant).onComplete(context.asyncAssertSuccess(countAfter -> {
+                assertThat(countAfter, is(3));
+                async.complete();
+              })).eventually(d -> conn.close());
             }));
           }));
         }));
