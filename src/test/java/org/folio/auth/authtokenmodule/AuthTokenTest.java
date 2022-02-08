@@ -15,6 +15,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
+import io.vertx.sqlclient.Tuple;
 import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
@@ -1056,15 +1057,13 @@ public class AuthTokenTest {
   @Test
   public void testStoreSaveRefreshToken(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
+    Async async = context.async();
     ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      Async async1 = context.async();
-      Async async2 = context.async();
       var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
       ts.saveToken(conn, rt).onComplete(context.asyncAssertSuccess(x -> {
-        async1.complete();
-        ts.checkTokenNotRevoked(conn, rt).onComplete(context.asyncAssertSuccess(h -> {
-          async2.complete();
-        })).eventually(y -> conn.close());
+        ts.checkTokenNotRevoked(conn, rt).onComplete(context.asyncAssertSuccess(y -> {
+          async.complete();
+        })).eventually(z -> conn.close());
       }));
     }));
   }
@@ -1085,14 +1084,13 @@ public class AuthTokenTest {
   @Test
   public void testStoreSaveApiToken(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
-    Async async1 = context.async();
-    Async async2 = context.async();
+    Async async = context.async();
     var apiToken = new ApiToken(tenant);
     ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
+      // TODO Do we need to call async.complete here?
       ts.saveToken(conn, apiToken).onComplete(context.asyncAssertSuccess(x -> {
-        async1.complete();
         ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertSuccess(y -> {
-          async2.complete();
+          async.complete();
         })).eventually(z -> conn.close());
       }));
     }));
@@ -1102,7 +1100,7 @@ public class AuthTokenTest {
   public void testStoreApiTokenNotFound(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
     Async async = context.async();
-    // A RefreshToken which doesn't exist in storage is treated as revoked.
+    // A ApiToken which doesn't exist in storage is treated as revoked.
     var unsavedToken = new ApiToken(tenant);
     ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
       ts.checkTokenNotRevoked(conn, unsavedToken).onComplete(context.asyncAssertFailure(x -> {
@@ -1113,23 +1111,102 @@ public class AuthTokenTest {
 
   @Test
   public void testStoreRefreshSingleUse(TestContext context) {
-    // Add some refresh tokens for a user.
-    // Call checkTokenNotRevoked more than once for one of them. Should revoke all tokens for the user.
-    // Call checkTokenNotRevoked for another one. It should be revoked.
+    Async async = context.async();
     var ts = new RefreshTokenStore(vertx, tenant);
     ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
       //var conn = ar.result();
-      Async async1 = context.async();
       var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
       var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
       var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+      // Save some tokens.
       var s1 = ts.saveToken(conn, rt1);
       var s2 = ts.saveToken(conn, rt2);
       var s3 = ts.saveToken(conn, rt3);
-      CompositeFuture.all(s1, s2, s3).onComplete(context.asyncAssertSuccess(x -> {
-        logger.info("Saved multiple tokens");
-        conn.close();
-        async1.complete();
+      CompositeFuture.all(s1, s2, s3).onComplete(context.asyncAssertSuccess(v -> {
+        // The first call to check the token r2 should succeed since it is the first check.
+        ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertSuccess(x -> {
+          // The second check should fail since it is the second check. This is a "leak"
+          // since RTs should only be used once.
+          ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertFailure(y -> {
+            // At this point all tokens for the user should be revoked.
+            ts.checkTokenNotRevoked(conn, rt1).onComplete(context.asyncAssertFailure(z ->{
+              ts.checkTokenNotRevoked(conn, rt3).onComplete(context.asyncAssertFailure(p -> {
+                conn.close();
+                async.complete();
+              }));
+            }));
+          }));
+        }));
+      }));
+    }));
+  }
+
+  @Test
+  public void testStoreRefreshSingleUse2(TestContext context) {
+    // Add some refresh tokens for a user.
+    // Call checkTokenNotRevoked more than once for one of them. Should revoke all tokens for the user.
+    // Call checkTokenNotRevoked for another one. It should be revoked.
+    Async async = context.async();
+    var ts = new RefreshTokenStore(vertx, tenant);
+    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
+      //var conn = ar.result();
+      var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+      //var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+      //var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+      var s1 = ts.saveToken(conn, rt1);
+      //var s2 = ts.saveToken(conn, rt2);
+      //var s3 = ts.saveToken(conn, rt3);
+      // This can succeed. But the second time checkd should fail.
+      ts.checkTokenNotRevoked(conn, rt1).onComplete(context.asyncAssertSuccess(a -> {
+        ts.checkTokenNotRevoked(conn, rt1).onComplete(context.asyncAssertFailure(b -> {
+          conn.close();
+          async.complete();
+        }));
+      }));
+
+      // These should all be invalidated after the second check.
+      //var r2 = ts.checkTokenNotRevoked(conn, rt1);
+
+      // CompositeFuture.all(s1).onComplete(context.asyncAssertSuccess(v -> {
+      //   logger.info("Saved multiple tokens. Checking revoked more than once for token {}", rt2.getId());
+      //   // The first call to check the token r2 should succeed since it is the first check.
+      //   r1.onComplete(context.asyncAssertSuccess(x -> {
+      //     logger.info ("Target token is {}", rt2.getId());
+      //     // The second check should fail since it is the second check. This is a "leak"
+      //     // since RTs should only be used once.
+      //     r2.onComplete(context.asyncAssertFailure(y -> {
+      //       logger.info ("Second time checked not revoked failure");
+      //       // Now any subsequent checks of any tokens associated with the user should fail since
+      //       // all tokens for the user should have been invalidated.
+      //       CompositeFuture.all(r2, r3, r4, r5).onComplete(context.asyncAssertFailure(z -> {
+      //         logger.info ("All three tokens checked not revoked failure");
+      //         conn.close();
+      //         async.complete();
+      //       }));
+      //     }));
+      //   }));
+      //}));
+    }));
+  }
+
+  @Test
+  public void setTokenRedeemed(TestContext c) {
+    Async async = c.async();
+    var ts = new RefreshTokenStore(vertx, tenant);
+    ts.connect().onComplete(c.asyncAssertSuccess(conn -> {
+    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+      ts.saveToken(conn, rt).onComplete(c.asyncAssertSuccess(a -> {
+        ts.setTokenRedeemed(conn, rt).onComplete(c.asyncAssertSuccess(b -> {
+          String table = ts.tableName(tenant, "refresh_tokens");
+          String select = "SELECT is_redeemed FROM " + table + "WHERE id=$1";
+          Tuple where = Tuple.of(rt.getId());
+          ts.getRow(conn, select, where).onComplete(c.asyncAssertSuccess(r -> {
+            boolean red =  r.getBoolean("is_redeemed");
+            logger.info("Redeemed result {}", red);
+            async.complete();
+            conn.close();
+          }));
+        }));
       }));
     }));
   }

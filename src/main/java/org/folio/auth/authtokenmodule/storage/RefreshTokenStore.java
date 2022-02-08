@@ -1,22 +1,15 @@
 package org.folio.auth.authtokenmodule.storage;
 
-import org.folio.auth.authtokenmodule.TokenCreator;
-import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
-import org.folio.auth.authtokenmodule.tokens.Token;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.function.Function;
 
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import io.netty.util.concurrent.SucceededFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.SqlConnection;
 import io.vertx.sqlclient.Tuple;
 
@@ -29,6 +22,7 @@ public class RefreshTokenStore extends TokenStore {
     super(vertx, tenant);
 
     // TODO implement this to clean up expired tokens from the store.
+    // TODO Consider using an okapi timer.
     // vertx.setPeriodic(delay, handler)
   }
 
@@ -81,13 +75,14 @@ public class RefreshTokenStore extends TokenStore {
     Tuple where = Tuple.of(tokenId);
 
     return getRow(conn, select, where).compose(row -> {
-      Boolean isRedeemed = row.getBoolean("is_redeemed");
+      boolean isRedeemed = row.getBoolean("is_redeemed");
 
       log.info("Redeemed status of {} token id {} is {}", REFRESH_TOKEN_SUFFIX, tokenId, isRedeemed);
 
       if (!isRedeemed) {
         // Token has not been used more than once. Set it as redeemed so it can't be used again.
         return setTokenRedeemed(conn, rt).compose(x -> {
+          // TODO Is this the best approach?
           return checkTokenNotRevoked(conn, tokenId, REFRESH_TOKEN_SUFFIX);
         });
       }
@@ -103,15 +98,15 @@ public class RefreshTokenStore extends TokenStore {
     });
   }
 
-  private Future<Void> setTokenRedeemed(SqlConnection conn, RefreshToken rt) {
+  public Future<Void> setTokenRedeemed(SqlConnection conn, RefreshToken rt) {
     UUID tokenId = rt.getId();
     String tenant = rt.getTenant();
 
     log.info("Setting refresh token id {} to redeemed", tokenId);
 
     String update = "UPDATE " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
-        "SET is_redeemed=true WHERE id=$1";
-    Tuple where = Tuple.of(tokenId);
+        "SET is_redeemed=$1 WHERE id=$2";
+    Tuple where = Tuple.of(true, tokenId);
 
     return conn.preparedQuery(update).execute(where).mapEmpty();
   }
@@ -120,8 +115,8 @@ public class RefreshTokenStore extends TokenStore {
     log.info("Setting all refresh tokens for user id {} to revoked", userId);
 
     String update = "UPDATE " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
-        "SET is_revoked=true WHERE user_id=$1";
-    Tuple where = Tuple.of(userId);
+        "SET is_revoked=$1 WHERE user_id=$2";
+    Tuple where = Tuple.of(Boolean.TRUE, userId);
 
     return conn.preparedQuery(update).execute(where).mapEmpty();
   }
