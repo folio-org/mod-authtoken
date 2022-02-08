@@ -66,39 +66,47 @@ public class RefreshTokenStore extends TokenStore {
     //    This is the second use of the token and it means the token has been leaked. We
     //    consider the user's account compromised and revoke all their refresh tokens.
     UUID tokenId = rt.getId();
-    UUID userId = rt.getId();
+    UUID userId = rt.getUserId();
     String table = tableName(tenant, REFRESH_TOKEN_SUFFIX);
 
     log.info("Checking token redeemed of token id {} for tenant {}", tokenId, tenant);
 
-    String select = "SELECT is_redeemed FROM " + table + "WHERE id=$1";
+    String select = "SELECT is_redeemed, is_revoked FROM " + table + "WHERE id=$1";
     Tuple where = Tuple.of(tokenId);
 
     return getRow(conn, select, where).compose(row -> {
-      boolean isRedeemed = row.getBoolean("is_redeemed");
+      Boolean isRedeemed = row.getBoolean("is_redeemed");
+      Boolean isRevoked = row.getBoolean("is_revoked");
 
       log.info("Redeemed status of {} token id {} is {}", REFRESH_TOKEN_SUFFIX, tokenId, isRedeemed);
+      log.info("Revoked status of {} token id {} is {}", REFRESH_TOKEN_SUFFIX, tokenId, isRevoked);
 
-      if (!isRedeemed) {
-        // Token has not been used more than once. Set it as redeemed so it can't be used again.
-        return setTokenRedeemed(conn, rt).compose(x -> {
-          // TODO Is this the best approach?
-          return checkTokenNotRevoked(conn, tokenId, REFRESH_TOKEN_SUFFIX);
-        });
+      // The token could have been revoked by a different request so we check that first.
+      // If it has been revoked, all tokens should already have been revoked so we can safely
+      // return.
+      if (isRevoked) {
+        return Future.failedFuture("Token is revoked or redeemed");
       }
 
-      // Token has been used more than once since isRedeemed is true.
+      if (!isRedeemed) {
+        // Token has not been used more than once. Set it as redeemed so it can't be used again
+        // and return a success.
+        return setTokenRedeemed(conn, rt);
+      }
+
+      // isRedeemed is true so the token has been used more than once. Revoke
+      // all tokens for the user.
       String leakedMessage = "Refresh token {} attempted to be used twice." +
       " It is considered leaked. Revoking all tokens for user {}.";
       log.info(leakedMessage, tokenId, userId);
 
       return revokeAllTokensForUser(conn, userId).compose(x -> {
-        return Future.failedFuture("Token leaked");
+        return Future.failedFuture("Token leaked. Revoked all tokens for user.");
       });
     });
   }
 
-  public Future<Void> setTokenRedeemed(SqlConnection conn, RefreshToken rt) {
+  private Future<Void> setTokenRedeemed(SqlConnection conn, RefreshToken rt) {
     UUID tokenId = rt.getId();
     String tenant = rt.getTenant();
 
@@ -106,13 +114,13 @@ public class RefreshTokenStore extends TokenStore {
 
     String update = "UPDATE " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
         "SET is_redeemed=$1 WHERE id=$2";
-    Tuple where = Tuple.of(true, tokenId);
+    Tuple where = Tuple.of(Boolean.TRUE, tokenId);
 
     return conn.preparedQuery(update).execute(where).mapEmpty();
   }
 
   private Future<Void> revokeAllTokensForUser(SqlConnection conn, UUID userId) {
-    log.info("Setting all refresh tokens for user id {} to revoked", userId);
+    log.info("Revoking all refresh tokens for user id {}", userId);
 
     String update = "UPDATE " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
         "SET is_revoked=$1 WHERE user_id=$2";

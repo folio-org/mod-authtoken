@@ -1122,89 +1122,19 @@ public class AuthTokenTest {
       var s1 = ts.saveToken(conn, rt1);
       var s2 = ts.saveToken(conn, rt2);
       var s3 = ts.saveToken(conn, rt3);
-      CompositeFuture.all(s1, s2, s3).onComplete(context.asyncAssertSuccess(v -> {
+      CompositeFuture.all(s1, s2, s3).onComplete(context.asyncAssertSuccess(a -> {
         // The first call to check the token r2 should succeed since it is the first check.
-        ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertSuccess(x -> {
+        ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertSuccess(b -> {
+          logger.info("Target token is {}", rt2.getId());
           // The second check should fail since it is the second check. This is a "leak"
           // since RTs should only be used once.
-          ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertFailure(y -> {
+          ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertFailure(c -> {
             // At this point all tokens for the user should be revoked.
-            ts.checkTokenNotRevoked(conn, rt1).onComplete(context.asyncAssertFailure(z ->{
-              ts.checkTokenNotRevoked(conn, rt3).onComplete(context.asyncAssertFailure(p -> {
-                conn.close();
+            ts.checkTokenNotRevoked(conn, rt1).onComplete(context.asyncAssertFailure(d ->{
+              ts.checkTokenNotRevoked(conn, rt3).onComplete(context.asyncAssertFailure(e -> {
                 async.complete();
-              }));
+               })).eventually(f -> conn.close());
             }));
-          }));
-        }));
-      }));
-    }));
-  }
-
-  @Test
-  public void testStoreRefreshSingleUse2(TestContext context) {
-    // Add some refresh tokens for a user.
-    // Call checkTokenNotRevoked more than once for one of them. Should revoke all tokens for the user.
-    // Call checkTokenNotRevoked for another one. It should be revoked.
-    Async async = context.async();
-    var ts = new RefreshTokenStore(vertx, tenant);
-    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      //var conn = ar.result();
-      var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-      //var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-      //var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-      var s1 = ts.saveToken(conn, rt1);
-      //var s2 = ts.saveToken(conn, rt2);
-      //var s3 = ts.saveToken(conn, rt3);
-      // This can succeed. But the second time checkd should fail.
-      ts.checkTokenNotRevoked(conn, rt1).onComplete(context.asyncAssertSuccess(a -> {
-        ts.checkTokenNotRevoked(conn, rt1).onComplete(context.asyncAssertFailure(b -> {
-          conn.close();
-          async.complete();
-        }));
-      }));
-
-      // These should all be invalidated after the second check.
-      //var r2 = ts.checkTokenNotRevoked(conn, rt1);
-
-      // CompositeFuture.all(s1).onComplete(context.asyncAssertSuccess(v -> {
-      //   logger.info("Saved multiple tokens. Checking revoked more than once for token {}", rt2.getId());
-      //   // The first call to check the token r2 should succeed since it is the first check.
-      //   r1.onComplete(context.asyncAssertSuccess(x -> {
-      //     logger.info ("Target token is {}", rt2.getId());
-      //     // The second check should fail since it is the second check. This is a "leak"
-      //     // since RTs should only be used once.
-      //     r2.onComplete(context.asyncAssertFailure(y -> {
-      //       logger.info ("Second time checked not revoked failure");
-      //       // Now any subsequent checks of any tokens associated with the user should fail since
-      //       // all tokens for the user should have been invalidated.
-      //       CompositeFuture.all(r2, r3, r4, r5).onComplete(context.asyncAssertFailure(z -> {
-      //         logger.info ("All three tokens checked not revoked failure");
-      //         conn.close();
-      //         async.complete();
-      //       }));
-      //     }));
-      //   }));
-      //}));
-    }));
-  }
-
-  @Test
-  public void setTokenRedeemed(TestContext c) {
-    Async async = c.async();
-    var ts = new RefreshTokenStore(vertx, tenant);
-    ts.connect().onComplete(c.asyncAssertSuccess(conn -> {
-    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-      ts.saveToken(conn, rt).onComplete(c.asyncAssertSuccess(a -> {
-        ts.setTokenRedeemed(conn, rt).onComplete(c.asyncAssertSuccess(b -> {
-          String table = ts.tableName(tenant, "refresh_tokens");
-          String select = "SELECT is_redeemed FROM " + table + "WHERE id=$1";
-          Tuple where = Tuple.of(rt.getId());
-          ts.getRow(conn, select, where).onComplete(c.asyncAssertSuccess(r -> {
-            boolean red =  r.getBoolean("is_redeemed");
-            logger.info("Redeemed result {}", red);
-            async.complete();
-            conn.close();
           }));
         }));
       }));

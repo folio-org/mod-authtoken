@@ -38,7 +38,7 @@ public class TokenStore {
     Tuple where = Tuple.of(tokenId);
 
     return getRow(conn, select, where).compose(row -> {
-      boolean isRevoked = row.getBoolean("is_revoked");
+      Boolean isRevoked = row.getBoolean("is_revoked");
 
       log.info("Revoked status of {} token id {} is {}", tableNameSuffix, tokenId, isRevoked);
 
@@ -49,7 +49,7 @@ public class TokenStore {
     });
   }
 
-  public Future<Row> getRow(SqlConnection conn, String select, Tuple where) {
+  protected Future<Row> getRow(SqlConnection conn, String select, Tuple where) {
     return conn.preparedQuery(select).execute(where).compose(rows -> {
       if (rows.rowCount() == 0) {
         String msg = "Token with id {} not found in token store";
@@ -61,7 +61,7 @@ public class TokenStore {
     });
   }
 
-  public String tableName(String tenant, String tableName) {
+  protected String tableName(String tenant, String tableName) {
     return pool.getSchema() + "." + tableName + " ";
   }
 }
