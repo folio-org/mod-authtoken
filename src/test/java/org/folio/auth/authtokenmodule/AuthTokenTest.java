@@ -1112,10 +1112,10 @@ public class AuthTokenTest {
     ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
       ts.saveToken(conn, apiToken).onComplete(context.asyncAssertSuccess(a -> {
         ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertSuccess(b -> {
-          ts.setTokenRevoked(conn, apiToken).onComplete(context.asyncAssertSuccess(c -> {
+          ts.revokeToken(conn, apiToken).onComplete(context.asyncAssertSuccess(c -> {
             ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertFailure(d -> {
               async.complete();
-            }));
+            })).eventually(y -> conn.close());
           }));
         }));
       }));
@@ -1123,7 +1123,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testStoreRefreshSingleUse(TestContext context) {
+  public void testStoreRefreshTokenSingleUse(TestContext context) {
     Async async = context.async();
     var ts = new RefreshTokenStore(vertx, tenant);
     ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
@@ -1140,9 +1140,10 @@ public class AuthTokenTest {
         ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertSuccess(b -> {
           logger.info("Target token is {}", rt2.getId());
           // The second check should fail since it is the second check. This is a "leak"
-          // since RTs should only be used once.
+          // since RTs should only be used (redeemed) once.
           ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertFailure(c -> {
-            // At this point all tokens for the user should be revoked.
+            // At this point all tokens for the user should be revoked so we only want
+            // failures.
             ts.checkTokenNotRevoked(conn, rt1).onComplete(context.asyncAssertFailure(d ->{
               ts.checkTokenNotRevoked(conn, rt3).onComplete(context.asyncAssertFailure(e -> {
                 async.complete();
