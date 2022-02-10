@@ -12,7 +12,6 @@ import org.apache.logging.log4j.Logger;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import io.vertx.sqlclient.SqlConnection;
 import io.vertx.sqlclient.Tuple;
 
 /**
@@ -29,8 +28,9 @@ public class ApiTokenStore extends TokenStore {
    * Constructs the store for the given tenant. The tenant can be obtained from
    * the token when it arrives for validation or when it is created.
    * @param vertx A reference to the current vertx object.
-   * @param tenant The tenant which is in scope for a given token. The tenant can be obtained from
-   * the token when it arrives for validation or when it is created.
+   * @param tenant The tenant which is in scope for a given token. The tenant
+   * can be obtained from the token when it arrives for validation or when it is
+   * created.
    * @param tokenCreator A reference to the the current TokenCreator object
    * in scope for the main verticle.
    */
@@ -41,12 +41,10 @@ public class ApiTokenStore extends TokenStore {
 
   /**
    * Creates the table for this token store if it doesn't yet exist.
-   * @param conn An SqlConnection object to be used by the method to access the token
-   * store. It is the responsibility of callers to close this connection.
-   * @return A failed future should the save operation fail. Otherwise a succeeded future
-   * is returned, even if the table exists. TODO is this right?
+   * @return A failed future should the save operation fail. Otherwise a
+   * succeeded future is returned, even if the table exists.
    */
-  public Future<Void> createIfNotExists(SqlConnection conn) {
+  public Future<Void> createIfNotExists() {
     // API tokens don't have an owning user. They are associated with a tenant
     // only. The token itself is persisted since it will need to be viewed by
     // end-users who have permission to see api tokens.
@@ -57,7 +55,9 @@ public class ApiTokenStore extends TokenStore {
 
     log.info("Creating {} tables", TokenStore.class.getName());
 
-    return conn.query(createTable).execute().mapEmpty();
+    return pool.withConnection(conn -> {
+      return conn.query(createTable).execute().mapEmpty();
+    });
   }
 
   /**
@@ -69,7 +69,7 @@ public class ApiTokenStore extends TokenStore {
    * @return A failed future should the save operation fail. Otherwise a succeeded future
    * is returned.
    */
-  public Future<Void> saveToken(SqlConnection conn, ApiToken apiToken) {
+  public Future<Void> saveToken(ApiToken apiToken) {
     UUID id = apiToken.getId();
     long issuedAt = apiToken.getIssuedAt();
     boolean isRevoked = false;
@@ -89,49 +89,52 @@ public class ApiTokenStore extends TokenStore {
         "(id, token, is_revoked, issued_at) VALUES ($1, $2, $3, $4)";
     var values = Tuple.of(id, token, isRevoked, issuedAt);
 
+    return pool.withConnection(conn -> {
+      return conn.preparedQuery(insert).execute(values).mapEmpty();
+    });
+
     // TODO Should we return the encoded API token to callers?
-    return conn.preparedQuery(insert).execute(values).mapEmpty();
   }
 
   /**
    * Check that the token has not been revoked. This will return a failed future if
    * the token has been revoked, otherwise it will return a succeeded future.
-   * @param conn An SqlConnection object to be used by the method to access the token
-   * store. It is the responsibility of callers to close this connection.
    * @param refreshToken The API token to check.
    * @return A failed future if the token has been revoked. Otherwise a succeeded future
    * is returned.
    */
-  public Future<Void> checkTokenNotRevoked(SqlConnection conn, ApiToken apiToken) {
+  public Future<Void> checkTokenNotRevoked(ApiToken apiToken) {
     UUID tokenId = apiToken.getId();
 
-    log.info("Checking revoked status of {} api token id {}", API_TOKEN_SUFFIX, tokenId);
+    log.info("Checking revoked status of {} api token id {}",
+      API_TOKEN_SUFFIX, tokenId);
 
     String select = "SELECT is_revoked FROM " + tableName(tenant, API_TOKEN_SUFFIX) +
       "WHERE id=$1";
     Tuple where = Tuple.of(tokenId);
 
-    return getRow(conn, select, where).compose(row -> {
-      Boolean isRevoked = row.getBoolean("is_revoked");
+    return pool.withConnection(conn -> {
+      return getRow(conn, select, where).compose(row -> {
+        Boolean isRevoked = row.getBoolean("is_revoked");
 
-      log.info("Revoked status of {} token id {} is {}", API_TOKEN_SUFFIX, tokenId, isRevoked);
+        log.info("Revoked status of {} token id {} is {}",
+          API_TOKEN_SUFFIX, tokenId, isRevoked);
 
-      if (!isRevoked) {
-        return Future.succeededFuture();
-      }
-      return Future.failedFuture("API token is revoked");
+        if (!isRevoked) {
+            return Future.succeededFuture();
+        }
+        return Future.failedFuture("API token revoked");
+      });
     });
   }
 
   /**
    * Revokes the API token.
-   * @param conn An SqlConnection object to be used by the method to access the token
-   * store. It is the responsibility of callers to close this connection.
    * @param apiToken The API token to revoke.
    * @return A failed future if the revoke operation failed. Otherwise a succeeded future
    * is returned.
    */
-  public Future<Void> revokeToken(SqlConnection conn, ApiToken apiToken) {
+  public Future<Void> revokeToken(ApiToken apiToken) {
     UUID tokenId = apiToken.getId();
     log.info("Revoking API token {}", tokenId);
 
@@ -139,10 +142,13 @@ public class ApiTokenStore extends TokenStore {
         "SET is_revoked=$1 WHERE id=$2";
     Tuple where = Tuple.of(Boolean.TRUE, tokenId);
 
-    return conn.preparedQuery(update).execute(where).mapEmpty();
+    return pool.withConnection(conn -> {
+      return conn.preparedQuery(update).execute(where).mapEmpty();
+    });
   }
 
-  public Future<List<ApiToken>> getApiTokensForTenant(SqlConnection conn, String tenant) {
+  // TODO Implement.
+  public Future<List<ApiToken>> getApiTokensForTenant(String tenant) {
     throw new NotImplementedException("TODO");
   }
 }

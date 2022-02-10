@@ -27,8 +27,8 @@ public class RefreshTokenStore extends TokenStore {
   /**
    * Constructs the refresh token store.
    * @param vertx A reference to the current vertx object.
-   * @param tenant The tenant which is in scope for storage to be used. This can be obtained
-   * from the refresh token when it arrives.
+   * @param tenant The tenant which is in scope for a given token. This can be obtained
+   * from the refresh token when the refresh token is created or arrives.
    */
   public RefreshTokenStore(Vertx vertx, String tenant) {
     super(vertx, tenant);
@@ -40,12 +40,10 @@ public class RefreshTokenStore extends TokenStore {
 
   /**
    * Creates the table for this token store if it doesn't yet exist.
-   * @param conn An SqlConnection object to be used by the method to access the token
-   * store. It is the responsibility of callers to close this connection.
    * @return A failed future should the save operation fail. Otherwise a succeeded future
-   * is returned, even if the table exists. TODO is this right?
+   * is returned, even if the table exists.
    */
-  public Future<Void> createIfNotExists(SqlConnection conn) {
+  public Future<Void> createIfNotExists() {
     // Refresh tokens have an owning user, but the token itself isn't persisted
     // since it isn't used for anything. Just the id is enough.
     String createTable = "CREATE TABLE IF NOT EXISTS " +
@@ -55,19 +53,19 @@ public class RefreshTokenStore extends TokenStore {
 
     log.info("Creating {} tables", RefreshTokenStore.class.getName());
 
-    return conn.query(createTable).execute().mapEmpty();
+    return pool.withConnection(conn -> {
+      return conn.query(createTable).execute().mapEmpty();
+    });
   }
 
   /**
    * Save the token to the token store. This should be done anytime a new refresh token
    * is issued.
-   * @param conn An SqlConnection object to be used by the method to access the token
-   * store. It is the responsibility of callers to close this connection.
    * @param refreshToken The refresh token to store.
    * @return A failed future should the save operation fail. Otherwise a succeeded future
    * is returned.
    */
-  public Future<Void> saveToken(SqlConnection conn, RefreshToken refreshToken) {
+  public Future<Void> saveToken(RefreshToken refreshToken) {
     UUID id = refreshToken.getId();
     UUID userId = refreshToken.getUserId();
     long expiresAt = refreshToken.getExpiresAt();
@@ -81,19 +79,19 @@ public class RefreshTokenStore extends TokenStore {
         "(id, user_id, is_revoked, is_redeemed, expires_at) VALUES ($1, $2, $3, $4, $5)";
     var values = Tuple.of(id, userId, isRevoked, isRedeemed, expiresAt);
 
-    return conn.preparedQuery(insert).execute(values).mapEmpty();
+    return pool.withConnection(conn -> {
+      return conn.preparedQuery(insert).execute(values).mapEmpty();
+    });
   }
 
   /**
    * Check that the token has not been revoked. This will return a failed future if
    * the token has been revoked, otherwise it will return a succeeded future.
-   * @param conn An SqlConnection object to be used by the method to access the token
-   * store. It is the responsibility of callers to close this connection.
    * @param refreshToken The RefreshToken to check.
    * @return A failed future if the token has been revoked. Otherwise a succeeded future
    * is returned.
    */
-  public Future<Void> checkTokenNotRevoked(SqlConnection conn, RefreshToken refreshToken) {
+  public Future<Void> checkTokenNotRevoked(RefreshToken refreshToken) {
     // This is what this method does:
     // 1. Get isRedeemed and isRevoked for token. If token not found treat as revoked.
     // 2. If it has been revoked, fail the future. We need to check this here since
@@ -116,36 +114,38 @@ public class RefreshTokenStore extends TokenStore {
     String select = "SELECT is_redeemed, is_revoked FROM " + table + "WHERE id=$1";
     Tuple where = Tuple.of(tokenId);
 
-    return getRow(conn, select, where).compose(row -> {
-      Boolean isRedeemed = row.getBoolean("is_redeemed");
-      Boolean isRevoked = row.getBoolean("is_revoked");
+    return pool.withConnection(conn -> {
+      return getRow(conn, select, where).compose(row -> {
+        Boolean isRedeemed = row.getBoolean("is_redeemed");
+        Boolean isRevoked = row.getBoolean("is_revoked");
 
-      log.info("Redeemed status of {} token id {} is {}", REFRESH_TOKEN_SUFFIX, tokenId, isRedeemed);
-      log.info("Revoked status of {} token id {} is {}", REFRESH_TOKEN_SUFFIX, tokenId, isRevoked);
+        log.info("Redeemed status of {} token id {} is {}", REFRESH_TOKEN_SUFFIX, tokenId, isRedeemed);
+        log.info("Revoked status of {} token id {} is {}", REFRESH_TOKEN_SUFFIX, tokenId, isRevoked);
 
-      // The token could have been revoked by a different request so we check that first.
-      // If it has been revoked, all tokens should already have been revoked so we can safely
-      // return.
-      if (isRevoked) {
-        log.info("Token {} has been revoked", tokenId);
-        return Future.failedFuture("Token is revoked");
-      }
+        // The token could have been revoked by a different request so we check that first.
+        // If it has been revoked, all tokens should already have been revoked so we can safely
+        // return.
+        if (isRevoked) {
+          log.info("Token {} has been revoked", tokenId);
+          return Future.failedFuture("Token is revoked");
+        }
 
-      if (!isRedeemed) {
-        // Token has not been used more than once. Set it as redeemed so it can't be used again
-        // and return a success.
-        log.info("Token {} has not yet been redeemed so it is not revoked", tokenId);
-        return setTokenRedeemed(conn, refreshToken);
-      }
+        if (!isRedeemed) {
+          // Token has not been used more than once. Set it as redeemed so it can't be used again
+          // and return a success.
+          log.info("Token {} has not yet been redeemed so it is not revoked", tokenId);
+          return setTokenRedeemed(conn, refreshToken);
+        }
 
-      // isRedeemed is true so the token has been used more than once. Revoke
-      // all tokens for the user.
-      String leakedMessage = "Refresh token {} attempted to be used twice." +
-      " It is considered leaked. Revoking all tokens for user {}.";
-      log.info(leakedMessage, tokenId, userId);
+        // isRedeemed is true so the token has been used more than once. Revoke
+        // all tokens for the user.
+        String leakedMessage = "Refresh token {} attempted to be used twice." +
+        " It is considered leaked. Revoking all tokens for user {}.";
+        log.info(leakedMessage, tokenId, userId);
 
-      return revokeAllTokensForUser(conn, userId).compose(x -> {
-        return Future.failedFuture("Token leaked. Revoked all tokens for user.");
+        return revokeAllTokensForUser(conn, userId).compose(y -> {
+          return Future.failedFuture("Token leaked. Revoked all tokens for user.");
+        });
       });
     });
   }
@@ -156,12 +156,10 @@ public class RefreshTokenStore extends TokenStore {
    * reasonable amount of time to keep things fresh but not cause undue system load.
    * Clients need to ensure that they are requesting new refresh tokens before they
    * expire.
-   * @param conn An SqlConnection object to use for the operation. It is the
-   * responsibility of clients to close this connection.
    * @return A failed future should the deletion fail. A succeeded future if the
    * deletion succeeds.
    */
-  public Future<Void> cleanupExpiredTokens(SqlConnection conn) {
+  public Future<Void> cleanupExpiredTokens() {
     long now = Instant.now().getEpochSecond();
     log.info("Cleaning up tokens which are older than: {}", now);
 
@@ -169,16 +167,22 @@ public class RefreshTokenStore extends TokenStore {
       "WHERE expires_at<$1";
     Tuple where = Tuple.of(now);
 
-    return conn.preparedQuery(delete).execute(where).mapEmpty();
+    return pool.withConnection(conn -> {
+      return conn.preparedQuery(delete).execute(where).mapEmpty();
+    });
   }
 
-  public Future<Integer> countTokensStored(SqlConnection conn, String tenant) {
+  public Future<Integer> countTokensStored(String tenant) {
     String select = "SELECT * FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX);
-    return getRows(conn, select).map(rows -> rows.rowCount());
+    return pool.withConnection(conn -> {
+      return getRows(conn, select).map(rows -> rows.rowCount());
+    });
   }
 
-  public Future<Void> removeAll(SqlConnection conn) {
-    return removeAll(conn, REFRESH_TOKEN_SUFFIX);
+  public Future<Void> removeAll() {
+    return pool.withConnection(conn -> {
+      return removeAll(conn, REFRESH_TOKEN_SUFFIX);
+    });
   }
 
   private Future<Void> setTokenRedeemed(SqlConnection conn, RefreshToken refreshToken) {

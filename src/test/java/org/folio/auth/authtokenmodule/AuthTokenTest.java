@@ -1054,12 +1054,10 @@ public class AuthTokenTest {
   public void testStoreSaveRefreshToken(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
     Async async = context.async();
-    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-      ts.saveToken(conn, rt).onComplete(context.asyncAssertSuccess(x -> {
-        ts.checkTokenNotRevoked(conn, rt).onComplete(context.asyncAssertSuccess(y -> {
-          async.complete();
-        })).eventually(z -> conn.close());
+    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    ts.saveToken(rt).onComplete(context.asyncAssertSuccess(x -> {
+      ts.checkTokenNotRevoked(rt).onComplete(context.asyncAssertSuccess(y -> {
+        async.complete();
       }));
     }));
   }
@@ -1070,10 +1068,8 @@ public class AuthTokenTest {
     Async async = context.async();
     // A RefreshToken which doesn't exist is treated as revoked.
     var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      ts.checkTokenNotRevoked(conn, unsavedToken).onComplete(context.asyncAssertFailure(y -> {
-        async.complete();
-      })).eventually(z -> conn.close());
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(y -> {
+      async.complete();
     }));
   }
 
@@ -1082,11 +1078,9 @@ public class AuthTokenTest {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
     Async async = context.async();
     var apiToken = new ApiToken(tenant);
-    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      ts.saveToken(conn, apiToken).onComplete(context.asyncAssertSuccess(x -> {
-        ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertSuccess(y -> {
-          async.complete();
-        })).eventually(z -> conn.close());
+    ts.saveToken(apiToken).onComplete(context.asyncAssertSuccess(x -> {
+      ts.checkTokenNotRevoked(apiToken).onComplete(context.asyncAssertSuccess(y -> {
+        async.complete();
       }));
     }));
   }
@@ -1097,25 +1091,21 @@ public class AuthTokenTest {
     Async async = context.async();
     // A ApiToken which doesn't exist in storage is treated as revoked.
     var unsavedToken = new ApiToken(tenant);
-    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      ts.checkTokenNotRevoked(conn, unsavedToken).onComplete(context.asyncAssertFailure(x -> {
-        async.complete();
-      })).eventually(y -> conn.close());
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(x -> {
+      async.complete();
     }));
   }
 
   @Test
-  public void testStoreApiRevoked(TestContext context) {
+  public void testApiTokenRevoked(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
     Async async = context.async();
     var apiToken = new ApiToken(tenant);
-    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      ts.saveToken(conn, apiToken).onComplete(context.asyncAssertSuccess(a -> {
-        ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertSuccess(b -> {
-          ts.revokeToken(conn, apiToken).onComplete(context.asyncAssertSuccess(c -> {
-            ts.checkTokenNotRevoked(conn, apiToken).onComplete(context.asyncAssertFailure(d -> {
-              async.complete();
-            })).eventually(y -> conn.close());
+    ts.saveToken(apiToken).onComplete(context.asyncAssertSuccess(a -> {
+      ts.checkTokenNotRevoked(apiToken).onComplete(context.asyncAssertSuccess(b -> {
+        ts.revokeToken(apiToken).onComplete(context.asyncAssertSuccess(c -> {
+          ts.checkTokenNotRevoked(apiToken).onComplete(context.asyncAssertFailure(d -> {
+            async.complete();
           }));
         }));
       }));
@@ -1126,28 +1116,25 @@ public class AuthTokenTest {
   public void testStoreRefreshTokenSingleUse(TestContext context) {
     Async async = context.async();
     var ts = new RefreshTokenStore(vertx, tenant);
-    ts.connect().onComplete(context.asyncAssertSuccess(conn -> {
-      // Create and save some tokens.
-      var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-      var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-      var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-      var s1 = ts.saveToken(conn, rt1);
-      var s2 = ts.saveToken(conn, rt2);
-      var s3 = ts.saveToken(conn, rt3);
+    // Create and save some tokens.
+    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var s1 = ts.saveToken(rt1);
+    var s2 = ts.saveToken(rt2);
+    var s3 = ts.saveToken(rt3);
 
-      CompositeFuture.all(s1, s2, s3).onComplete(context.asyncAssertSuccess(a -> {
-        // The first call to check the token r2 should succeed since it is the first check.
-        ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertSuccess(b -> {
-          logger.info("Target token is {}", rt2.getId());
-          // The second check should fail since it is the second check. This is a "leak"
-          // since RTs should only be used (redeemed) once.
-          ts.checkTokenNotRevoked(conn, rt2).onComplete(context.asyncAssertFailure(c -> {
-            // At this point all tokens for the user should be revoked so we only want
-            // failures.
-            ts.checkTokenNotRevoked(conn, rt1).onComplete(context.asyncAssertFailure(d ->{
-              ts.checkTokenNotRevoked(conn, rt3).onComplete(context.asyncAssertFailure(e -> {
-                async.complete();
-               })).eventually(f -> conn.close());
+    CompositeFuture.all(s1, s2, s3).onComplete(context.asyncAssertSuccess(a -> {
+      // The first call to check the token r2 should succeed since it is the first check.
+      ts.checkTokenNotRevoked(rt2).onComplete(context.asyncAssertSuccess(b -> {
+        // The second check should fail since it is the second check. This is a "leak"
+        // since RTs should only be used (redeemed) once.
+        ts.checkTokenNotRevoked(rt2).onComplete(context.asyncAssertFailure(c -> {
+          // At this point all tokens for the user should be revoked so we only want
+          // failures.
+          ts.checkTokenNotRevoked(rt1).onComplete(context.asyncAssertFailure(d ->{
+            ts.checkTokenNotRevoked(rt3).onComplete(context.asyncAssertFailure(e -> {
+              async.complete();
             }));
           }));
         }));
@@ -1173,21 +1160,19 @@ public class AuthTokenTest {
     Async async = context.async();
     var ts = new RefreshTokenStore(vertx, tenant);
 
-    ts.connect().onComplete(context.asyncAssertSuccess(conn-> {
-      ts.removeAll(conn).onComplete(context.asyncAssertSuccess(a -> {
-        var s1 = ts.saveToken(conn, rt1);
-        var s2 = ts.saveToken(conn, rt2);
-        var s3 = ts.saveToken(conn, rt3);
-        var s4 = ts.saveToken(conn, rt4);
-        var s5 = ts.saveToken(conn, rt5);
-        CompositeFuture.all(s1, s2, s3, s4, s5).onComplete(context.asyncAssertSuccess(b-> {
-          ts.countTokensStored(conn, tenant).onComplete(context.asyncAssertSuccess(countBefore -> {
-            assertThat(countBefore, is(5));
-            ts.cleanupExpiredTokens(conn).onComplete(context.asyncAssertSuccess(c -> {
-              ts.countTokensStored(conn, tenant).onComplete(context.asyncAssertSuccess(countAfter -> {
-                assertThat(countAfter, is(3));
-                async.complete();
-              })).eventually(d -> conn.close());
+    ts.removeAll().onComplete(context.asyncAssertSuccess(a -> {
+      var s1 = ts.saveToken(rt1);
+      var s2 = ts.saveToken(rt2);
+      var s3 = ts.saveToken(rt3);
+      var s4 = ts.saveToken(rt4);
+      var s5 = ts.saveToken(rt5);
+      CompositeFuture.all(s1, s2, s3, s4, s5).onComplete(context.asyncAssertSuccess(b-> {
+        ts.countTokensStored(tenant).onComplete(context.asyncAssertSuccess(countBefore -> {
+          assertThat(countBefore, is(5));
+          ts.cleanupExpiredTokens().onComplete(context.asyncAssertSuccess(c -> {
+            ts.countTokensStored(tenant).onComplete(context.asyncAssertSuccess(countAfter -> {
+              assertThat(countAfter, is(3));
+              async.complete();
             }));
           }));
         }));

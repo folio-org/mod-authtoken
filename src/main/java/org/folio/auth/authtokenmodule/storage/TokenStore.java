@@ -13,7 +13,8 @@ import io.vertx.sqlclient.Tuple;
 import org.folio.tlib.postgres.TenantPgPool;
 
 /**
- * The base class for all token storage.
+ * The base class for all token storage. Actual token store classes should
+ * extend this.
  */
 public class TokenStore {
   private static final Logger log = LogManager.getLogger(TokenStore.class);
@@ -25,17 +26,7 @@ public class TokenStore {
   public TokenStore(Vertx vertx, String tenant) {
     this.vertx = vertx;
     this.tenant = tenant;
-  }
-
-  /**
-   * Obtain a sql connection to the store. It is the responsibility of callers to
-   * close this connection.
-   * @return A succeeded future wrapping the SqlConnection object which can be used for
-   * subsequent operations in the store, or a failed future if the connection fails.
-   */
-  public Future<SqlConnection> connect() {
-    pool = TenantPgPool.pool(vertx, tenant);
-    return pool.getConnection();
+    this.pool = TenantPgPool.pool(vertx, tenant);
   }
 
   /**

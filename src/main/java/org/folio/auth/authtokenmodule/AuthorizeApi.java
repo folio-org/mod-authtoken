@@ -136,12 +136,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
     var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
     var apiTokenStore = new ApiTokenStore(vertx, tenant, tokenCreator);
-    return refreshTokenStore.connect().compose(conn -> {
-      return refreshTokenStore.createIfNotExists(conn);
-    }).compose(x -> {
-      return apiTokenStore.connect().compose(conn -> {
-        return apiTokenStore.createIfNotExists(conn);
-      });
+      return refreshTokenStore.createIfNotExists().compose(x -> {
+      return apiTokenStore.createIfNotExists();
     });
   }
 
