@@ -7,8 +7,6 @@ import org.folio.tlib.api.HealthApi;
 import org.folio.tlib.RouterCreator;
 import org.folio.tlib.api.Tenant2Api;
 
-import io.vertx.ext.web.client.WebClient;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -52,7 +50,8 @@ public class MainVerticle extends AbstractVerticle {
     var authorizeApi = new AuthorizeApi(vertx, tokenCreator);
     RouterCreator[] routerCreators = {
       // TODO Make it more clear here what is going on.
-      // NOTE Adding these in this order is important.
+      // NOTE Adding these in this order is important, otherwise the filter in AuthorizeApi will
+      // not let the Tenant2Api do its work.
       new HealthApi(),
       new Tenant2Api(authorizeApi),
       authorizeApi,

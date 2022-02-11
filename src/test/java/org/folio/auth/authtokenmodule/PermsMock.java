@@ -18,10 +18,8 @@ public class PermsMock extends AbstractVerticle {
 
   private static final Logger logger = LogManager.getLogger("PermsMock");
 
-  public static int handlePermsUsersStatusCode = 200;
   public static int handlePermsUsersPermissionsStatusCode = 200;
   public static int handlePermsPermissionsStatusCode = 200;
-  public static boolean handlePermsUsersFail = false;
   public static boolean handlePermsUsersEmpty = false;
   public static boolean handlePermsUsersPermissionsFail = false;
   public static boolean handlePermsPermissionsFail = false;
@@ -38,7 +36,6 @@ public class PermsMock extends AbstractVerticle {
     HttpServer server = vertx.createHttpServer();
 
     router.route("/perms/users/:id/permissions").handler(this::handlePermUsersPermissions);
-    router.route("/perms/users").handler(this::handlePermsUsers);
     router.route("/perms/permissions").handler(this::handlePermsPermissions);
     router.route("/users/:id").handler(this::handleUsers);
     logger.info("Running PermsMock on port " + port);
@@ -60,33 +57,14 @@ public class PermsMock extends AbstractVerticle {
         .end(new JsonObject().put("active", true).encode());
   }
 
-  private void handlePermsUsers(RoutingContext context) {
-    if (handlePermsUsersFail) {
+  private void handlePermUsersPermissions(RoutingContext context) {
+    if (handlePermsUsersEmpty) {
       context.response()
-        .setStatusCode(handlePermsUsersStatusCode)
-        .putHeader("Content-type", "application/json")
-        .end("{");
+        .setStatusCode(404)
+        .putHeader("Content-Type", "text/plain")
+        .end("User not found");
       return;
     }
-    JsonArray ar = new JsonArray();
-    if (!handlePermsUsersEmpty) {
-      ar.add(new JsonObject()
-        .put("id", "773cb9d1-1e4f-416f-ba16-686ddeb6c789")
-        .put("userId", "007d31d2-1441-4291-9bb8-d6e2c20e399a")
-        .put("permissions", new JsonArray()
-          .add("extra.foobar")
-          .add("extra.foofish")
-        )
-      );
-    }
-    JsonObject output = new JsonObject().put("permissionUsers", ar);
-    context.response()
-      .setStatusCode(handlePermsUsersStatusCode)
-      .putHeader("Content-Type", "application/json")
-      .end(output.encode());
-  }
-
-  private void handlePermUsersPermissions(RoutingContext context) {
     if (handlePermsUsersPermissionsFail) {
       context.response()
         .setStatusCode(handlePermsUsersPermissionsStatusCode)

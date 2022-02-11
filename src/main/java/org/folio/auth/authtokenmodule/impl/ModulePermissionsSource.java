@@ -54,6 +54,12 @@ public class ModulePermissionsSource implements PermissionsSource {
     permissionsForUserMap.clear();
   }
 
+  @Override
+  public void clearCacheUser(String userId, String tenant) {
+    final String key = tenant + "_" + userId;
+    permissionsForUserMap.remove(key);
+  }
+
   public static void setCacheTimeout(int sec) {
     expandPermissionsTimeout = permissionsForUserTimeout = sec;
   }
@@ -74,59 +80,37 @@ public class ModulePermissionsSource implements PermissionsSource {
   }
 
   private Future<JsonArray> getPermissionsForUser(String userId, String tenant, String okapiUrl,
-                                                  String requestToken, String requestId) {
+    String requestToken, String requestId) {
     logger.debug("getPermissionsForUser userid={}", userId);
-    String permUserRequestUrl = okapiUrl + "/perms/users?query=userId==" + userId;
-    logger.debug("Requesting permissions user object from URL at {}", permUserRequestUrl);
-    HttpRequest<Buffer> permUserReq = client.getAbs(permUserRequestUrl);
-    setHeaders(permUserReq, requestToken, tenant, requestId);
-    return permUserReq.send()
-        .compose(permUserRes -> {
-          if (permUserRes.statusCode() != 200) {
-            String message = "Expected return code 200, got " + permUserRes.statusCode()
-                + " : " + permUserRes.bodyAsString();
-            logger.error(message);
-            return Future.failedFuture(message);
-          }
-          JsonObject permUserResults = permUserRes.bodyAsJsonObject();
-          JsonArray permissionUsers = permUserResults.getJsonArray("permissionUsers");
-          if (permissionUsers.isEmpty()) {
-            return Future.failedFuture( "User does not exist: " + permUserRequestUrl);
-          }
-          JsonObject permUser = permissionUsers.getJsonObject(0);
-          final String requestUrl = okapiUrl + "/perms/users/" + permUser.getString("id") + "/permissions?expanded=true";
-          logger.debug("Requesting permissions from URL at {}", requestUrl);
-          HttpRequest<Buffer> req = client.getAbs(requestUrl);
-          setHeaders(req, requestToken, tenant, requestId);
-          return req.send()
-              .compose(res -> {
-                if (res.statusCode() == 404) {
-                  //In the event of a 404, that means that the permissions user
-                  //doesn't exist, so we'll return an empty list to indicate no permissions
-                  return Future.succeededFuture(new JsonArray());
-                }
-                if (res.statusCode() != 200) {
-                  String failMessage = "Unable to retrieve permissions (code " + res.statusCode() + "): " + res.bodyAsString();
-                  logger.debug(failMessage);
-                  return Future.failedFuture(failMessage);
-                }
-                // 200
-                JsonObject permissionsObject;
-                try {
-                  permissionsObject = res.bodyAsJsonObject();
-                } catch (Exception e) {
-                  logger.debug("Error parsing permissions object: {}", e.getMessage());
-                  permissionsObject = null;
-                }
-                if (permissionsObject != null && permissionsObject.getJsonArray("permissionNames") != null) {
-                  logger.debug("Got permissions");
-                  return Future.succeededFuture(permissionsObject.getJsonArray("permissionNames"));
-                } else {
-                  logger.error("Got malformed/empty permissions object");
-                  return Future.failedFuture("Got malformed/empty permissions object");
-                }
-              });
-        });
+    final String requestUrl = okapiUrl + "/perms/users/" + userId + "/permissions?expanded=true&indexField=userId";
+    logger.debug("Requesting permissions from URL at {}", requestUrl);
+    HttpRequest<Buffer> req = client.getAbs(requestUrl);
+    setHeaders(req, requestToken, tenant, requestId);
+    return req.send()
+      .compose(res -> {
+        if (res.statusCode() == 404) {
+          return Future.failedFuture( "User does not exist: " + userId);
+        } else if (res.statusCode() != 200) {
+          String failMessage = "Unable to retrieve permissions (code " + res.statusCode() + "): " + res.bodyAsString();
+          logger.error(failMessage);
+          return Future.failedFuture(failMessage);
+        }
+        // 200
+        JsonObject permissionsObject;
+        try {
+          permissionsObject = res.bodyAsJsonObject();
+        } catch (Exception e) {
+          logger.debug("Error parsing permissions object: {}", e.getMessage());
+          permissionsObject = null;
+        }
+        if (permissionsObject != null && permissionsObject.getJsonArray("permissionNames") != null) {
+          logger.debug("Got permissions");
+          return Future.succeededFuture(permissionsObject.getJsonArray("permissionNames"));
+        } else {
+          logger.error("Got malformed/empty permissions object");
+          return Future.failedFuture("Got malformed/empty permissions object");
+        }
+      });
   }
 
   private void setHeaders(HttpRequest<Buffer> req, String requestToken,

@@ -24,4 +24,9 @@ public class DummyPermissionsSource implements PermissionsSource {
     // has no notion of cache, so does nothing
   }
 
+  @Override
+  public void clearCacheUser(String userId, String tenant) {
+    // no effect as there is no cache
+  }
+
 }
