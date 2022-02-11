@@ -19,12 +19,10 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.appender.rolling.OnStartupTriggeringPolicy;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
-import org.folio.auth.authtokenmodule.storage.TokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
@@ -153,28 +151,14 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   private void handleSignEncryptedToken(RoutingContext ctx) {
     try {
       logger.debug("Encrypted token signing request from {}", ctx.request().absoluteURI());
-      if (ctx.request().method() != HttpMethod.POST) {
-        String message = "Invalid method for this endpoint";
-        endText(ctx, 400, message);
-        return;
-      }
-      String content = ctx.getBodyAsString();
-      JsonObject requestJson;
-      try {
-        requestJson = parseJsonObject(content,
-            new String[] { "passPhrase", "payload" });
-      } catch (Exception e) {
-        String message = String.format("Unable to parse content: %s",
-            e.getLocalizedMessage());
-        endText(ctx, 400, message);
-        return;
-      }
+
+      JsonObject requestJson = parseEncryptionRequest(ctx, new String[] { "passPhrase", "payload" });
       String passPhrase = requestJson.getString("passPhrase");
       TokenCreator localTokenCreator = lookupTokenCreator(passPhrase);
       String token = localTokenCreator.createJWEToken(requestJson.getJsonObject("payload")
           .encode());
-      JsonObject responseJson = new JsonObject()
-          .put("token", token);
+
+      JsonObject responseJson = new JsonObject().put("token", token);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 400, e);
@@ -192,32 +176,35 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
    */
   private void handleDecodeEncryptedToken(RoutingContext ctx) {
     try {
-      if (ctx.request().method() != HttpMethod.POST) {
-        String message = "Invalid method for this endpoint";
-        endText(ctx, 400, message);
-        return;
-      }
-      String content = ctx.getBodyAsString();
-      JsonObject requestJson;
-      try {
-        requestJson = parseJsonObject(content,
-            new String[] { "passPhrase", "token" });
-      } catch (Exception e) {
-        String message = String.format("Unable to parse content: %s",
-            e.getLocalizedMessage());
-        endText(ctx, 400, message);
-        return;
-      }
+      JsonObject requestJson = parseEncryptionRequest(ctx, new String[] { "passPhrase", "token" });
       String passPhrase = requestJson.getString("passPhrase");
       TokenCreator localTokenCreator = lookupTokenCreator(passPhrase);
       String token = requestJson.getString("token");
       String encodedJson = localTokenCreator.decodeJWEToken(token);
-      JsonObject responseJson = new JsonObject()
-          .put("payload", new JsonObject(encodedJson));
+
+      JsonObject responseJson = new JsonObject().put("payload", new JsonObject(encodedJson));
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);
     }
+  }
+
+  private JsonObject parseEncryptionRequest(RoutingContext ctx, String[] requiredProperties) {
+    if (ctx.request().method() != HttpMethod.POST) {
+      String message = "Invalid method for this endpoint";
+      endText(ctx, 400, message);
+      return null;
+    }
+    String content = ctx.getBodyAsString();
+    JsonObject requestJson = null;
+    try {
+      requestJson = parseJsonObject(content, requiredProperties);
+    } catch (Exception e) {
+      String message = String.format("Unable to parse content: %s", e.getLocalizedMessage());
+      endText(ctx, 400, message);
+      return null;
+    }
+    return requestJson;
   }
 
   /*
@@ -258,15 +245,9 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       Future<Token> tokenValidationResult = Token.validate(context);
 
       tokenValidationResult.onFailure(h -> {
-        if (h instanceof TokenValidationException) {
-          var e = (TokenValidationException) h;
-          logger.error("Invalid refresh token: {}", e.toString());
-          endText(ctx, e.getHttpResponseCode(), "Invalid token");
-          return;
-        }
-        logger.error("Unexpected token exception in handleRefresh: {}", h.toString());
-        endText(ctx, 500, "Unexpected token exception in handleRefresh");
-        return;
+        String msg = "Invalid token in handleRefresh";
+        String unexpectedExceptionMsg = "Unexpected token exception in handleRefresh";
+        handleTokenValidationFailure(h, ctx, msg, unexpectedExceptionMsg);
       });
 
       tokenValidationResult.onSuccess(token -> {
@@ -288,6 +269,19 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     } catch (Exception e) {
       endText(ctx, 500, String.format("Unanticipated exception when handling refresh: %s", e.getMessage()));
     }
+  }
+
+  private void handleTokenValidationFailure(Throwable h, RoutingContext ctx,
+      String msg, String unexpectedExceptionMsg) {
+    if (h instanceof TokenValidationException) {
+      var e = (TokenValidationException) h;
+      logger.error("{}: {}", msg, e.toString());
+      endText(ctx, e.getHttpResponseCode(), msg);
+      return;
+    }
+    logger.error("{}: {}", unexpectedExceptionMsg, h.toString());
+    endText(ctx, 500, unexpectedExceptionMsg);
+    return;
   }
 
   /*
@@ -366,10 +360,19 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       }
 
       String userId = payload.getString("user_id");
+      if (userId != null) {
+        permissionsSource.clearCacheUser(userId, tenant);
+      }
       String username = payload.getString("sub");
-      String token = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
-
-      JsonObject responseObject = new JsonObject().put("token", token);
+      Token token;
+      // auth 2.0 did not expose the "type" property which is now used internally.
+      // Only normal (access tokens) are exposed as well as dummy tokens (mod-users-bl).
+      if (payload.getBoolean("dummy", Boolean.FALSE)) {
+        token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
+      } else {
+        token = new AccessToken(tenant, username, userId);
+      }
+      JsonObject responseObject = new JsonObject().put("token", token.encodeAsJWT(tokenCreator));
       endJson(ctx, 201, responseObject.encode());
     } catch (Exception e) {
       endText(ctx, 400, e);
@@ -455,15 +458,9 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     Future<Token> tokenValidationResult = Token.validate(context);
 
     tokenValidationResult.onFailure(h -> {
-      if (h instanceof TokenValidationException) {
-        var e = (TokenValidationException) h;
-        logger.error("Invalid refresh token: {}", e.toString());
-        endText(ctx, e.getHttpResponseCode(), "Invalid token");
-        return;
-      }
-      logger.error("Unexpected token exception in handleAuthorize: {}", h.toString());
-      endText(ctx, 500, "Unexpected token exception in handleAuthorize");
-      return;
+      String msg = "Invalid token in handleAuthorize";
+      String unexpectedExceptionMsg = "Unexpected token exception in handleAuthorize";
+      handleTokenValidationFailure(h, ctx, msg, unexpectedExceptionMsg);
     });
 
     tokenValidationResult.onSuccess(token -> {
