@@ -55,9 +55,7 @@ public class ApiTokenStore extends TokenStore {
 
     log.info("Creating {} tables", TokenStore.class.getName());
 
-    return pool.withConnection(conn -> {
-      return conn.query(createTable).execute().mapEmpty();
-    });
+    return pool.query(createTable).execute().mapEmpty();
   }
 
   /**
@@ -89,9 +87,7 @@ public class ApiTokenStore extends TokenStore {
         "(id, token, is_revoked, issued_at) VALUES ($1, $2, $3, $4)";
     var values = Tuple.of(id, token, isRevoked, issuedAt);
 
-    return pool.withConnection(conn -> {
-      return conn.preparedQuery(insert).execute(values).mapEmpty();
-    });
+    return pool.preparedQuery(insert).execute(values).mapEmpty();
 
     // TODO Should we return the encoded API token to callers?
   }
@@ -142,9 +138,7 @@ public class ApiTokenStore extends TokenStore {
         "SET is_revoked=$1 WHERE id=$2";
     Tuple where = Tuple.of(Boolean.TRUE, tokenId);
 
-    return pool.withConnection(conn -> {
-      return conn.preparedQuery(update).execute(where).mapEmpty();
-    });
+    return pool.preparedQuery(update).execute(where).mapEmpty();
   }
 
   // TODO Implement.

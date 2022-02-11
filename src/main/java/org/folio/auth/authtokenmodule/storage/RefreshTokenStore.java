@@ -53,9 +53,7 @@ public class RefreshTokenStore extends TokenStore {
 
     log.info("Creating {} tables", RefreshTokenStore.class.getName());
 
-    return pool.withConnection(conn -> {
-      return conn.query(createTable).execute().mapEmpty();
-    });
+    return pool.query(createTable).execute().mapEmpty();
   }
 
   /**
@@ -79,9 +77,7 @@ public class RefreshTokenStore extends TokenStore {
         "(id, user_id, is_revoked, is_redeemed, expires_at) VALUES ($1, $2, $3, $4, $5)";
     var values = Tuple.of(id, userId, isRevoked, isRedeemed, expiresAt);
 
-    return pool.withConnection(conn -> {
-      return conn.preparedQuery(insert).execute(values).mapEmpty();
-    });
+    return pool.preparedQuery(insert).execute(values).mapEmpty();
   }
 
   /**
@@ -167,9 +163,7 @@ public class RefreshTokenStore extends TokenStore {
       "WHERE expires_at<$1";
     Tuple where = Tuple.of(now);
 
-    return pool.withConnection(conn -> {
-      return conn.preparedQuery(delete).execute(where).mapEmpty();
-    });
+    return pool.preparedQuery(delete).execute(where).mapEmpty();
   }
 
   public Future<Integer> countTokensStored(String tenant) {

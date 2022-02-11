@@ -125,7 +125,7 @@ public class AuthTokenTest {
       }
     });
 
-    initializeTenantForTokenStore(tenant, new JsonObject(), null);
+    initializeTenantForTokenStore(tenant, new JsonObject());
   }
 
   @AfterClass
@@ -1045,63 +1045,47 @@ public class AuthTokenTest {
   @Test
   public void testStoreSaveRefreshToken(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
-    Async async = context.async();
     var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    ts.saveToken(rt).onComplete(context.asyncAssertSuccess(x -> {
-      ts.checkTokenNotRevoked(rt).onComplete(context.asyncAssertSuccess(y -> {
-        async.complete();
-      }));
-    }));
+    ts.saveToken(rt)
+      .compose(x -> ts.checkTokenNotRevoked(rt))
+      .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
   public void testStoreRefreshTokenNotFound(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
-    Async async = context.async();
     // A RefreshToken which doesn't exist is treated as revoked.
     var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(y -> {
-      async.complete();
-    }));
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure());
   }
 
   @Test
   public void testStoreSaveApiToken(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
-    Async async = context.async();
     var apiToken = new ApiToken(tenant);
-    ts.saveToken(apiToken).onComplete(context.asyncAssertSuccess(x -> {
-      ts.checkTokenNotRevoked(apiToken).onComplete(context.asyncAssertSuccess(y -> {
-        async.complete();
-      }));
-    }));
+    ts.saveToken(apiToken).compose(x ->  ts.checkTokenNotRevoked(apiToken))
+      .onComplete(context.asyncAssertSuccess());
   }
 
   @Test
   public void testStoreApiTokenNotFound(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
-    Async async = context.async();
     // A ApiToken which doesn't exist in storage is treated as revoked.
     var unsavedToken = new ApiToken(tenant);
-    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(x -> {
-      async.complete();
-    }));
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure());
   }
 
   @Test
   public void testApiTokenRevoked(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
-    Async async = context.async();
+    //Async async = context.async();
     var apiToken = new ApiToken(tenant);
-    ts.saveToken(apiToken).onComplete(context.asyncAssertSuccess(a -> {
-      ts.checkTokenNotRevoked(apiToken).onComplete(context.asyncAssertSuccess(b -> {
-        ts.revokeToken(apiToken).onComplete(context.asyncAssertSuccess(c -> {
-          ts.checkTokenNotRevoked(apiToken).onComplete(context.asyncAssertFailure(d -> {
-            async.complete();
-          }));
-        }));
-      }));
-    }));
+    ts.saveToken(apiToken)
+      .compose(x -> ts.checkTokenNotRevoked(apiToken))
+      .compose(x -> ts.revokeToken(apiToken))
+      .onComplete(context.asyncAssertSuccess())
+      .compose(x -> ts.checkTokenNotRevoked(apiToken))
+      .onComplete(context.asyncAssertFailure());
   }
 
   @Test
@@ -1148,20 +1132,26 @@ public class AuthTokenTest {
     rt2.setExpiresAt(now - 10); // Would have expired 10 seconds ago.
     rt4.setExpiresAt(now - 20); // Would have expired 20 seconds ago.
 
-    // Save the tokens.
     Async async = context.async();
     var ts = new RefreshTokenStore(vertx, tenant);
 
+    // Other tests could have added tokens to storage, so remove all of those first.
     ts.removeAll().onComplete(context.asyncAssertSuccess(a -> {
+      // Create some futures for the saves.
       var s1 = ts.saveToken(rt1);
       var s2 = ts.saveToken(rt2);
       var s3 = ts.saveToken(rt3);
       var s4 = ts.saveToken(rt4);
       var s5 = ts.saveToken(rt5);
+
+      // Save the tokens.
       CompositeFuture.all(s1, s2, s3, s4, s5).onComplete(context.asyncAssertSuccess(b-> {
+        // There should now be 5 stored tokens.
         ts.countTokensStored(tenant).onComplete(context.asyncAssertSuccess(countBefore -> {
           assertThat(countBefore, is(5));
+          // Run the cleanup method. This should detect the 2 expired tokens and remove them.
           ts.cleanupExpiredTokens().onComplete(context.asyncAssertSuccess(c -> {
+            // There should be 3 tokens left.
             ts.countTokensStored(tenant).onComplete(context.asyncAssertSuccess(countAfter -> {
               assertThat(countAfter, is(3));
               async.complete();
@@ -1172,8 +1162,8 @@ public class AuthTokenTest {
     }));
   }
 
-  // Taken from folio-vertx-lib's tests.
-  static void initializeTenantForTokenStore(String tenant, JsonObject tenantAttributes, String expectedError) {
+  // Taken from folio-vertx-lib's tests. Causes postInit to be called.
+  static void initializeTenantForTokenStore(String tenant, JsonObject tenantAttributes) {
     // This request triggers postInit inside of AuthorizeApi.
     ExtractableResponse<Response> response = RestAssured.given()
         .header(XOkapiHeaders.TENANT, tenant)
@@ -1197,8 +1187,7 @@ public class AuthTokenTest {
         .header(XOkapiHeaders.TENANT, tenant)
         .get(location + "?wait=10000")
         .then().statusCode(200)
-        .body("complete", is(true))
-        .body("error", is(expectedError));
+        .body("complete", is(true));
 
     // TODO Investigate what this does.
     // RestAssured.given()
