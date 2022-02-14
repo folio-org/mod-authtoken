@@ -8,6 +8,7 @@ import com.nimbusds.jose.util.Base64;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
+import io.vertx.core.Future;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -1078,7 +1079,6 @@ public class AuthTokenTest {
   @Test
   public void testApiTokenRevoked(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
-    //Async async = context.async();
     var apiToken = new ApiToken(tenant);
     ts.saveToken(apiToken)
       .compose(x -> ts.checkTokenNotRevoked(apiToken))
@@ -1090,7 +1090,6 @@ public class AuthTokenTest {
 
   @Test
   public void testStoreRefreshTokenSingleUse(TestContext context) {
-    Async async = context.async();
     var ts = new RefreshTokenStore(vertx, tenant);
     // Create and save some tokens.
     var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
@@ -1100,22 +1099,20 @@ public class AuthTokenTest {
     var s2 = ts.saveToken(rt2);
     var s3 = ts.saveToken(rt3);
 
-    CompositeFuture.all(s1, s2, s3).onComplete(context.asyncAssertSuccess(a -> {
-      // The first call to check the token r2 should succeed since it is the first check.
-      ts.checkTokenNotRevoked(rt2).onComplete(context.asyncAssertSuccess(b -> {
-        // The second check should fail since it is the second check. This is a "leak"
-        // since RTs should only be used (redeemed) once.
-        ts.checkTokenNotRevoked(rt2).onComplete(context.asyncAssertFailure(c -> {
-          // At this point all tokens for the user should be revoked so we only want
-          // failures.
-          ts.checkTokenNotRevoked(rt1).onComplete(context.asyncAssertFailure(d ->{
-            ts.checkTokenNotRevoked(rt3).onComplete(context.asyncAssertFailure(e -> {
-              async.complete();
-            }));
+    Async async = context.async();
+    CompositeFuture.all(s1, s2, s3)
+      .compose(a -> ts.checkTokenNotRevoked(rt2))
+      .onComplete(context.asyncAssertSuccess()) // First check should succeed.
+      .compose(a -> ts.checkTokenNotRevoked(rt2))
+      .onComplete(context.asyncAssertFailure(b ->  { // Second should fail.
+        // At this point all tokens for the user should be revoked so any subsequent
+        // checks should fail.
+        ts.checkTokenNotRevoked(rt1).onComplete(context.asyncAssertFailure(c -> {
+          ts.checkTokenNotRevoked(rt3).onComplete(context.asyncAssertFailure(d -> {
+            async.complete();
           }));
         }));
       }));
-    }));
   }
 
   @Test
@@ -1136,29 +1133,27 @@ public class AuthTokenTest {
     var ts = new RefreshTokenStore(vertx, tenant);
 
     // Other tests could have added tokens to storage, so remove all of those first.
-    ts.removeAll().onComplete(context.asyncAssertSuccess(a -> {
-      // Create some futures for the saves.
-      var s1 = ts.saveToken(rt1);
-      var s2 = ts.saveToken(rt2);
-      var s3 = ts.saveToken(rt3);
-      var s4 = ts.saveToken(rt4);
-      var s5 = ts.saveToken(rt5);
-
-      // Save the tokens.
-      CompositeFuture.all(s1, s2, s3, s4, s5).onComplete(context.asyncAssertSuccess(b-> {
-        // There should now be 5 stored tokens.
-        ts.countTokensStored(tenant).onComplete(context.asyncAssertSuccess(countBefore -> {
-          assertThat(countBefore, is(5));
-          // Run the cleanup method. This should detect the 2 expired tokens and remove them.
-          ts.cleanupExpiredTokens().onComplete(context.asyncAssertSuccess(c -> {
-            // There should be 3 tokens left.
-            ts.countTokensStored(tenant).onComplete(context.asyncAssertSuccess(countAfter -> {
-              assertThat(countAfter, is(3));
-              async.complete();
-            }));
-          }));
-        }));
-      }));
+    ts.removeAll()
+      .compose(x -> {
+        var s1 = ts.saveToken(rt1);
+        var s2 = ts.saveToken(rt2);
+        var s3 = ts.saveToken(rt3);
+        var s4 = ts.saveToken(rt4);
+        var s5 = ts.saveToken(rt5);
+        return CompositeFuture.all(s1, s2, s3, s4, s5)
+          .compose(y -> ts.countTokensStored(tenant))
+          .compose(y -> {
+            assertThat(y, is(5));
+            return Future.succeededFuture();
+          })
+          .compose(y -> ts.cleanupExpiredTokens())
+          .compose(y -> ts.countTokensStored(tenant))
+          .compose(y -> {
+            assertThat(y, is(3));
+            return Future.succeededFuture();
+           });
+    }).onComplete(context.asyncAssertSuccess(z -> {
+      async.complete();
     }));
   }
 
