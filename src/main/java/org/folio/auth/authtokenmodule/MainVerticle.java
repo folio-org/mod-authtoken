@@ -30,7 +30,6 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public void start(Promise<Void> promise) throws MissingAlgorithmException {
-    // TODO Determine if this is the best placet to do this. Would rather do it inside of TokenStore for example.
     TenantPgPool.setModule("mod-authtoken");
 
     // Get the port from context too, the unit test needs to set it there.

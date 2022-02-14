@@ -1214,11 +1214,5 @@ public class AuthTokenTest {
         .get(location + "?wait=10000")
         .then().statusCode(200)
         .body("complete", is(true));
-
-    // TODO Investigate what this does.
-    // RestAssured.given()
-    //     .header(XOkapiHeaders.TENANT, tenant)
-    //     .delete(location)
-    //     .then().statusCode(204);
   }
 }
