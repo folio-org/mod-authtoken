@@ -206,7 +206,7 @@ public abstract class Token {
     }
   }
 
-  private static Token parse(String sourceToken, TokenCreator tokenCreator) throws TokenValidationException {
+  public static Token parse(String sourceToken, TokenCreator tokenCreator) throws TokenValidationException {
     JsonObject claims;
     final String invalidTokenMsg = "Invalid token";
 

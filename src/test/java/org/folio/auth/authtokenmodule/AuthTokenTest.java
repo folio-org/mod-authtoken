@@ -1157,6 +1157,37 @@ public class AuthTokenTest {
     }));
   }
 
+  @Test
+  public void testStoreGetApiTokensForTenant(TestContext context) {
+    // Create some tokens.
+    var at1 = new ApiToken(tenant);
+    var at2 = new ApiToken(tenant);
+    var at3 = new ApiToken(tenant);
+    var at4 = new ApiToken(tenant);
+    var at5 = new ApiToken(tenant);
+
+    var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
+
+    Async async = context.async();
+
+    ts.removeAll()
+      .compose(x -> {
+        var s1 = ts.saveToken(at1);
+        var s2 = ts.saveToken(at2);
+        var s3 = ts.saveToken(at3);
+        var s4 = ts.saveToken(at4);
+        var s5 = ts.saveToken(at5);
+        return CompositeFuture.all(s1, s2, s3, s4, s5)
+          .compose(y -> ts.getApiTokensForTenant(tenant))
+          .compose(y -> {
+            assertThat(y.size(), is(5));
+            return Future.succeededFuture();
+          });
+    }).onComplete(context.asyncAssertSuccess(z -> {
+      async.complete();
+    }));
+  }
+
   // Taken from folio-vertx-lib's tests. Causes postInit to be called.
   static void initializeTenantForTokenStore(String tenant, JsonObject tenantAttributes) {
     // This request triggers postInit inside of AuthorizeApi.

@@ -70,4 +70,10 @@ public class TokenStore {
   protected String tableName(String tenant, String tableName) {
     return pool.getSchema() + "." + tableName + " ";
   }
+
+  protected Future<Void> removeAll(String tokenSuffix) {
+    return pool.withConnection(conn -> {
+      return removeAll(conn, tokenSuffix);
+    });
+  }
 }

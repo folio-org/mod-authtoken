@@ -2,16 +2,19 @@ package org.folio.auth.authtokenmodule.storage;
 
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
+import org.folio.auth.authtokenmodule.tokens.Token;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.Tuple;
 
 /**
@@ -141,8 +144,32 @@ public class ApiTokenStore extends TokenStore {
     return pool.preparedQuery(update).execute(where).mapEmpty();
   }
 
-  // TODO Implement.
+  /**
+   * Gets a list of all the API tokens for a given tenant.
+   * @param tenant The tenant.
+   * @return A list of all the API tokens for a tenant.
+   */
   public Future<List<ApiToken>> getApiTokensForTenant(String tenant) {
-    throw new NotImplementedException("TODO");
+    String select = "SELECT token FROM " + tableName(tenant, API_TOKEN_SUFFIX);
+    List<ApiToken> tokens = new ArrayList<ApiToken>();
+    return pool.query(select).execute().compose(rows -> {
+      for (Row row : rows) {
+        String tokenString = row.getString("token");
+        try {
+          var apiToken = (ApiToken)Token.parse(tokenString, tokenCreator);
+          tokens.add(apiToken);
+        } catch (TokenValidationException e) {
+          log.error("Unable to parse token for tenant {} after retrieving from storage: {}",
+            tenant, e.getMessage());
+          return Future.failedFuture("Unable to parse token when getting from storage");
+        }
+      }
+      log.info("Retrieved {} token rows for tenant {}", rows.rowCount(), tenant);
+      return Future.succeededFuture(tokens);
+    });
+  }
+
+  public Future<Void> removeAll() {
+    return removeAll(API_TOKEN_SUFFIX);
   }
 }

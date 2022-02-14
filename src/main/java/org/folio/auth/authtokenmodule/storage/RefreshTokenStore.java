@@ -174,9 +174,7 @@ public class RefreshTokenStore extends TokenStore {
   }
 
   public Future<Void> removeAll() {
-    return pool.withConnection(conn -> {
-      return removeAll(conn, REFRESH_TOKEN_SUFFIX);
-    });
+    return removeAll(REFRESH_TOKEN_SUFFIX);
   }
 
   private Future<Void> setTokenRedeemed(SqlConnection conn, RefreshToken refreshToken) {
