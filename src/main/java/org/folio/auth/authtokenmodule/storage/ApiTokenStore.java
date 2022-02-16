@@ -24,7 +24,7 @@ import io.vertx.sqlclient.Tuple;
 public class ApiTokenStore extends TokenStore {
   private static final Logger log = LogManager.getLogger(ApiTokenStore.class);
 
-  private static String API_TOKEN_SUFFIX = "api_tokens";
+  private static final String API_TOKEN_SUFFIX = "api_tokens";
   private TokenCreator tokenCreator;
 
   /**
@@ -47,7 +47,7 @@ public class ApiTokenStore extends TokenStore {
    * @return A failed future should the save operation fail. Otherwise a
    * succeeded future is returned, even if the table exists.
    */
-  public Future<Void> createIfNotExists() {
+  public Future<Void> createTableIfNotExists() {
     // API tokens don't have an owning user. They are associated with a tenant
     // only. The token itself is persisted since it will need to be viewed by
     // end-users who have permission to see api tokens.
@@ -56,7 +56,7 @@ public class ApiTokenStore extends TokenStore {
         "(id UUID PRIMARY key, token TEXT NOT NULL, " +
         "is_revoked BOOLEAN NOT NULL, issued_at INT8 NOT NULL)";
 
-    log.info("Creating {} tables", TokenStore.class.getName());
+    log.info("Creating {} tables", ApiTokenStore.class.getName());
 
     return pool.query(createTable).execute().mapEmpty();
   }
@@ -116,8 +116,7 @@ public class ApiTokenStore extends TokenStore {
       return getRow(conn, select, where).compose(row -> {
         Boolean isRevoked = row.getBoolean("is_revoked");
 
-        log.info("Revoked status of {} token id {} is {}",
-          API_TOKEN_SUFFIX, tokenId, isRevoked);
+        log.info("Revoked status of {} token id {} is {}", API_TOKEN_SUFFIX, tokenId, isRevoked);
 
         if (!isRevoked) {
             return Future.succeededFuture();
@@ -138,10 +137,9 @@ public class ApiTokenStore extends TokenStore {
     log.info("Revoking API token {}", tokenId);
 
     String update = "UPDATE " + tableName(tenant, API_TOKEN_SUFFIX) +
-        "SET is_revoked=$1 WHERE id=$2";
-    Tuple where = Tuple.of(Boolean.TRUE, tokenId);
+        "SET is_revoked=TRUE WHERE id=$1";
 
-    return pool.preparedQuery(update).execute(where).mapEmpty();
+    return pool.preparedQuery(update).execute(Tuple.of(tokenId)).mapEmpty();
   }
 
   /**
@@ -168,6 +166,20 @@ public class ApiTokenStore extends TokenStore {
       return Future.succeededFuture(tokens);
     });
   }
+
+  // public Future<List<String>> getApiTokensForTenant(String tenant) {
+  //   String select = "SELECT token FROM " + tableName(tenant, API_TOKEN_SUFFIX);
+  //   List<String> tokens = new ArrayList<String>();
+  //   return pool.query(select).execute().compose(rows -> {
+  //     for (Row row : rows) {
+  //       String tokenString = row.getString("token");
+  //       tokens.add(tokenString);
+  //     }
+  //     log.info("Retrieved {} token rows for tenant {}", rows.rowCount(), tenant);
+  //     return Future.succeededFuture(tokens);
+  //   });
+  // }
+
 
   public Future<Void> removeAll() {
     return removeAll(API_TOKEN_SUFFIX);

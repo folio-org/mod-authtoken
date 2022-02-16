@@ -22,7 +22,7 @@ import io.vertx.sqlclient.Tuple;
 public class RefreshTokenStore extends TokenStore {
   private static final Logger log = LogManager.getLogger(RefreshTokenStore.class);
 
-  private static String REFRESH_TOKEN_SUFFIX = "refresh_tokens";
+  private static final String REFRESH_TOKEN_SUFFIX = "refresh_tokens";
 
   /**
    * Constructs the refresh token store.
@@ -43,7 +43,7 @@ public class RefreshTokenStore extends TokenStore {
    * @return A failed future should the save operation fail. Otherwise a succeeded future
    * is returned, even if the table exists.
    */
-  public Future<Void> createIfNotExists() {
+  public Future<Void> createTableIfNotExists() {
     // Refresh tokens have an owning user, but the token itself isn't persisted
     // since it isn't used for anything. Just the id is enough.
     String createTable = "CREATE TABLE IF NOT EXISTS " +
@@ -53,7 +53,21 @@ public class RefreshTokenStore extends TokenStore {
 
     log.info("Creating {} tables", RefreshTokenStore.class.getName());
 
-    return pool.query(createTable).execute().mapEmpty();
+    return pool.query(createTable).execute()
+      .mapEmpty();
+  }
+
+  public Future<Void> createIndexesIfNotExists() {
+    String createIndexExpiresAt = "CREATE INDEX IF NOT EXIST ON " +
+        tableName(tenant, REFRESH_TOKEN_SUFFIX) + "(expires_at)";
+    String createIndexUserId = "CREATE INDEX IF NOT EXIST ON " +
+        tableName(tenant, REFRESH_TOKEN_SUFFIX) + "(user_id)";
+
+    log.info("Creating {} tables", RefreshTokenStore.class.getName());
+
+    return pool.query(createIndexExpiresAt).execute()
+      .compose(x -> pool.query(createIndexUserId).execute())
+      .mapEmpty();
   }
 
   /**
@@ -83,24 +97,26 @@ public class RefreshTokenStore extends TokenStore {
   /**
    * Check that the token has not been revoked. This will return a failed future if
    * the token has been revoked, otherwise it will return a succeeded future.
+   *
+   * This is what this method does:
+   * 1. Get isRedeemed and isRevoked for token. If token not found treat as revoked.
+   * 2. If it has been revoked, fail the future. We need to check this here since
+   *    other requests could have revoked the token anytime. We can't let these through.
+   * 3. If isRedeemed is false, call setTokenRedeemed and return a success. It is not
+   *    revoked or redeemed. This is the desired state. RTs can be used only once.
+   *    Any subsequent uses must be considered as a leaked (compromised) token.
+   * 4. If isRedeemed is true call revokeAllTokensForUser and return a failed future.
+   *    isRedeemed true means "someone tried to use it a second time". This is the
+   *    second use of the token and it means the token has been leaked. We
+   *    consider the user's account compromised and revoke all their refresh tokens.
+   *    They will need to login again to get a new RefreshToken that isn't revoked
+   *    or redeemed.
+   *
    * @param refreshToken The RefreshToken to check.
    * @return A failed future if the token has been revoked. Otherwise a succeeded future
    * is returned.
    */
   public Future<Void> checkTokenNotRevoked(RefreshToken refreshToken) {
-    // This is what this method does:
-    // 1. Get isRedeemed and isRevoked for token. If token not found treat as revoked.
-    // 2. If it has been revoked, fail the future. We need to check this here since
-    //    other requests could have revoked the token anytime. We can't let these through.
-    // 3. If isRedeemed is false, call setTokenRedeemed and return a success. It is not
-    //    revoked or redeemed. This is the desired state. RTs can be used only once.
-    //    Any subsequent uses must be considered as a leaked (compromised) token.
-    // 4. If isRedeemed is true call revokeAllTokensForUser and return a failed future.
-    //    isRedeemed true means "someone tried to use it a second time". This is the
-    //    second use of the token and it means the token has been leaked. We
-    //    consider the user's account compromised and revoke all their refresh tokens.
-    //    They will need to login again to get a new RefreshToken that isn't revoked
-    //    or redeemed.
     UUID tokenId = refreshToken.getId();
     UUID userId = refreshToken.getUserId();
     String table = tableName(tenant, REFRESH_TOKEN_SUFFIX);
@@ -148,8 +164,6 @@ public class RefreshTokenStore extends TokenStore {
 
   /**
    * Cleans up (deletes) refresh tokens which have passed their time of expiration.
-   * This method should be called periodically by a timer mechanism which can be any
-   * reasonable amount of time to keep things fresh but not cause undue system load.
    * Clients need to ensure that they are requesting new refresh tokens before they
    * expire.
    * @return A failed future should the deletion fail. A succeeded future if the
@@ -159,18 +173,19 @@ public class RefreshTokenStore extends TokenStore {
     long now = Instant.now().getEpochSecond();
     log.info("Cleaning up tokens which are older than: {}", now);
 
+    // Skips rows that are locked and therefore doesn't wait until they are unlocked.
+    // Locks rows to be deleted and therefore avoids rollbacks.
     String delete = "DELETE FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
-      "WHERE expires_at<$1";
+      " WHERE id IN (SELECT id FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
+      " WHERE expires_at<$1 FOR UPDATE SKIP LOCKED)";
     Tuple where = Tuple.of(now);
 
     return pool.preparedQuery(delete).execute(where).mapEmpty();
   }
 
   public Future<Integer> countTokensStored(String tenant) {
-    String select = "SELECT * FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX);
-    return pool.withConnection(conn -> {
-      return getRows(conn, select).map(rows -> rows.rowCount());
-    });
+    String select = "SELECT count(*) FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX);
+    return getRows(select).map(rows -> rows.iterator().next().getInteger(0));
   }
 
   public Future<Void> removeAll() {
@@ -184,10 +199,9 @@ public class RefreshTokenStore extends TokenStore {
     log.info("Setting refresh token id {} to redeemed", tokenId);
 
     String update = "UPDATE " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
-        "SET is_redeemed=$1 WHERE id=$2";
-    Tuple where = Tuple.of(Boolean.TRUE, tokenId);
+        "SET is_redeemed=TRUE WHERE id=$1";
 
-    return conn.preparedQuery(update).execute(where).mapEmpty();
+    return conn.preparedQuery(update).execute(Tuple.of(tokenId)).mapEmpty();
   }
 
   private Future<Void> revokeAllTokensForUser(SqlConnection conn, UUID userId) {

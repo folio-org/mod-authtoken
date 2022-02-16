@@ -29,22 +29,13 @@ public class TokenStore {
     this.pool = TenantPgPool.pool(vertx, tenant);
   }
 
-  /**
-   * Removes all tokens from storage for the tenant associated with this instance
-   * of the token store.
-   * @param conn An SqlConnection object to be used by the method to access the token
-   * store. It is the responsibility of callers to close this connection.
-   * @param suffix The string appended to the end of the table name which identifies
-   * the table.
-   * @return A succeeded future should the operation succeed, otherwise a failed
-   * future.
-   */
-  public Future<Void> removeAll(SqlConnection conn, String suffix) {
+
+  protected Future<Void> removeAll(String suffix) {
     log.info("Removing all tokens from storage");
 
     String delete = "DELETE FROM " + tableName(tenant, suffix);
 
-    return conn.preparedQuery(delete).execute().mapEmpty();
+    return pool.preparedQuery(delete).execute().mapEmpty();
   }
 
   protected Future<Row> getRow(SqlConnection conn, String select, Tuple where) {
@@ -59,21 +50,11 @@ public class TokenStore {
     });
   }
 
-  protected Future<RowSet<Row>> getRows(SqlConnection conn, String select, Tuple where) {
-    return conn.preparedQuery(select).execute(where).map(rows -> rows);
-  }
-
-  protected Future<RowSet<Row>> getRows(SqlConnection conn, String select) {
-    return conn.preparedQuery(select).execute().map(rows -> rows);
+  protected Future<RowSet<Row>> getRows(String select) {
+    return pool.preparedQuery(select).execute();
   }
 
   protected String tableName(String tenant, String tableName) {
     return pool.getSchema() + "." + tableName + " ";
-  }
-
-  protected Future<Void> removeAll(String tokenSuffix) {
-    return pool.withConnection(conn -> {
-      return removeAll(conn, tokenSuffix);
-    });
   }
 }

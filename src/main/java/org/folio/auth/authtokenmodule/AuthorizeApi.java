@@ -114,7 +114,6 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     int sysPermCacheInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.seconds", "259200")); // 3 days
     int sysPermCachePurgeInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.purge.seconds", "43200")); // 12
                                                                                                                     // hours
-
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
@@ -132,11 +131,13 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
   @Override
   public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
+    logger.info ("Calling postInit for {}", AuthorizeApi.class.getName());
+
     var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
     var apiTokenStore = new ApiTokenStore(vertx, tenant, tokenCreator);
-      return refreshTokenStore.createIfNotExists().compose(x -> {
-      return apiTokenStore.createIfNotExists();
-    });
+    return apiTokenStore.createTableIfNotExists()
+      .compose(x -> refreshTokenStore.createTableIfNotExists())
+      .compose(x -> refreshTokenStore.createIndexesIfNotExists());
   }
 
   private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {
@@ -696,7 +697,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     // Grab anything after 'Bearer' and whitespace
     Pattern pattern = Pattern.compile("Bearer\\s+(.+)");
     Matcher matcher = pattern.matcher(authorizationHeader);
-    if (matcher.find() && matcher.groupCount() > 0) {
+    if (matcher.find()) {
       return matcher.group(1);
     }
     return null;

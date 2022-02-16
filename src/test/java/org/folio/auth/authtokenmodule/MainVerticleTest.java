@@ -1,5 +1,9 @@
 package org.folio.auth.authtokenmodule;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import com.nimbusds.jose.JOSEException;
 
 import org.apache.logging.log4j.Level;
@@ -9,10 +13,6 @@ import org.junit.runner.RunWith;
 import io.vertx.core.Vertx;
 import io.vertx.ext.unit.TestContext;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
-
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 @RunWith(VertxUnitRunner.class)
 public class MainVerticleTest {
@@ -35,7 +35,8 @@ public class MainVerticleTest {
     }
 
     Vertx.vertx().deployVerticle(new MainVerticleInvalidAlgorithm(),
-         context.asyncAssertFailure(fail -> assertThat(fail, is(instanceOf(MissingAlgorithmException.class)))));
+         context.asyncAssertFailure(fail ->
+         assertThat(fail, is(instanceOf(MissingAlgorithmException.class)))));
   }
 
   @Test

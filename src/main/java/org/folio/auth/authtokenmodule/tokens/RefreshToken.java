@@ -9,6 +9,7 @@ import java.util.UUID;
  * Refresh tokens are provided to obtain a new access token.
  * @see AccessToken
  */
+
 public class RefreshToken extends Token {
   /**
    * A string representation of the type of this token.
