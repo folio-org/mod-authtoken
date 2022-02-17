@@ -2,8 +2,6 @@ package org.folio.auth.authtokenmodule.storage;
 
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
-import org.folio.auth.authtokenmodule.tokens.Token;
-import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +54,7 @@ public class ApiTokenStore extends TokenStore {
         "(id UUID PRIMARY key, token TEXT NOT NULL, " +
         "is_revoked BOOLEAN NOT NULL, issued_at INT8 NOT NULL)";
 
-    log.info("Creating {} tables", ApiTokenStore.class.getName());
+    log.debug("Creating {} tables", ApiTokenStore.class.getName());
 
     return pool.query(createTable).execute().mapEmpty();
   }
@@ -64,13 +62,11 @@ public class ApiTokenStore extends TokenStore {
   /**
    * Save the token to the token store. This should be done anytime a new API token is
    * issued.
-   * @param conn An SqlConnection object to be used by the method to access the token
-   * store. It is the responsibility of callers to close this connection.
    * @param apiToken The API token to store.
    * @return A failed future should the save operation fail. Otherwise a succeeded future
-   * is returned.
+   * is returned. If the future succeeds, a string representation of the token is returned.
    */
-  public Future<Void> saveToken(ApiToken apiToken) {
+  public Future<String> saveToken(ApiToken apiToken) {
     UUID id = apiToken.getId();
     long issuedAt = apiToken.getIssuedAt();
     boolean isRevoked = false;
@@ -84,15 +80,13 @@ public class ApiTokenStore extends TokenStore {
       return Future.failedFuture("Unable to encode token when saving: " + e.getMessage());
     }
 
-    log.info("Inserting token id {} into {} token store", id, API_TOKEN_SUFFIX);
+    log.debug("Inserting token id {} into {} token store", id, API_TOKEN_SUFFIX);
 
-    String insert = "INSERT INTO " + tableName(tenant, API_TOKEN_SUFFIX) +
+    String sql = "INSERT INTO " + tableName(tenant, API_TOKEN_SUFFIX) +
         "(id, token, is_revoked, issued_at) VALUES ($1, $2, $3, $4)";
-    var values = Tuple.of(id, token, isRevoked, issuedAt);
+    var params = Tuple.of(id, token, isRevoked, issuedAt);
 
-    return pool.preparedQuery(insert).execute(values).mapEmpty();
-
-    // TODO Should we return the encoded API token to callers?
+    return pool.preparedQuery(sql).execute(params).map(token);
   }
 
   /**
@@ -105,24 +99,22 @@ public class ApiTokenStore extends TokenStore {
   public Future<Void> checkTokenNotRevoked(ApiToken apiToken) {
     UUID tokenId = apiToken.getId();
 
-    log.info("Checking revoked status of {} api token id {}",
+    log.debug("Checking revoked status of {} api token id {}",
       API_TOKEN_SUFFIX, tokenId);
 
-    String select = "SELECT is_revoked FROM " + tableName(tenant, API_TOKEN_SUFFIX) +
+    String sql = "SELECT is_revoked FROM " + tableName(tenant, API_TOKEN_SUFFIX) +
       "WHERE id=$1";
-    Tuple where = Tuple.of(tokenId);
+    Tuple params = Tuple.of(tokenId);
 
-    return pool.withConnection(conn -> {
-      return getRow(conn, select, where).compose(row -> {
-        Boolean isRevoked = row.getBoolean("is_revoked");
+    return getRow(sql, params).compose(row -> {
+      Boolean isRevoked = row.getBoolean("is_revoked");
 
-        log.info("Revoked status of {} token id {} is {}", API_TOKEN_SUFFIX, tokenId, isRevoked);
+      log.debug("Revoked status of {} token id {} is {}", API_TOKEN_SUFFIX, tokenId, isRevoked);
 
-        if (!isRevoked) {
-            return Future.succeededFuture();
-        }
-        return Future.failedFuture("API token revoked");
-      });
+      if (!isRevoked) {
+          return Future.succeededFuture();
+      }
+      return Future.failedFuture("API token revoked");
     });
   }
 
@@ -142,44 +134,18 @@ public class ApiTokenStore extends TokenStore {
     return pool.preparedQuery(update).execute(Tuple.of(tokenId)).mapEmpty();
   }
 
-  /**
-   * Gets a list of all the API tokens for a given tenant.
-   * @param tenant The tenant.
-   * @return A list of all the API tokens for a tenant.
-   */
-  public Future<List<ApiToken>> getApiTokensForTenant(String tenant) {
+  public Future<List<String>> getApiTokensForTenant(String tenant) {
     String select = "SELECT token FROM " + tableName(tenant, API_TOKEN_SUFFIX);
-    List<ApiToken> tokens = new ArrayList<ApiToken>();
+    List<String> tokens = new ArrayList<>();
     return pool.query(select).execute().compose(rows -> {
       for (Row row : rows) {
         String tokenString = row.getString("token");
-        try {
-          var apiToken = (ApiToken)Token.parse(tokenString, tokenCreator);
-          tokens.add(apiToken);
-        } catch (TokenValidationException e) {
-          log.error("Unable to parse token for tenant {} after retrieving from storage: {}",
-            tenant, e.getMessage());
-          return Future.failedFuture("Unable to parse token when getting from storage");
-        }
+        tokens.add(tokenString);
       }
-      log.info("Retrieved {} token rows for tenant {}", rows.rowCount(), tenant);
+      log.debug("Retrieved {} token rows for tenant {}", rows.rowCount(), tenant);
       return Future.succeededFuture(tokens);
     });
   }
-
-  // public Future<List<String>> getApiTokensForTenant(String tenant) {
-  //   String select = "SELECT token FROM " + tableName(tenant, API_TOKEN_SUFFIX);
-  //   List<String> tokens = new ArrayList<String>();
-  //   return pool.query(select).execute().compose(rows -> {
-  //     for (Row row : rows) {
-  //       String tokenString = row.getString("token");
-  //       tokens.add(tokenString);
-  //     }
-  //     log.info("Retrieved {} token rows for tenant {}", rows.rowCount(), tenant);
-  //     return Future.succeededFuture(tokens);
-  //   });
-  // }
-
 
   public Future<Void> removeAll() {
     return removeAll(API_TOKEN_SUFFIX);

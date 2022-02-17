@@ -30,7 +30,7 @@ public class RefreshToken extends Token {
 
   /**
    * Should only be used by tests.
-   * @param to The epoch seconds time stamp to the iat claim to.
+   * @param to The epoch seconds time stamp to set the exp claim to.
    */
   public void setExpiresAt(long to) {
     claims.put("exp", to);

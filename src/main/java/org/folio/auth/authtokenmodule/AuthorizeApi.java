@@ -136,8 +136,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
     var apiTokenStore = new ApiTokenStore(vertx, tenant, tokenCreator);
     return apiTokenStore.createTableIfNotExists()
-      .compose(x -> refreshTokenStore.createTableIfNotExists())
-      .compose(x -> refreshTokenStore.createIndexesIfNotExists());
+      .compose(x -> refreshTokenStore.createTableIfNotExists());
   }
 
   private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {

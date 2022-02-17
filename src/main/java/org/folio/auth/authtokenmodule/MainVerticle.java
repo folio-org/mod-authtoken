@@ -48,7 +48,6 @@ public class MainVerticle extends AbstractVerticle {
 
     var authorizeApi = new AuthorizeApi(vertx, tokenCreator);
     RouterCreator[] routerCreators = {
-      // TODO Make it more clear here what is going on.
       // NOTE Adding these in this order is important, otherwise the filter in AuthorizeApi will
       // not let the Tenant2Api do its work.
       new HealthApi(),

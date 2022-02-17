@@ -40,11 +40,14 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 import static io.restassured.RestAssured.*;
-import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertTrue;
-
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.emptyString;
+
+import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.CoreMatchers.containsString;
 
 @RunWith(VertxUnitRunner.class)
 public class AuthTokenTest {
@@ -70,7 +73,7 @@ public class AuthTokenTest {
   Async async;
 
   @ClassRule
-  public static PostgreSQLContainer<?> postgresSQLContainer = TokenStoreTestContainer.create();;
+  public static PostgreSQLContainer<?> postgresSQLContainer = TokenStoreTestContainer.create();
 
   @BeforeClass
   public static void setUpClass(TestContext context) throws NoSuchAlgorithmException,
@@ -1036,7 +1039,6 @@ public class AuthTokenTest {
       .statusCode(200)
       .contentType("text/plain")
       .body(is("OK"));
-
   }
 
   private String getMagicPermission(String endpoint) {
@@ -1057,7 +1059,9 @@ public class AuthTokenTest {
     var ts = new RefreshTokenStore(vertx, tenant);
     // A RefreshToken which doesn't exist is treated as revoked.
     var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure());
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(e.getMessage(), containsString("revoked"));
+    }));
   }
 
   @Test
@@ -1073,7 +1077,9 @@ public class AuthTokenTest {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
     // A ApiToken which doesn't exist in storage is treated as revoked.
     var unsavedToken = new ApiToken(tenant);
-    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure());
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(e.getMessage(), containsString("revoked"));
+    }));
   }
 
   @Test
@@ -1085,7 +1091,9 @@ public class AuthTokenTest {
       .compose(x -> ts.revokeToken(apiToken))
       .onComplete(context.asyncAssertSuccess())
       .compose(x -> ts.checkTokenNotRevoked(apiToken))
-      .onComplete(context.asyncAssertFailure());
+      .onComplete(context.asyncAssertFailure(e -> {
+        assertThat(e.getMessage(), containsString("revoked"));
+      }));
   }
 
   @Test
@@ -1107,8 +1115,11 @@ public class AuthTokenTest {
       .onComplete(context.asyncAssertFailure(b ->  { // Second should fail.
         // At this point all tokens for the user should be revoked so any subsequent
         // checks should fail.
+        assertThat(b.getMessage(), containsString("revoked"));
         ts.checkTokenNotRevoked(rt1).onComplete(context.asyncAssertFailure(c -> {
+          assertThat(c.getMessage(), containsString("revoked"));
           ts.checkTokenNotRevoked(rt3).onComplete(context.asyncAssertFailure(d -> {
+            assertThat(d.getMessage(), containsString("revoked"));
             async.complete();
           }));
         }));
@@ -1143,11 +1154,11 @@ public class AuthTokenTest {
         return CompositeFuture.all(s1, s2, s3, s4, s5);
       })
       .compose(y -> ts.countTokensStored(tenant))
-      .onSuccess(y -> assertThat(y, is(5)))
+      .onSuccess(count -> assertThat(count, is(5)))
       .compose(y -> ts.cleanupExpiredTokens())
       .compose(y -> ts.countTokensStored(tenant))
-      .onSuccess(y -> assertThat(y, is(3)))
-      .onComplete(context.asyncAssertSuccess(y -> {
+      .onComplete(context.asyncAssertSuccess(count -> {
+        assertThat(count, is(3));
         async.complete();
       }));
   }
