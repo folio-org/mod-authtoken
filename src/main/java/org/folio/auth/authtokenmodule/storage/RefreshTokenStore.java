@@ -80,7 +80,10 @@ public class RefreshTokenStore extends TokenStore {
         "(id, user_id, is_revoked, expires_at) VALUES ($1, $2, $3, $4)";
     var values = Tuple.of(id, userId, isRevoked, expiresAt);
 
-    return pool.preparedQuery(insert).execute(values).compose(x -> cleanupExpiredTokens());
+    // Insert the token in the database, and cleanup any expired tokens from storage at the
+    // same time, but without waiting on the result.
+    return pool.preparedQuery(insert).execute(values)
+      .onComplete(x -> cleanupExpiredTokens()).mapEmpty();
   }
 
   /**

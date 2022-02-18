@@ -84,7 +84,7 @@ public class ApiTokenStore extends TokenStore {
 
     String sql = "INSERT INTO " + tableName(tenant, API_TOKEN_SUFFIX) +
         "(id, token, is_revoked, issued_at) VALUES ($1, $2, $3, $4)";
-    var params = Tuple.of(id, token, isRevoked, issuedAt);
+    Tuple params = Tuple.of(id, token, isRevoked, issuedAt);
 
     return pool.preparedQuery(sql).execute(params).map(token);
   }
@@ -99,8 +99,7 @@ public class ApiTokenStore extends TokenStore {
   public Future<Void> checkTokenNotRevoked(ApiToken apiToken) {
     UUID tokenId = apiToken.getId();
 
-    log.debug("Checking revoked status of {} api token id {}",
-      API_TOKEN_SUFFIX, tokenId);
+    log.debug("Checking revoked status of {} api token id {}", API_TOKEN_SUFFIX, tokenId);
 
     String sql = "SELECT is_revoked FROM " + tableName(tenant, API_TOKEN_SUFFIX) +
       "WHERE id=$1";
@@ -128,12 +127,18 @@ public class ApiTokenStore extends TokenStore {
     UUID tokenId = apiToken.getId();
     log.info("Revoking API token {}", tokenId);
 
-    String update = "UPDATE " + tableName(tenant, API_TOKEN_SUFFIX) +
+    String sql = "UPDATE " + tableName(tenant, API_TOKEN_SUFFIX) +
         "SET is_revoked=TRUE WHERE id=$1";
 
-    return pool.preparedQuery(update).execute(Tuple.of(tokenId)).mapEmpty();
+    return pool.preparedQuery(sql).execute(Tuple.of(tokenId)).mapEmpty();
   }
 
+  /**
+   * Get all of the API tokens for a given tenant. No permissions check is made. This is the
+   * responsibility of callers.
+   * @param tenant The tenant for the API tokens.
+   * @return Returns a list of API tokens, each in their string representation.
+   */
   public Future<List<String>> getApiTokensForTenant(String tenant) {
     String select = "SELECT token FROM " + tableName(tenant, API_TOKEN_SUFFIX);
     List<String> tokens = new ArrayList<>();

@@ -1144,6 +1144,8 @@ public class AuthTokenTest {
     var ts = new RefreshTokenStore(vertx, tenant);
 
     // Other tests could have added tokens to storage, so remove all of those first.
+    // Then save 5 tokens, two of which are expired. When each token is saved the method
+    // cleans up expired tokens, so after all 5 have been saved, only 3 should be left.
     ts.removeAll()
       .compose(x -> {
         var s1 = ts.saveToken(rt1);
@@ -1153,9 +1155,6 @@ public class AuthTokenTest {
         var s5 = ts.saveToken(rt5);
         return CompositeFuture.all(s1, s2, s3, s4, s5);
       })
-      .compose(y -> ts.countTokensStored(tenant))
-      .onSuccess(count -> assertThat(count, is(5)))
-      .compose(y -> ts.cleanupExpiredTokens())
       .compose(y -> ts.countTokensStored(tenant))
       .onComplete(context.asyncAssertSuccess(count -> {
         assertThat(count, is(3));
@@ -1177,9 +1176,9 @@ public class AuthTokenTest {
         var s5 = ts.saveToken(new ApiToken(tenant));
         return CompositeFuture.all(s1, s2, s3, s4, s5);
       })
-      .compose(y -> ts.getApiTokensForTenant(tenant))
-      .onSuccess(y -> assertThat(y.size(), is(5)))
-      .onComplete(context.asyncAssertSuccess(z -> {
+      .compose(x -> ts.getApiTokensForTenant(tenant))
+      .onComplete(context.asyncAssertSuccess(x -> {
+        assertThat(x.size(), is(5));
         async.complete();
       }));
   }

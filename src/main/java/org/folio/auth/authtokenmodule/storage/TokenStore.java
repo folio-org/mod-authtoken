@@ -7,7 +7,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
-import io.vertx.sqlclient.SqlConnection;
 import io.vertx.sqlclient.Tuple;
 
 import org.folio.tlib.postgres.TenantPgPool;
@@ -28,7 +27,6 @@ public class TokenStore {
     this.tenant = tenant;
     this.pool = TenantPgPool.pool(vertx, tenant);
   }
-
 
   protected Future<Void> removeAll(String suffix) {
     log.info("Removing all tokens from storage");
@@ -64,7 +62,7 @@ public class TokenStore {
   /**
    * Gets the fully qualified table name for the tenant.
    * @param tenant The tenant string
-   * @param tableNameSuffix
+   * @param tableNameSuffix The part of the table name after the dot.
    * @return Returns the table name with a space appended to the end of the string.
    */
   protected String tableName(String tenant, String tableNameSuffix) {
