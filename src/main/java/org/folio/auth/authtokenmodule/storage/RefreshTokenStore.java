@@ -104,7 +104,7 @@ public class RefreshTokenStore extends TokenStore {
     // else. Note that the token is signed so it can't have reached this point unless it
     // hasn't been tampered with.
     if (tokenHasExpired(refreshToken)) {
-      return Future.failedFuture("Token has expired");
+      return Future.failedFuture("Token has expired. Considered revoked.");
     }
 
     // Next check the token against the database.

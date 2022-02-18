@@ -1065,6 +1065,18 @@ public class AuthTokenTest {
   }
 
   @Test
+  public void testStoreRefreshTokenExpired(TestContext context) {
+    var ts = new RefreshTokenStore(vertx, tenant);
+    var expiredToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var now = Instant.now().getEpochSecond();
+    expiredToken.setExpiresAt(now - 10);
+    ts.checkTokenNotRevoked(expiredToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(e.getMessage(), containsString("expired"));
+      assertThat(e.getMessage(), containsString("revoked"));
+    }));
+  }
+
+  @Test
   public void testStoreSaveApiToken(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
     var apiToken = new ApiToken(tenant);
