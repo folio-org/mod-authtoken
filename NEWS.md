@@ -1,3 +1,24 @@
+## 2.10.0 2022-02-18
+
+Fixes:
+
+ * [MODAT-122](https://issues.folio.org/browse/MODAT-122) Vert.x 4.2.4, Log4j 2.17.1
+ * [MODAT-108](https://issues.folio.org/browse/MODAT-108) Bad error message: out of bounds exception
+
+Improvements:
+
+ * [MODAT-120](https://issues.folio.org/browse/MODAT-120) Define permissions auth.signtoken, auth.signrefreshtoken
+ * [MODAT-118](https://issues.folio.org/browse/MODAT-118) Clear permission cache when user logs in
+ * [MODAT-117](https://issues.folio.org/browse/MODAT-117) Redundant web service request
+ * [MODAT-109](https://issues.folio.org/browse/MODAT-109) Implement new token types
+
+## 2.9.1 2021-12-14
+
+ * [MODAT-115](https://issues.folio.org/browse/MODAT-115) Log4j 2.16.0, disable JNDI
+ * [MODAT-113](https://issues.folio.org/browse/MODAT-113) Log4j 2.15.0 fixing remote execution
+ * [MODAT-108](https://issues.folio.org/browse/MODAT-108) Out of bounds exception
+ * [MODAT-107](https://issues.folio.org/browse/MODAT-107) X-Okapi-MOdule-Tokens, refactor
+
 ## 2.9.0 2021-09-29
 
  * Support /admin/health
