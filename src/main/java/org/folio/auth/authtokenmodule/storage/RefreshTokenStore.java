@@ -119,19 +119,20 @@ public class RefreshTokenStore extends TokenStore {
 
     return pool.withConnection(conn -> {
       return conn.preparedQuery(sql).execute(params).compose(rows -> {
-        log.debug("Row count from update is {} for token {}", rows.rowCount(), tokenId);
 
         // If the update has succeeded the row count will be 1. This means that the token
         // was never redeemed. The update however has now made it revoked
         // in an atomic operation. We can return success.
         if (rows.rowCount() == 1) {
+          log.debug("Token {} has not yet been used, but is now revoked because it has been",
+            tokenId);
           return Future.succeededFuture();
         }
 
-        // The row count is not 1 so the token has been used more than once. Revoke
-        // all tokens for the user.
-        String leakedMessage = "Refresh token {} attempted to be used twice." +
-          " It is considered leaked. Revoking all tokens for user {}.";
+        // The row count is not 1 so the token has been used more than once or has been
+        // revoked when another token has been used more than once.
+        String leakedMessage = "Refresh token {} is revoked." +
+          " Revoking all tokens for user {}.";
         log.info(leakedMessage, tokenId, userId);
 
         return revokeAllTokensForUser(conn, userId).compose(y -> {

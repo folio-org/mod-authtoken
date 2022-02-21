@@ -1124,17 +1124,17 @@ public class AuthTokenTest {
       .compose(a -> ts.checkTokenNotRevoked(rt2))
       .onComplete(context.asyncAssertSuccess()) // First check should succeed.
       .compose(a -> ts.checkTokenNotRevoked(rt2))
-      .onComplete(context.asyncAssertFailure(b ->  { // Second should fail.
-        // At this point all tokens for the user should be revoked so any subsequent
-        // checks should fail.
+      .onComplete(context.asyncAssertFailure(b -> {
         assertThat(b.getMessage(), containsString("revoked"));
-        ts.checkTokenNotRevoked(rt1).onComplete(context.asyncAssertFailure(c -> {
-          assertThat(c.getMessage(), containsString("revoked"));
-          ts.checkTokenNotRevoked(rt3).onComplete(context.asyncAssertFailure(d -> {
-            assertThat(d.getMessage(), containsString("revoked"));
-            async.complete();
-          }));
-        }));
+      }))
+      .compose(a -> ts.checkTokenNotRevoked(rt1))
+      .onComplete(context.asyncAssertFailure(b -> {
+        assertThat(b.getMessage(), containsString("revoked"));
+      }))
+      .compose(a -> ts.checkTokenNotRevoked(rt3))
+      .onComplete(context.asyncAssertFailure(b -> {
+        assertThat(b.getMessage(), containsString("revoked"));
+        async.complete();
       }));
   }
 
