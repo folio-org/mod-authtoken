@@ -49,9 +49,9 @@ public class RefreshTokenStore extends TokenStore {
         "(id UUID PRIMARY key, user_id UUID NOT NULL, " +
         "is_revoked BOOLEAN NOT NULL, expires_at INT8 NOT NULL)";
 
-    String createIndexExpiresAt = "CREATE INDEX IF NOT EXIST ON " +
+    String createIndexExpiresAt = "CREATE INDEX IF NOT EXISTS expires_at_idx ON " +
         tableName(tenant, REFRESH_TOKEN_SUFFIX) + "(expires_at)";
-    String createIndexUserId = "CREATE INDEX IF NOT EXIST ON " +
+    String createIndexUserId = "CREATE INDEX IF NOT EXISTS user_id_idx ON " +
         tableName(tenant, REFRESH_TOKEN_SUFFIX) + "(user_id)";
 
     return pool.query(createTable).execute()
@@ -171,8 +171,6 @@ public class RefreshTokenStore extends TokenStore {
    * Cleans up (deletes) refresh tokens which have passed their time of expiration.
    * Clients need to ensure that they are requesting new refresh tokens before they
    * expire.
-   * @return A failed future should the deletion fail. A succeeded future if the
-   * deletion succeeds.
    */
   public Future<Void> cleanupExpiredTokens() {
     long now = Instant.now().getEpochSecond();
