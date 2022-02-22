@@ -50,64 +50,49 @@ public class AuthRoutingEntry {
     if (!ctx.request().path().startsWith(endpoint)) {
       return false;
     }
-    if (ctx.getBodyAsString() == null || ctx.getBodyAsString().isEmpty()) {
-      logger.debug("No body found in request for {}, treating as filter", endpoint);
-      // Check for permissions
-      extraPermissions = PermService.expandSystemPermissionsUsingCache(extraPermissions);
-      boolean allFound = true;
-      for (String perm : requiredPermissions) {
-        if (!extraPermissions.contains(perm)) {
-          allFound = false;
-          break;
-        }
+    JsonArray requestPerms = null;
+    String permissionsHeader = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS);
+    // Vert.x 3.5.4 accepted null for JsonArray constructor; Vert.x 3.9.1 does not
+    if (permissionsHeader != null) {
+      try {
+        requestPerms = new JsonArray(permissionsHeader);
+      } catch (io.vertx.core.json.DecodeException dex) {
+        logger.warn(String.format("Error parsing permissions header: %s",
+          dex.getLocalizedMessage()));
+        logger.warn(String.format("Headers are: %s", ctx.request().headers().toString()));
       }
-      if (!allFound) {
-        logger.error("Insufficient permissions to access endpoint {}", endpoint);
-        ctx.response()
-          .setChunked(true)
-          .setStatusCode(401)
-          .end(String.format("Missing required module-level permissions for endpoint '%s'",
-            endpoint));
-      } else {
-        String magicPermission = getMagicPermission(endpoint);
-        ctx.response()
-          .setChunked(true)
-          .setStatusCode(202)
-          .putHeader(XOkapiHeaders.PERMISSIONS, new JsonArray().add(magicPermission).encode())
-          .putHeader(XOkapiHeaders.TOKEN, authToken)
-          .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens)
-          .end();
-      }
-      return true;
-    } else {
-      logger.debug("Body found in request for {}, treating as request", endpoint);
-      JsonArray requestPerms = null;
-      String permissionsHeader = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS);
-      // Vert.x 3.5.4 accepted null for JsonArray constructor; Vert.x 3.9.1 does not
-      if (permissionsHeader != null) {
-        try {
-          requestPerms = new JsonArray(permissionsHeader);
-        } catch (io.vertx.core.json.DecodeException dex) {
-          logger.warn(String.format("Error parsing permissions header: %s",
-              dex.getLocalizedMessage()));
-          logger.warn(String.format("Headers are: %s", ctx.request().headers().toString()));
-        }
-      }
-      boolean passThrough = false;
-      if (requestPerms != null && requestPerms.contains(getMagicPermission(endpoint))) {
-        passThrough = true;
-      }
-      if (passThrough) {
-        logger.debug("Calling handler {}", () -> handler);
-        handler.handle(ctx);
-      } else {
-        logger.error("Missing assigned permission to access endpoint '{}'", endpoint);
-        ctx.response()
-          .setStatusCode(403)
-          .end(String.format("Missing permissions to access endpoint '%s'", endpoint));
-      }
+    }
+    if (requestPerms != null && requestPerms.contains(getMagicPermission(endpoint))) {
+      handler.handle(ctx);
       return true;
     }
+    // Check for permissions
+    extraPermissions = PermService.expandSystemPermissionsUsingCache(extraPermissions);
+    boolean allFound = true;
+    for (String perm : requiredPermissions) {
+      if (!extraPermissions.contains(perm)) {
+        allFound = false;
+        break;
+      }
+    }
+    if (!allFound) {
+      logger.error("Insufficient permissions to access endpoint {}", endpoint);
+      ctx.response()
+        .setChunked(true)
+        .setStatusCode(401)
+        .end(String.format("Missing required module-level permissions for endpoint '%s': %s",
+          endpoint, String.join(", ", requiredPermissions)));
+    } else {
+      String magicPermission = getMagicPermission(endpoint);
+      ctx.response()
+        .setChunked(true)
+        .setStatusCode(202)
+        .putHeader(XOkapiHeaders.PERMISSIONS, new JsonArray().add(magicPermission).encode())
+        .putHeader(XOkapiHeaders.TOKEN, authToken)
+        .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens)
+        .end();
+    }
+    return true;
   }
 
   private String getMagicPermission(String endpoint) {

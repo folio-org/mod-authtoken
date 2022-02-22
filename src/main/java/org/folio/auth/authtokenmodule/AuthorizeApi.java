@@ -94,15 +94,17 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   public AuthorizeApi(Vertx vertx, TokenCreator tc) {
     authRoutingEntryList = new ArrayList<>();
     authRoutingEntryList.add(new AuthRoutingEntry("/token",
-        new String[] { SIGN_TOKEN_PERMISSION }, this::handleSignToken));
+      new String[] { SIGN_TOKEN_PERMISSION }, this::handleSignToken));
     authRoutingEntryList.add(new AuthRoutingEntry("/refreshtoken",
-        new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, this::handleSignRefreshToken));
+      new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, this::handleSignRefreshToken));
     authRoutingEntryList.add(new AuthRoutingEntry("/refresh",
-        new String[] {}, this::handleRefresh));
+      new String[] {}, this::handleRefresh));
     authRoutingEntryList.add(new AuthRoutingEntry("/encrypted-token/create",
-        new String[] {}, this::handleSignEncryptedToken));
+      new String[] {}, this::handleSignEncryptedToken));
     authRoutingEntryList.add(new AuthRoutingEntry("/encrypted-token/decode",
-        new String[] {}, this::handleDecodeEncryptedToken));
+      new String[] {}, this::handleDecodeEncryptedToken));
+    authRoutingEntryList.add(new AuthRoutingEntry("/_/tenant",
+      new String[] {}, RoutingContext::next));
 
     tokenCreator = tc;
 
