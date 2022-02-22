@@ -62,6 +62,17 @@ public class RefreshTokenStore extends TokenStore {
 
   /**
    * Save the token to the token store. This should be done anytime a new refresh token
+   * is issued. Also cleans up any expired tokens in the background when called.
+   * @param refreshToken The refresh token to store.
+   * @return A failed future should the save operation fail. Otherwise a succeeded future
+   * is returned.
+   */
+  public Future<Void> saveToken(RefreshToken refreshToken) {
+    return saveToken(refreshToken, false);
+  }
+
+  /**
+   * Save the token to the token store. This should be done anytime a new refresh token
    * is issued. Also cleans up any expired tokens when called.
    * @param refreshToken The refresh token to store.
    * @param waitForCleanupExpired True if the caller should wait until the cleanup of expired

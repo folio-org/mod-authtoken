@@ -1048,7 +1048,7 @@ public class AuthTokenTest {
   public void testStoreSaveRefreshToken(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
     var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    ts.saveToken(rt, false)
+    ts.saveToken(rt)
       .compose(x -> ts.checkTokenNotRevoked(rt))
       .onComplete(context.asyncAssertSuccess());
   }
@@ -1114,9 +1114,9 @@ public class AuthTokenTest {
     var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
     var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
     var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    var s1 = ts.saveToken(rt1, false);
-    var s2 = ts.saveToken(rt2, false);
-    var s3 = ts.saveToken(rt3, false);
+    var s1 = ts.saveToken(rt1);
+    var s2 = ts.saveToken(rt2);
+    var s3 = ts.saveToken(rt3);
 
     CompositeFuture.all(s1, s2, s3)
       .compose(a -> ts.checkTokenNotRevoked(rt2))
