@@ -652,7 +652,7 @@ public class AuthTokenTest {
       .body(payloadDummy.encode())
       .post("/token")
       .then()
-      .statusCode(403).body(containsString("Missing permissions to access endpoint '/token'"));
+      .statusCode(401).body(containsString("Missing required module-level permissions for endpoint '/token': auth.signtoken"));
 
     logger.info("POST signing request with good token, no payload");
     given()
@@ -1040,7 +1040,7 @@ public class AuthTokenTest {
       .body(is("OK"));
   }
 
-  private String getMagicPermission(String endpoint) {
+  private static String getMagicPermission(String endpoint) {
     return String.format("%s.execute", Base64.encode(endpoint));
   }
 
@@ -1200,6 +1200,8 @@ public class AuthTokenTest {
     ExtractableResponse<Response> response = RestAssured.given()
         .header(XOkapiHeaders.TENANT, tenant)
         .header(XOkapiHeaders.URL, "http://localhost:" + port)
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/_/tenant") + "\"]")
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
         .header("Content-Type", "application/json")
         .body(tenantAttributes.encode())
         .post("/_/tenant")
@@ -1217,6 +1219,8 @@ public class AuthTokenTest {
 
     RestAssured.given()
         .header(XOkapiHeaders.TENANT, tenant)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/_/tenant") + "\"]")
         .get(location + "?wait=10000")
         .then().statusCode(200)
         .body("complete", is(true));
