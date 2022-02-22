@@ -18,20 +18,16 @@ import org.folio.tlib.postgres.TenantPgPool;
 public class TokenStore {
   private static final Logger log = LogManager.getLogger(TokenStore.class);
 
-  protected Vertx vertx;
-  protected String tenant;
   protected TenantPgPool pool;
 
   public TokenStore(Vertx vertx, String tenant) {
-    this.vertx = vertx;
-    this.tenant = tenant;
     this.pool = TenantPgPool.pool(vertx, tenant);
   }
 
   protected Future<Void> removeAll(String suffix) {
     log.info("Removing all tokens from storage");
 
-    String delete = "DELETE FROM " + tableName(tenant, suffix);
+    String delete = "DELETE FROM " + tableName(suffix);
 
     return pool.preparedQuery(delete).execute().mapEmpty();
   }
@@ -65,7 +61,7 @@ public class TokenStore {
    * @param tableNameSuffix The part of the table name after the dot.
    * @return Returns the table name with a space appended to the end of the string.
    */
-  protected String tableName(String tenant, String tableNameSuffix) {
+  protected String tableName(String tableNameSuffix) {
     return pool.getSchema() + "." + tableNameSuffix + " ";
   }
 }

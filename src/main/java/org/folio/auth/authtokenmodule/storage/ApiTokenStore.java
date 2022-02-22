@@ -23,7 +23,7 @@ public class ApiTokenStore extends TokenStore {
   private static final Logger log = LogManager.getLogger(ApiTokenStore.class);
 
   private static final String API_TOKEN_SUFFIX = "api_tokens";
-  private TokenCreator tokenCreator;
+  private final TokenCreator tokenCreator;
 
   /**
    * Constructs the store for the given tenant. The tenant can be obtained from
@@ -32,7 +32,7 @@ public class ApiTokenStore extends TokenStore {
    * @param tenant The tenant which is in scope for a given token. The tenant
    * can be obtained from the token when it arrives for validation or when it is
    * created.
-   * @param tokenCreator A reference to the the current TokenCreator object
+   * @param tokenCreator A reference to the current TokenCreator object
    * in scope for the main verticle.
    */
   public ApiTokenStore(Vertx vertx, String tenant, TokenCreator tokenCreator) {
@@ -50,7 +50,7 @@ public class ApiTokenStore extends TokenStore {
     // only. The token itself is persisted since it will need to be viewed by
     // end-users who have permission to see api tokens.
     String createTable = "CREATE TABLE IF NOT EXISTS " +
-        tableName(tenant, API_TOKEN_SUFFIX) +
+        tableName(API_TOKEN_SUFFIX) +
         "(id UUID PRIMARY key, token TEXT NOT NULL, " +
         "is_revoked BOOLEAN NOT NULL, issued_at INT8 NOT NULL)";
 
@@ -70,9 +70,8 @@ public class ApiTokenStore extends TokenStore {
     UUID id = apiToken.getId();
     long issuedAt = apiToken.getIssuedAt();
     boolean isRevoked = false;
-    String tenant = apiToken.getTenant();
 
-    String token = "";
+    String token;
     try {
       token = apiToken.encodeAsJWT(tokenCreator);
     } catch (Exception e) {
@@ -82,7 +81,7 @@ public class ApiTokenStore extends TokenStore {
 
     log.debug("Inserting token id {} into {} token store", id, API_TOKEN_SUFFIX);
 
-    String sql = "INSERT INTO " + tableName(tenant, API_TOKEN_SUFFIX) +
+    String sql = "INSERT INTO " + tableName(API_TOKEN_SUFFIX) +
         "(id, token, is_revoked, issued_at) VALUES ($1, $2, $3, $4)";
     Tuple params = Tuple.of(id, token, isRevoked, issuedAt);
 
@@ -101,7 +100,7 @@ public class ApiTokenStore extends TokenStore {
 
     log.debug("Checking revoked status of {} api token id {}", API_TOKEN_SUFFIX, tokenId);
 
-    String sql = "SELECT is_revoked FROM " + tableName(tenant, API_TOKEN_SUFFIX) +
+    String sql = "SELECT is_revoked FROM " + tableName(API_TOKEN_SUFFIX) +
       "WHERE id=$1";
     Tuple params = Tuple.of(tokenId);
 
@@ -127,7 +126,7 @@ public class ApiTokenStore extends TokenStore {
     UUID tokenId = apiToken.getId();
     log.info("Revoking API token {}", tokenId);
 
-    String sql = "UPDATE " + tableName(tenant, API_TOKEN_SUFFIX) +
+    String sql = "UPDATE " + tableName(API_TOKEN_SUFFIX) +
         "SET is_revoked=TRUE WHERE id=$1";
 
     return pool.preparedQuery(sql).execute(Tuple.of(tokenId)).mapEmpty();
@@ -140,7 +139,7 @@ public class ApiTokenStore extends TokenStore {
    * @return Returns a list of API tokens, each in their string representation.
    */
   public Future<List<String>> getApiTokensForTenant(String tenant) {
-    String select = "SELECT token FROM " + tableName(tenant, API_TOKEN_SUFFIX);
+    String select = "SELECT token FROM " + tableName(API_TOKEN_SUFFIX);
     List<String> tokens = new ArrayList<>();
     return pool.query(select).execute().compose(rows -> {
       for (Row row : rows) {

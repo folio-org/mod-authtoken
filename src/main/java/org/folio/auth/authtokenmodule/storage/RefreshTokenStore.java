@@ -45,14 +45,14 @@ public class RefreshTokenStore extends TokenStore {
     // Refresh tokens have an owning user, but the token itself isn't persisted
     // since it isn't used for anything. Just the id is enough.
     String createTable = "CREATE TABLE IF NOT EXISTS " +
-        tableName(tenant, REFRESH_TOKEN_SUFFIX) +
+        tableName(REFRESH_TOKEN_SUFFIX) +
         "(id UUID PRIMARY key, user_id UUID NOT NULL, " +
         "is_revoked BOOLEAN NOT NULL, expires_at INT8 NOT NULL)";
 
     String createIndexExpiresAt = "CREATE INDEX IF NOT EXISTS expires_at_idx ON " +
-        tableName(tenant, REFRESH_TOKEN_SUFFIX) + "(expires_at)";
+        tableName(REFRESH_TOKEN_SUFFIX) + "(expires_at)";
     String createIndexUserId = "CREATE INDEX IF NOT EXISTS user_id_idx ON " +
-        tableName(tenant, REFRESH_TOKEN_SUFFIX) + "(user_id)";
+        tableName(REFRESH_TOKEN_SUFFIX) + "(user_id)";
 
     return pool.query(createTable).execute()
       .compose(x -> pool.query(createIndexExpiresAt).execute())
@@ -71,12 +71,11 @@ public class RefreshTokenStore extends TokenStore {
     UUID id = refreshToken.getId();
     UUID userId = refreshToken.getUserId();
     long expiresAt = refreshToken.getExpiresAt();
-    String tenant = refreshToken.getTenant();
     boolean isRevoked = false;
 
     log.debug("Inserting token id {} into {} token store: {}", id, REFRESH_TOKEN_SUFFIX, expiresAt);
 
-    String insert = "INSERT INTO " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
+    String insert = "INSERT INTO " + tableName(REFRESH_TOKEN_SUFFIX) +
         "(id, user_id, is_revoked, expires_at) VALUES ($1, $2, $3, $4)";
     var values = Tuple.of(id, userId, isRevoked, expiresAt);
 
@@ -98,7 +97,7 @@ public class RefreshTokenStore extends TokenStore {
   public Future<Void> checkTokenNotRevoked(RefreshToken refreshToken) {
     UUID tokenId = refreshToken.getId();
     UUID userId = refreshToken.getUserId();
-    String table = tableName(tenant, REFRESH_TOKEN_SUFFIX);
+    String table = tableName(REFRESH_TOKEN_SUFFIX);
 
     // It could have expired so first check that. If it has there is no need to do anything
     // else. Note that the token is signed so it can't have reached this point unless it
@@ -108,7 +107,7 @@ public class RefreshTokenStore extends TokenStore {
     }
 
     // Next check the token against the database.
-    log.debug("Checking token redeemed of token id {} for tenant {}", tokenId, tenant);
+    log.debug("Checking token redeemed of token id {} for tenant {}", tokenId);
 
     // Attempt to update the token to be revoked. If this update succeeds, the token
     // will now be marked as revoked, and a single row will be returned. If no rows
@@ -135,9 +134,8 @@ public class RefreshTokenStore extends TokenStore {
           " Revoking all tokens for user {}.";
         log.info(leakedMessage, tokenId, userId);
 
-        return revokeAllTokensForUser(conn, userId).compose(y -> {
-          return Future.failedFuture("Token leaked. All tokens for user are now revoked.");
-        });
+        return revokeAllTokensForUser(conn, userId)
+          .compose(x -> Future.failedFuture("Token leaked. All tokens for user are now revoked."));
       });
     });
   }
@@ -149,15 +147,15 @@ public class RefreshTokenStore extends TokenStore {
   private Future<Void> revokeAllTokensForUser(SqlConnection conn, UUID userId) {
     log.debug("Revoking all refresh tokens for user id {}", userId);
 
-    // First attempt to update but skipping any locks to be the most aggressve as we can.
-    String updateSkipLocked = "UPDATE " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
+    // First attempt to update but skipping any locks to be the most aggressive as we can.
+    String updateSkipLocked = "UPDATE " + tableName(REFRESH_TOKEN_SUFFIX) +
       "SET is_revoked=TRUE " +
-      "WHERE id IN (SELECT id FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
+      "WHERE id IN (SELECT id FROM " + tableName(REFRESH_TOKEN_SUFFIX) +
                    "WHERE user_id=$1 AND is_revoked=FALSE " +
                    "FOR UPDATE SKIP LOCKED)";
 
      // Next come back and wait on any that were locked since we can't neglect them.
-     String updateAll = "UPDATE " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
+     String updateAll = "UPDATE " + tableName(REFRESH_TOKEN_SUFFIX) +
        "SET is_revoked=TRUE " +
        "WHERE user_id=$1 AND is_revoked=FALSE";
 
@@ -178,8 +176,8 @@ public class RefreshTokenStore extends TokenStore {
 
     // Skips rows that are locked and therefore doesn't wait until they are unlocked.
     // Locks rows to be deleted and therefore avoids rollbacks.
-    String delete = "DELETE FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
-      " WHERE id IN (SELECT id FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX) +
+    String delete = "DELETE FROM " + tableName(REFRESH_TOKEN_SUFFIX) +
+      " WHERE id IN (SELECT id FROM " + tableName(REFRESH_TOKEN_SUFFIX) +
       " WHERE expires_at<$1 FOR UPDATE SKIP LOCKED)";
     Tuple params = Tuple.of(now);
 
@@ -187,7 +185,7 @@ public class RefreshTokenStore extends TokenStore {
   }
 
   public Future<Integer> countTokensStored(String tenant) {
-    String select = "SELECT count(*) FROM " + tableName(tenant, REFRESH_TOKEN_SUFFIX);
+    String select = "SELECT count(*) FROM " + tableName(REFRESH_TOKEN_SUFFIX);
     return getRows(select).map(rows -> rows.iterator().next().getInteger(0));
   }
 

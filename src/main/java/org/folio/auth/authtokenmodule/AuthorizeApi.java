@@ -260,10 +260,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
           String at = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
           JsonObject responseObject = new JsonObject().put("token", at);
           endJson(ctx, 201, responseObject.encode());
-          return;
         } catch (Exception e) {
           endText(ctx, 500, String.format("Unanticipated exception creating access token: %s", e.getMessage()));
-          return;
         }
       });
     } catch (Exception e) {
