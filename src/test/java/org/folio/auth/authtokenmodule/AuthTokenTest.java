@@ -1164,9 +1164,7 @@ public class AuthTokenTest {
         return CompositeFuture.all(s1, s2, s3, s4, s5);
       })
       .compose(y -> ts.countTokensStored(tenant))
-      .onComplete(context.asyncAssertSuccess(count -> {
-        assertThat(count, is(3));
-      }));
+      .onComplete(context.asyncAssertSuccess(count -> assertThat(count, is(3))));
   }
 
   @Test
@@ -1183,9 +1181,7 @@ public class AuthTokenTest {
         return CompositeFuture.all(s1, s2, s3, s4, s5);
       })
       .compose(x -> ts.getApiTokensForTenant(tenant))
-      .onComplete(context.asyncAssertSuccess(x ->
-        assertThat(x.size(), is(5))
-      ));
+      .onComplete(context.asyncAssertSuccess(x -> assertThat(x.size(), is(5))));
   }
 
   // Taken from folio-vertx-lib's tests. Causes postInit to be called.

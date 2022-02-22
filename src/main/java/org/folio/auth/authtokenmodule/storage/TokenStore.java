@@ -12,10 +12,9 @@ import io.vertx.sqlclient.Tuple;
 import org.folio.tlib.postgres.TenantPgPool;
 
 /**
- * The base class for all token storage. Actual token store classes should
- * extend this.
+ * The base class for all token storage.
  */
-public class TokenStore {
+public abstract class TokenStore {
   private static final Logger log = LogManager.getLogger(TokenStore.class);
 
   protected TenantPgPool pool;
@@ -57,7 +56,6 @@ public class TokenStore {
 
   /**
    * Gets the fully qualified table name for the tenant.
-   * @param tenant The tenant string
    * @param tableNameSuffix The part of the table name after the dot.
    * @return Returns the table name with a space appended to the end of the string.
    */
