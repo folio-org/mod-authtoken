@@ -1118,7 +1118,6 @@ public class AuthTokenTest {
     var s2 = ts.saveToken(rt2);
     var s3 = ts.saveToken(rt3);
 
-    Async async = context.async();
     CompositeFuture.all(s1, s2, s3)
       .compose(a -> ts.checkTokenNotRevoked(rt2))
       .onComplete(context.asyncAssertSuccess()) // First check should succeed.
@@ -1131,10 +1130,9 @@ public class AuthTokenTest {
         assertThat(b.getMessage(), containsString("revoked"))
       ))
       .compose(a -> ts.checkTokenNotRevoked(rt3))
-      .onComplete(context.asyncAssertFailure(b -> {
-        assertThat(b.getMessage(), containsString("revoked"));
-        async.complete();
-      }));
+      .onComplete(context.asyncAssertFailure(b ->
+         assertThat(b.getMessage(), containsString("revoked"))
+      ));
   }
 
   @Test
@@ -1151,7 +1149,6 @@ public class AuthTokenTest {
     rt2.setExpiresAt(now - 10); // Would have expired 10 seconds ago.
     rt4.setExpiresAt(now - 20); // Would have expired 20 seconds ago.
 
-    Async async = context.async();
     var ts = new RefreshTokenStore(vertx, tenant);
 
     // Other tests could have added tokens to storage, so remove all of those first.
@@ -1169,14 +1166,12 @@ public class AuthTokenTest {
       .compose(y -> ts.countTokensStored(tenant))
       .onComplete(context.asyncAssertSuccess(count -> {
         assertThat(count, is(3));
-        async.complete();
       }));
   }
 
   @Test
   public void testStoreGetApiTokensForTenant(TestContext context) {
     var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
-    Async async = context.async();
 
     ts.removeAll()
       .compose(x -> {
@@ -1188,10 +1183,9 @@ public class AuthTokenTest {
         return CompositeFuture.all(s1, s2, s3, s4, s5);
       })
       .compose(x -> ts.getApiTokensForTenant(tenant))
-      .onComplete(context.asyncAssertSuccess(x -> {
-        assertThat(x.size(), is(5));
-        async.complete();
-      }));
+      .onComplete(context.asyncAssertSuccess(x ->
+        assertThat(x.size(), is(5))
+      ));
   }
 
   // Taken from folio-vertx-lib's tests. Causes postInit to be called.
