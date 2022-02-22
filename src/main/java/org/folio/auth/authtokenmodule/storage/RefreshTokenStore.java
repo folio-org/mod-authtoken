@@ -64,8 +64,7 @@ public class RefreshTokenStore extends TokenStore {
    * Save the token to the token store. This should be done anytime a new refresh token
    * is issued. Also cleans up any expired tokens in the background when called.
    * @param refreshToken The refresh token to store.
-   * @return A failed future should the save operation fail. Otherwise a succeeded future
-   * is returned.
+   * @return The completion of the save.
    */
   public Future<Void> saveToken(RefreshToken refreshToken) {
     return saveToken(refreshToken, false);
@@ -75,11 +74,10 @@ public class RefreshTokenStore extends TokenStore {
    * Save the token to the token store. This should be done anytime a new refresh token
    * is issued. Also cleans up any expired tokens when called.
    * @param refreshToken The refresh token to store.
-   * @param waitForCleanupExpired True if the caller should wait until the cleanup of expired
-   * tokens succeeds, otherwise return after the save is complete and clean up the expired
-   * tokens in the background.
-   * @return A failed future should the save operation fail. Otherwise a succeeded future
-   * is returned.
+   * @param waitForCleanupExpired True if the returned Future completes when the cleanup completes,
+   * false if it completes when the save completes.
+   * @return The completion of the save, or the completion of both the save and the cleanup if
+   * waitForCleanupExpired is true.
    */
   public Future<Void> saveToken(RefreshToken refreshToken, boolean waitForCleanupExpired) {
     UUID id = refreshToken.getId();
