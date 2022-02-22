@@ -196,7 +196,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       return null;
     }
     String content = ctx.getBodyAsString();
-    JsonObject requestJson = null;
+    JsonObject requestJson;
     try {
       requestJson = parseJsonObject(content, requiredProperties);
     } catch (Exception e) {
