@@ -62,12 +62,15 @@ public class RefreshTokenStore extends TokenStore {
 
   /**
    * Save the token to the token store. This should be done anytime a new refresh token
-   * is issued.
+   * is issued. Also cleans up any expired tokens when called.
    * @param refreshToken The refresh token to store.
+   * @param waitForCleanupExpired True if the caller should wait until the cleanup of expired
+   * tokens succeeds, otherwise return after the save is complete and clean up the expired
+   * tokens in the background.
    * @return A failed future should the save operation fail. Otherwise a succeeded future
    * is returned.
    */
-  public Future<Void> saveToken(RefreshToken refreshToken) {
+  public Future<Void> saveToken(RefreshToken refreshToken, boolean waitForCleanupExpired) {
     UUID id = refreshToken.getId();
     UUID userId = refreshToken.getUserId();
     long expiresAt = refreshToken.getExpiresAt();
@@ -79,8 +82,15 @@ public class RefreshTokenStore extends TokenStore {
         "(id, user_id, is_revoked, expires_at) VALUES ($1, $2, $3, $4)";
     var values = Tuple.of(id, userId, isRevoked, expiresAt);
 
-    // Insert the token in the database, and cleanup any expired tokens from storage at the
-    // same time, but without waiting on the result.
+    if (waitForCleanupExpired) {
+      // Insert the token in the database, and cleanup any expired tokens from storage, but
+      // wait on the result of the cleanup.
+      return pool.preparedQuery(insert).execute(values)
+        .compose(x -> cleanupExpiredTokens()).mapEmpty();
+    }
+
+    // Insert the token in the database, and cleanup any expired tokens from storage, but
+    // without waiting on the result.
     return pool.preparedQuery(insert).execute(values)
       .onComplete(x -> cleanupExpiredTokens()).mapEmpty();
   }

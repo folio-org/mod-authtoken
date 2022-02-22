@@ -1048,7 +1048,7 @@ public class AuthTokenTest {
   public void testStoreSaveRefreshToken(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
     var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    ts.saveToken(rt)
+    ts.saveToken(rt, false)
       .compose(x -> ts.checkTokenNotRevoked(rt))
       .onComplete(context.asyncAssertSuccess());
   }
@@ -1114,9 +1114,9 @@ public class AuthTokenTest {
     var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
     var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
     var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    var s1 = ts.saveToken(rt1);
-    var s2 = ts.saveToken(rt2);
-    var s3 = ts.saveToken(rt3);
+    var s1 = ts.saveToken(rt1, false);
+    var s2 = ts.saveToken(rt2, false);
+    var s3 = ts.saveToken(rt3, false);
 
     CompositeFuture.all(s1, s2, s3)
       .compose(a -> ts.checkTokenNotRevoked(rt2))
@@ -1152,15 +1152,15 @@ public class AuthTokenTest {
     var ts = new RefreshTokenStore(vertx, tenant);
 
     // Other tests could have added tokens to storage, so remove all of those first.
-    // Then save 5 tokens, two of which are expired. When each token is saved the method
+    // Then save 5 tokens, two of which are expired. When each token is saved, the method
     // cleans up expired tokens, so after all 5 have been saved, only 3 should be left.
     ts.removeAll()
       .compose(x -> {
-        var s1 = ts.saveToken(rt1);
-        var s2 = ts.saveToken(rt2);
-        var s3 = ts.saveToken(rt3);
-        var s4 = ts.saveToken(rt4);
-        var s5 = ts.saveToken(rt5);
+        var s1 = ts.saveToken(rt1, true);
+        var s2 = ts.saveToken(rt2, true);
+        var s3 = ts.saveToken(rt3, true);
+        var s4 = ts.saveToken(rt4, true);
+        var s5 = ts.saveToken(rt5, true);
         return CompositeFuture.all(s1, s2, s3, s4, s5);
       })
       .compose(y -> ts.countTokensStored(tenant))
