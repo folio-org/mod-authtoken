@@ -40,9 +40,10 @@ public class RefreshTokenStore extends TokenStore {
    * is returned, even if the table exists.
    */
   public Future<Void> createTableIfNotExists() {
-    log.info("Creating {} tables", RefreshTokenStore.class.getName());
+    log.info("Creating tables and indexes for {} unless they already exist",
+      RefreshTokenStore.class.getName());
 
-    // Refresh tokens have an owning user, but the token itself isn't persisted
+      // Refresh tokens have an owning user, but the token itself isn't persisted
     // since it isn't used for anything. Just the id is enough.
     String createTable = "CREATE TABLE IF NOT EXISTS " +
         tableName(REFRESH_TOKEN_SUFFIX) +

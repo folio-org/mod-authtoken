@@ -133,7 +133,11 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
   @Override
   public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
-    logger.info ("Calling postInit for {}", AuthorizeApi.class.getName());
+    logger.debug("Calling postInit for {}", AuthorizeApi.class.getName());
+
+    if (!tenantAttributes.containsKey("module_to")) {
+      return Future.succeededFuture(); // Do nothing for disable
+    }
 
     var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
     var apiTokenStore = new ApiTokenStore(vertx, tenant, tokenCreator);

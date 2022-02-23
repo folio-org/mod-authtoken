@@ -46,6 +46,8 @@ public class ApiTokenStore extends TokenStore {
    * succeeded future is returned, even if the table exists.
    */
   public Future<Void> createTableIfNotExists() {
+    log.info("Creating tables for {} unless they already exist", ApiTokenStore.class.getName());
+
     // API tokens don't have an owning user. They are associated with a tenant
     // only. The token itself is persisted since it will need to be viewed by
     // end-users who have permission to see api tokens.
@@ -53,8 +55,6 @@ public class ApiTokenStore extends TokenStore {
         tableName(API_TOKEN_SUFFIX) +
         "(id UUID PRIMARY key, token TEXT NOT NULL, " +
         "is_revoked BOOLEAN NOT NULL, issued_at INT8 NOT NULL)";
-
-    log.debug("Creating {} tables", ApiTokenStore.class.getName());
 
     return pool.query(createTable).execute().mapEmpty();
   }
