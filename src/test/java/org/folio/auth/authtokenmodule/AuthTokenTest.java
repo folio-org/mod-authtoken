@@ -128,7 +128,8 @@ public class AuthTokenTest {
       }
     });
 
-    initializeTenantForTokenStore(tenant, new JsonObject());
+    var tenantAttributes = new JsonObject().put("module_to", "mod-authtoken-1.0.0");
+    initializeTenantForTokenStore(tenant, tenantAttributes);
   }
 
   @AfterClass
