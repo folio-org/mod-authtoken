@@ -1,8 +1,11 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.json.JsonObject;
+
+import java.time.Instant;
+import java.util.UUID;
+
 import io.vertx.core.Future;
-import io.vertx.core.http.HttpServerRequest;
 
 /**
  * An API token is a non-expiring token that authorizes API Access.
@@ -13,15 +16,25 @@ public class ApiToken extends Token {
    */
   public static final String type = "api";
 
+  public UUID getId() {
+    return UUID.fromString(claims.getString("jti"));
+  }
+
+  public long getIssuedAt() {
+    return claims.getLong("iat");
+  }
+
   /**
    * Create a new ApiToken.
    * @param tenant The current tenant.
-   * @param userId The user id of the user who is associated with the token.
    */
-  public ApiToken(String tenant, String userId) {
+  public ApiToken(String tenant) {
     claims = new JsonObject();
     claims.put("type", type);
     claims.put("tenant", tenant);
+    long now = Instant.now().getEpochSecond();
+    claims.put("iat", now);
+    claims.put("jti", UUID.randomUUID().toString());
 
     // TODO Determine if API tokens have a sub and a user_id.
     // It could be that these belong to the user who manages the API token.

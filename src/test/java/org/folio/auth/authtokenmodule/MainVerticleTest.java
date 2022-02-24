@@ -1,13 +1,14 @@
 package org.folio.auth.authtokenmodule;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import com.nimbusds.jose.JOSEException;
 
 import org.apache.logging.log4j.Level;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import com.nimbusds.jose.JOSEException;
 
 import io.vertx.core.Vertx;
 import io.vertx.ext.unit.TestContext;
@@ -15,7 +16,6 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 
 @RunWith(VertxUnitRunner.class)
 public class MainVerticleTest {
-
   @Test
   public void deployAndUndeploy(TestContext context) {
     Vertx vertx = Vertx.vertx();
@@ -35,7 +35,8 @@ public class MainVerticleTest {
     }
 
     Vertx.vertx().deployVerticle(new MainVerticleInvalidAlgorithm(),
-        context.asyncAssertFailure(fail -> assertThat(fail.getMessage(), containsString("TokenCreator"))));
+         context.asyncAssertFailure(fail ->
+         assertThat(fail, is(instanceOf(MissingAlgorithmException.class)))));
   }
 
   @Test

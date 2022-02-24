@@ -1,9 +1,12 @@
 package org.folio.auth.authtokenmodule;
 
 import io.restassured.RestAssured;
+import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
+
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
@@ -14,29 +17,44 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
+import java.time.Instant;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
+import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
+import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
+import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
+import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.okapi.common.OkapiToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Test;
 
 import static io.restassured.RestAssured.*;
-import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.assertTrue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.emptyString;
+
+import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.CoreMatchers.containsString;
 
 @RunWith(VertxUnitRunner.class)
 public class AuthTokenTest {
 
   private static final Logger logger = LogManager.getLogger("AuthTokenTest");
-  private static final String tenant = "Roskilde";
+  private static final String LS = System.lineSeparator();
+  private static final String tenant = "roskilde";
+  private static HttpClient httpClient;
   private static TokenCreator tokenCreator;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String basicToken;
@@ -52,6 +70,9 @@ public class AuthTokenTest {
   static int freePort;
   static Vertx vertx;
   Async async;
+
+  @ClassRule
+  public static PostgreSQLContainer<?> postgresSQLContainer = TokenStoreTestContainer.create();
 
   @BeforeClass
   public static void setUpClass(TestContext context) throws NoSuchAlgorithmException,
@@ -106,6 +127,9 @@ public class AuthTokenTest {
         });
       }
     });
+
+    var tenantAttributes = new JsonObject().put("module_to", "mod-authtoken-1.0.0");
+    initializeTenantForTokenStore(tenant, tenantAttributes);
   }
 
   @AfterClass
@@ -117,8 +141,7 @@ public class AuthTokenTest {
     });
   }
 
-  public AuthTokenTest() {
-  }
+  public AuthTokenTest() {}
 
   /**
    * Test simple permission handling. Since this test will run without Okapi or
@@ -172,7 +195,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void test1(TestContext context) throws JOSEException, ParseException {
+  public void testHttpEndpoints(TestContext context) throws JOSEException, ParseException {
     async = context.async();
     logger.debug("AuthToken test1 starting");
 
@@ -630,7 +653,7 @@ public class AuthTokenTest {
       .body(payloadDummy.encode())
       .post("/token")
       .then()
-      .statusCode(403).body(containsString("Missing permissions to access endpoint '/token'"));
+      .statusCode(401).body(containsString("Missing required module-level permissions for endpoint '/token': auth.signtoken"));
 
     logger.info("POST signing request with good token, no payload");
     given()
@@ -1016,11 +1039,181 @@ public class AuthTokenTest {
       .statusCode(200)
       .contentType("text/plain")
       .body(is("OK"));
-
   }
 
-  private String getMagicPermission(String endpoint) {
+  private static String getMagicPermission(String endpoint) {
     return String.format("%s.execute", Base64.encode(endpoint));
   }
 
+  @Test
+  public void testStoreSaveRefreshToken(TestContext context) {
+    var ts = new RefreshTokenStore(vertx, tenant);
+    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    ts.saveToken(rt)
+      .compose(x -> ts.checkTokenNotRevoked(rt))
+      .onComplete(context.asyncAssertSuccess());
+  }
+
+  @Test
+  public void testStoreRefreshTokenNotFound(TestContext context) {
+    var ts = new RefreshTokenStore(vertx, tenant);
+    // A RefreshToken which doesn't exist is treated as revoked.
+    var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(e.getMessage(), containsString("revoked"));
+    }));
+  }
+
+  @Test
+  public void testStoreRefreshTokenExpired(TestContext context) {
+    var ts = new RefreshTokenStore(vertx, tenant);
+    var expiredToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var now = Instant.now().getEpochSecond();
+    expiredToken.setExpiresAt(now - 10);
+    ts.checkTokenNotRevoked(expiredToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(e.getMessage(), containsString("expired"));
+      assertThat(e.getMessage(), containsString("revoked"));
+    }));
+  }
+
+  @Test
+  public void testStoreSaveApiToken(TestContext context) {
+    var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
+    var apiToken = new ApiToken(tenant);
+    ts.saveToken(apiToken).compose(x ->  ts.checkTokenNotRevoked(apiToken))
+      .onComplete(context.asyncAssertSuccess());
+  }
+
+  @Test
+  public void testStoreApiTokenNotFound(TestContext context) {
+    var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
+    // A ApiToken which doesn't exist in storage is treated as revoked.
+    var unsavedToken = new ApiToken(tenant);
+    ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(e.getMessage(), containsString("revoked"));
+    }));
+  }
+
+  @Test
+  public void testApiTokenRevoked(TestContext context) {
+    var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
+    var apiToken = new ApiToken(tenant);
+    ts.saveToken(apiToken)
+      .compose(x -> ts.checkTokenNotRevoked(apiToken))
+      .compose(x -> ts.revokeToken(apiToken))
+      .onComplete(context.asyncAssertSuccess())
+      .compose(x -> ts.checkTokenNotRevoked(apiToken))
+      .onComplete(context.asyncAssertFailure(e -> {
+        assertThat(e.getMessage(), containsString("revoked"));
+      }));
+  }
+
+  @Test
+  public void testStoreRefreshTokenSingleUse(TestContext context) {
+    var ts = new RefreshTokenStore(vertx, tenant);
+    // Create and save some tokens.
+    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var s1 = ts.saveToken(rt1);
+    var s2 = ts.saveToken(rt2);
+    var s3 = ts.saveToken(rt3);
+
+    CompositeFuture.all(s1, s2, s3)
+      .compose(a -> ts.checkTokenNotRevoked(rt2))
+      .onComplete(context.asyncAssertSuccess()) // First check should succeed.
+      .compose(a -> ts.checkTokenNotRevoked(rt2))
+      .onComplete(context.asyncAssertFailure(b ->
+        assertThat(b.getMessage(), containsString("revoked"))
+      ))
+      .compose(a -> ts.checkTokenNotRevoked(rt1))
+      .onComplete(context.asyncAssertFailure(b ->
+        assertThat(b.getMessage(), containsString("revoked"))
+      ))
+      .compose(a -> ts.checkTokenNotRevoked(rt3))
+      .onComplete(context.asyncAssertFailure(b ->
+         assertThat(b.getMessage(), containsString("revoked"))
+      ));
+  }
+
+  @Test
+  public void testStoreCleanupExpired(TestContext context) {
+    // Create some tokens.
+    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt4 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt5 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+
+    // Set a few tokens' expires at time to simulate expiration.
+    var now = Instant.now().getEpochSecond();
+    rt2.setExpiresAt(now - 10); // Would have expired 10 seconds ago.
+    rt4.setExpiresAt(now - 20); // Would have expired 20 seconds ago.
+
+    var ts = new RefreshTokenStore(vertx, tenant);
+
+    // Other tests could have added tokens to storage, so remove all of those first.
+    // Then save 5 tokens, two of which are expired. When each token is saved, the method
+    // cleans up expired tokens, so after all 5 have been saved, only 3 should be left.
+    ts.removeAll()
+      .compose(x -> {
+        var s1 = ts.saveToken(rt1, true);
+        var s2 = ts.saveToken(rt2, true);
+        var s3 = ts.saveToken(rt3, true);
+        var s4 = ts.saveToken(rt4, true);
+        var s5 = ts.saveToken(rt5, true);
+        return CompositeFuture.all(s1, s2, s3, s4, s5);
+      })
+      .compose(y -> ts.countTokensStored(tenant))
+      .onComplete(context.asyncAssertSuccess(count -> assertThat(count, is(3))));
+  }
+
+  @Test
+  public void testStoreGetApiTokensForTenant(TestContext context) {
+    var ts = new ApiTokenStore(vertx, tenant, tokenCreator);
+
+    ts.removeAll()
+      .compose(x -> {
+        var s1 = ts.saveToken(new ApiToken(tenant));
+        var s2 = ts.saveToken(new ApiToken(tenant));
+        var s3 = ts.saveToken(new ApiToken(tenant));
+        var s4 = ts.saveToken(new ApiToken(tenant));
+        var s5 = ts.saveToken(new ApiToken(tenant));
+        return CompositeFuture.all(s1, s2, s3, s4, s5);
+      })
+      .compose(x -> ts.getApiTokensForTenant(tenant))
+      .onComplete(context.asyncAssertSuccess(x -> assertThat(x.size(), is(5))));
+  }
+
+  // Taken from folio-vertx-lib's tests. Causes postInit to be called.
+  static void initializeTenantForTokenStore(String tenant, JsonObject tenantAttributes) {
+    // This request triggers postInit inside of AuthorizeApi.
+    ExtractableResponse<Response> response = RestAssured.given()
+        .header(XOkapiHeaders.TENANT, tenant)
+        .header(XOkapiHeaders.URL, "http://localhost:" + port)
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/_/tenant") + "\"]")
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("Content-Type", "application/json")
+        .body(tenantAttributes.encode())
+        .post("/_/tenant")
+        .then()
+        .extract();
+
+    if (response.statusCode() == 204) {
+      return;
+    }
+
+    assertThat(response.statusCode(), is(201));
+    String location = response.header("Location");
+    JsonObject tenantJob = new JsonObject(response.asString());
+    assertThat(location, is("/_/tenant/" + tenantJob.getString("id")));
+
+    RestAssured.given()
+        .header(XOkapiHeaders.TENANT, tenant)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/_/tenant") + "\"]")
+        .get(location + "?wait=10000")
+        .then().statusCode(200)
+        .body("complete", is(true));
+  }
 }

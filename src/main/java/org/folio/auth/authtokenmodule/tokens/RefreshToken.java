@@ -1,7 +1,6 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.Future;
-import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import java.time.Instant;
 import java.util.UUID;
@@ -10,11 +9,32 @@ import java.util.UUID;
  * Refresh tokens are provided to obtain a new access token.
  * @see AccessToken
  */
+
 public class RefreshToken extends Token {
   /**
    * A string representation of the type of this token.
    */
   public static final String type = "refresh";
+
+  public UUID getId() {
+    return UUID.fromString(claims.getString("jti"));
+  }
+
+  public UUID getUserId() {
+    return UUID.fromString(claims.getString("user_id"));
+  }
+
+  public long getExpiresAt() {
+    return claims.getLong("exp");
+  }
+
+  /**
+   * Should only be used by tests.
+   * @param to The epoch seconds time stamp to set the exp claim to.
+   */
+  public void setExpiresAt(long to) {
+    claims.put("exp", to);
+  }
 
   // TODO This could be obtained from the env.
   int expirationSeconds = 60 * 60 * 24;

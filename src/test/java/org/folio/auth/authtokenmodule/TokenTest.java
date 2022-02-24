@@ -1,8 +1,5 @@
 package org.folio.auth.authtokenmodule;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
 import java.text.ParseException;
 import com.nimbusds.jose.JOSEException;
 
