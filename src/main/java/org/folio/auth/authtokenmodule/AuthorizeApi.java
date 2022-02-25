@@ -426,7 +426,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
       candidateToken = null;
     }
 
-    if (candidateToken == null) {
+    final boolean isDummyToken = candidateToken == null;
+    if (isDummyToken) {
       logger.debug("Generating dummy authtoken");
       try {
         candidateToken = new DummyToken(tenant,
@@ -631,13 +632,21 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
         for (Object o : permissionsRequired) {
           if (!permissions.contains(o)
               && !extraPermissions.contains(o)) {
-            logger.error(permissions.encode() + "{} (user permissions) nor {}"
-                + " (module permissions) do not contain {}",
-                permissions.encode(), extraPermissions.encode(), o);
+            String msg;
+            if (isDummyToken) {
+              msg = "Token missing, access requires permission: " + o;
+            } else {
+              msg = "Access for user '" +  username + "' (" + finalUserId + ") requires permission: " + o;
+            }
+
+            logger.error(() -> "Permission missing in "
+                + permissions.encode() + " (user permissions) and "
+                + extraPermissions.encode() + " (module permissions). "
+                + msg);
             // mod-authtoken should return the module tokens header even in case of errors.
             // If not, pre+post filters will NOT get modulePermissions from Okapi
             ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
-            endText(ctx, 403, "Access requires permission: " + o);
+            endText(ctx, 403, msg);
             return;
           }
         }

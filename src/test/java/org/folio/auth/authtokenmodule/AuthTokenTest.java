@@ -8,7 +8,6 @@ import com.nimbusds.jose.util.Base64;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
-import io.vertx.core.http.HttpClient;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Vertx;
@@ -52,9 +51,7 @@ import static org.hamcrest.CoreMatchers.containsString;
 public class AuthTokenTest {
 
   private static final Logger logger = LogManager.getLogger("AuthTokenTest");
-  private static final String LS = System.lineSeparator();
   private static final String tenant = "roskilde";
-  private static HttpClient httpClient;
   private static TokenCreator tokenCreator;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String basicToken;
@@ -64,6 +61,8 @@ public class AuthTokenTest {
   private static String token404;
   private static String tokenInactive;
   private static String tokenSystemPermission;
+  private static JsonObject payloadDummy;
+  private static JsonObject payloadAccess;
 
   static int port;
   static int mockPort;
@@ -106,6 +105,16 @@ public class AuthTokenTest {
     String badPassPhrase = "IncorrectBatteryHorseStaple";
     var badTokenCreator = new TokenCreator(badPassPhrase);
     basicBadToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(badTokenCreator);
+
+    payloadDummy = new JsonObject()
+        .put("user_id", userUUID)
+        .put("tenant", tenant)
+        .put("dummy", true)
+        .put("sub", "jones");
+    payloadAccess = new JsonObject()
+        .put("user_id", userUUID)
+        .put("tenant", tenant)
+        .put("sub", "joe");
 
     RestAssured.port = port;
     DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
@@ -154,20 +163,17 @@ public class AuthTokenTest {
    * @param context
    */
   @Test
-  public void globTest(TestContext context) {
-    async = context.async();
+  public void globTest() {
     String testGlob = "*bottle*cup";
     String testString1 = "WhitebottleBluecup";
     String testString2 = "WhitebotBluecu";
 
-    context.assertTrue(Util.globMatch(testGlob, testString1));
-    context.assertFalse(Util.globMatch(testGlob, testString2));
-    async.complete();
+    assertThat(Util.globMatch(testGlob, testString1), is(true));
+    assertThat(Util.globMatch(testGlob, testString2), is(false));
   }
 
   @Test
   public void jweTest(TestContext context) throws Exception {
-    async = context.async();
     JsonObject ob = new JsonObject()
       .put("sub", "Ronald McDonald")
       .put("foo", "bar");
@@ -175,12 +181,11 @@ public class AuthTokenTest {
     String jweToken = tokenCreator.createJWEToken(ob.encode());
     String reprocessedJson = tokenCreator.decodeJWEToken(jweToken);
     JsonObject reProcOb = new JsonObject(reprocessedJson);
-    context.assertTrue(reProcOb.getString("sub").equals("Ronald McDonald"));
-    async.complete();
+    assertThat(reProcOb.getString("sub"), is("Ronald McDonald"));
   }
 
   @Test
-  public void testNoUser(TestContext context) {
+  public void testNoUser() {
     PermsMock.handlePermsUsersEmpty = true;
     given()
       .header(MainVerticle.ZAP_CACHE_HEADER, "true")
@@ -195,26 +200,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testHttpEndpoints(TestContext context) throws JOSEException, ParseException {
-    async = context.async();
-    logger.debug("AuthToken test1 starting");
-
-    JsonObject payloadDummy = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("dummy", true)
-      .put("sub", "jones");
-
-    JsonObject payloadAccess = new JsonObject()
-      .put("user_id", userUUID)
-      .put("tenant", tenant)
-      .put("sub", "joe");
-
-    Response r;
-
-    logger.info("Beginning tests");
-
-    logger.info("Test simple request, sans tenant and token");
+  public void httpWithoutTenant() {
     // Simple request, mostly to see we can talk to the module
     // Not even a X-Okapi-Tenant header
     given()
@@ -222,22 +208,26 @@ public class AuthTokenTest {
       .then()
       .statusCode(400)
       .body(containsString("Missing header: X-Okapi-Tenant"));
+  }
 
+  @Test
+  public void httpWithoutOkapiUrl() {
     // A request without X-Okapi-Url header; this fails with 400 error
-    logger.info("Test request sans okapi-url header");
     given()
       .header("X-Okapi-Tenant", tenant)
       .get("/foo")
       .then()
       .statusCode(400)
       .body(containsString("Missing header: X-Okapi-Url"));
+  }
 
-    // A request that should succeed
+  @Test
+  public void httpWithoutLoginToken() {
+    // A request that should succed
     // Even without any credentials in the request, we get back the whole lot,
-    // most notbaly a token that certifies the fact that we have a tenant, but
+    // most notably a token that certifies the fact that we have a tenant, but
     // have not yet identified ourself.
-    logger.info("Basic test, tenant and okapi url, no token");
-    r = given()
+    Response r = given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Url", "http://localhost:" + freePort)
       .get("/foo")
@@ -259,7 +249,9 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Required", "[\"foo.req\"]")
       .get("/foo")
       .then()
-      .statusCode(403) // we don't have 'foo.req'
+      .statusCode(403)
+      .body(containsString("requires permission"))
+      .body(containsString("foo.req"))
       .header("X-Okapi-Module-Tokens", not(emptyString()));
 
     // A request using the new nologin token with permissionDesired that will
@@ -292,9 +284,49 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions", "[]")
       .header("X-Okapi-Module-Tokens", not(emptyString()))
       .extract().response();
-    final String modTokens = r.getHeader("X-Okapi-Module-Tokens");
-    JsonObject modtoks = new JsonObject(modTokens);
-    String barToken = modtoks.getString("bar");
+  }
+
+  @Test
+  public void testNoTokenAndPermissionRequired() {
+    // A request without token but foo.req is required permission
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("X-Okapi-Permissions-Required", "[\"foo.req\"]")
+      .get("/foo")
+      .then()
+      .statusCode(403)
+      .body(containsString("Token missing"))
+      .body(containsString("foo.req"))
+      .header("X-Okapi-Module-Tokens", not(emptyString()));
+  }
+
+  @Test
+  public void testHttpEndpoints() throws JOSEException, ParseException {
+    logger.debug("AuthToken test1 starting");
+
+    logger.info("Beginning tests");
+
+    final String noLoginToken = given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .get("/foo")
+        .then()
+        .statusCode(202)
+        .extract().header(XOkapiHeaders.TOKEN);
+
+    final String modTokens = given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Token", noLoginToken)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("X-Okapi-Module-Permissions",
+          "{ \"bar\": [\"bar.first\",\"bar.second\"] }")
+        .get("/foo")
+        .then()
+        .statusCode(202)
+        .extract().header("X-Okapi-Module-Tokens");
+    final JsonObject modtoks = new JsonObject(modTokens);
+    final String barToken = modtoks.getString("bar");
 
     logger.info("Test with conflicting Authorization and X-Okapi-Token");
     given()
@@ -677,7 +709,7 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(201).contentType("application/json").extract().path("token");
-    context.assertEquals(payloadDummy.getString("sub"), new OkapiToken(token).getUsernameWithoutValidation());
+    assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadDummy.getString("sub")));
 
     //get a good access token signing request
     logger.info("POST signing request with good token, good payload");
@@ -691,7 +723,7 @@ public class AuthTokenTest {
       .post("/token")
       .then()
       .statusCode(201).contentType("application/json").extract().path("token");
-    context.assertEquals(payloadAccess.getString("sub"), new OkapiToken(token).getUsernameWithoutValidation());
+    assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadAccess.getString("sub")));
 
     logger.info("PUT signing request with good token, good payload");
     given()
@@ -782,7 +814,7 @@ public class AuthTokenTest {
 
     //get a refresh token
     logger.info("POST signing request for a refresh token");
-    r = given()
+    final String refreshToken = given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
       .header("X-Okapi-Url", "http://localhost:" + freePort)
@@ -793,10 +825,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(201)
       .header("Content-Type", "application/json")
-      .extract().response();
-
-    JsonObject refreshTokenResponse = new JsonObject(r.getBody().asString());
-    final String refreshToken = refreshTokenResponse.getString("refreshToken");
+      .extract().body().path("refreshToken");
     logger.info("refreshToken=" + refreshToken);
 
     logger.info("PUT /refresh (bad method)");
@@ -881,7 +910,7 @@ public class AuthTokenTest {
       .statusCode(401).body(containsString("Invalid token"));
 
     logger.info("POST refresh token to get a new access token");
-    r = given()
+    final String accessToken = given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken2)
       .header("X-Okapi-Url", "http://localhost:" + freePort)
@@ -891,10 +920,7 @@ public class AuthTokenTest {
       .post("/refresh")
       .then()
       .statusCode(201)
-      .extract().response();
-
-    JsonObject refreshResponse = new JsonObject(r.getBody().asString());
-    final String accessToken = refreshResponse.getString("token");
+      .extract().body().path("token");
 
     logger.info(String.format("Test with 'refreshed' token: %s", accessToken));
     given()
@@ -912,7 +938,7 @@ public class AuthTokenTest {
       .put("type", "resetToken")
       .put("secret", secretWord);
     String secret = "THEYRECOMINGTOTAKEMEAWAYHAHATHEYRECOMINGTOTAKEMEAWAY";
-    r = given()
+    final String encryptedToken = given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken)
       .header("X-Okapi-Url", "http://localhost:" + mockPort)
@@ -921,7 +947,7 @@ public class AuthTokenTest {
       .post("/encrypted-token/create")
       .then()
       .statusCode(201)
-      .extract().response();
+      .extract().body().path("token");
 
     logger.info("Bad method for encrypted token as a service");
     given()
@@ -955,10 +981,6 @@ public class AuthTokenTest {
       .post("/encrypted-token/create")
       .then()
       .statusCode(400).body(containsString("java.lang.String cannot be cast to class io.vertx.core.json.JsonObject"));
-
-    String encryptedTokenResponse = r.getBody().asString();
-    JsonObject encryptedTokenJson = new JsonObject(encryptedTokenResponse);
-    String encryptedToken = encryptedTokenJson.getString("token");
 
     logger.info("/encrypted-token/decode with bad method");
     given()
@@ -994,7 +1016,7 @@ public class AuthTokenTest {
       .statusCode(400).body(containsString("Unable to parse content: "));
 
     logger.info(String.format("/encrypted-token/decode token %s", encryptedToken));
-    r = given()
+    given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", basicToken)
       .header("X-Okapi-Url", "http://localhost:" + mockPort)
@@ -1003,12 +1025,9 @@ public class AuthTokenTest {
       .post("/encrypted-token/decode")
       .then()
       .statusCode(201)
+      .body("payload.secret", is(secretWord))
       .extract().response();
 
-    JsonObject decodedJson = new JsonObject(r.body().asString());
-    context.assertTrue(decodedJson.getJsonObject("payload").getString("secret").equals(secretWord));
-
-    async.complete();
     logger.debug("AuthToken test1 done");
   }
 
