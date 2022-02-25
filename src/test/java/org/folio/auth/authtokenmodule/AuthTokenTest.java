@@ -470,9 +470,9 @@ public class AuthTokenTest {
       .header("X-Okapi-Permissions-Desired", "extra.*bar")
       .get("/bar")
       .then()
-      .statusCode(400).body(containsString("Connection refused"))
+      // locale dependent message: in English "connection refused", in German "Verbindungsaufbau abgelehnt"
+      .statusCode(400).body(containsString("" + freePort))
       .header("X-Okapi-Module-Tokens", not(emptyString()));
-    // used to be 401.. But connection refused is hardly forbidden..
 
     logger.info("Test with wildcard 400 /perms/users/id/permissions");
     PermsMock.handlePermsUsersPermissionsStatusCode = 400;
