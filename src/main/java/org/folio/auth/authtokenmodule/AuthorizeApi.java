@@ -88,13 +88,15 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     endText(ctx, code, "Error: ", t);
   }
 
-  public AuthorizeApi() {
-  }
+  public AuthorizeApi() {}
 
   public AuthorizeApi(Vertx vertx, TokenCreator tc) {
     authRoutingEntryList = new ArrayList<>();
+    // authRoutingEntryList.add(new AuthRoutingEntry("/token",
+    //   new String[] { SIGN_TOKEN_PERMISSION }, this::handleSignToken));
+
     authRoutingEntryList.add(new AuthRoutingEntry("/token",
-      new String[] { SIGN_TOKEN_PERMISSION }, this::handleSignToken));
+      new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     authRoutingEntryList.add(new AuthRoutingEntry("/refreshtoken",
       new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, this::handleSignRefreshToken));
     authRoutingEntryList.add(new AuthRoutingEntry("/refresh",
@@ -324,64 +326,7 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
     }
   }
 
-  /*
-   * Handle a request to sign a new token
-   * (Typically used by login module)
-   * Request content:
-   * {
-   * "payload" : { }
-   * }
-   */
-  private void handleSignToken(RoutingContext ctx) {
-    try {
-      logger.debug("Token signing request from {}", ctx.request().absoluteURI());
-      // tenant and okapiUrl are already checked in handleAuthorize
-      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      if (ctx.request().method() != HttpMethod.POST) {
-        endText(ctx, 400, "Unsupported operation: " + ctx.request().method().toString());
-        return;
-      }
-      final String postContent = ctx.getBodyAsString();
-      JsonObject json;
-      JsonObject payload;
-      try {
-        json = new JsonObject(postContent);
-      } catch (DecodeException dex) {
-        endText(ctx, 400, "Unable to decode '" + postContent + "' as valid JSON");
-        return;
-      }
-      payload = json.getJsonObject("payload");
 
-      if (payload == null) {
-        endText(ctx, 400, "Valid 'payload' field is required");
-        return;
-      }
-      logger.debug("Payload to create token from is {}", payload.encode());
-
-      if (!payload.containsKey("sub")) {
-        endText(ctx, 400, "Payload must contain a 'sub' field");
-        return;
-      }
-
-      String userId = payload.getString("user_id");
-      if (userId != null) {
-        permissionsSource.clearCacheUser(userId, tenant);
-      }
-      String username = payload.getString("sub");
-      Token token;
-      // auth 2.0 did not expose the "type" property which is now used internally.
-      // Only normal (access tokens) are exposed as well as dummy tokens (mod-users-bl).
-      if (payload.getBoolean("dummy", Boolean.FALSE)) {
-        token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
-      } else {
-        token = new AccessToken(tenant, username, userId);
-      }
-      JsonObject responseObject = new JsonObject().put("token", token.encodeAsJWT(tokenCreator));
-      endJson(ctx, 201, responseObject.encode());
-    } catch (Exception e) {
-      endText(ctx, 400, e);
-    }
-  }
 
   private void handleAuthorize(RoutingContext ctx) {
     String requestId = ctx.request().headers().get(XOkapiHeaders.REQUEST_ID);
