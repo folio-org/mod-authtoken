@@ -17,6 +17,8 @@ import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.okapi.common.XOkapiHeaders;
 
+import io.vertx.ext.web.openapi.RouterBuilder;
+
 import org.folio.tlib.RouterCreator;
 
 public class AuthenticateApi implements RouterCreator {
@@ -34,13 +36,24 @@ public class AuthenticateApi implements RouterCreator {
 
    @Override
    public Future<Router> createRouter(Vertx vertx) {
-     Router router = Router.router(vertx);
-     router.route("/token").handler(BodyHandler.create());
-     router.route("/token").handler(this::handleSignToken);
-     return Future.succeededFuture(router);
+    // Router router = Router.router(vertx);
+    // router.route("/token").handler(BodyHandler.create());
+    // router.route("/token").handler(this::handleSignToken);
+    // return Future.succeededFuture(router);
+    return RouterBuilder.create(vertx, "openapi/token-1.0.yaml")
+        .map(routerBuilder -> {
+          handlers(vertx, routerBuilder);
+          return routerBuilder.createRouter();
+        });
    }
 
-     /*
+   private void handlers(Vertx vertx, RouterBuilder routerBuilder) {
+    routerBuilder
+        .operation("token")
+        .handler(this::handleSignToken);
+  }
+
+  /*
    * Handle a request to sign a new token
    * (Typically used by login module)
    * Request content:
@@ -51,7 +64,8 @@ public class AuthenticateApi implements RouterCreator {
   private void handleSignToken(RoutingContext ctx) {
     try {
       logger.debug("Token signing request from {}", ctx.request().absoluteURI());
-      // tenant and okapiUrl are already checked in handleAuthorize
+
+      // Tenant and okapiUrl are already checked in AuthorizeApi
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       if (ctx.request().method() != HttpMethod.POST) {
         endText(ctx, 400, "Unsupported operation: " + ctx.request().method().toString());
@@ -85,6 +99,7 @@ public class AuthenticateApi implements RouterCreator {
       }
       String username = payload.getString("sub");
       Token token;
+
       // auth 2.0 did not expose the "type" property which is now used internally.
       // Only normal (access tokens) are exposed as well as dummy tokens (mod-users-bl).
       if (payload.getBoolean("dummy", Boolean.FALSE)) {
@@ -92,6 +107,9 @@ public class AuthenticateApi implements RouterCreator {
       } else {
         token = new AccessToken(tenant, username, userId);
       }
+
+      logger.debug("Successfully created and signed token");
+
       JsonObject responseObject = new JsonObject().put("token", token.encodeAsJWT(tokenCreator));
       endJson(ctx, 201, responseObject.encode());
     } catch (Exception e) {

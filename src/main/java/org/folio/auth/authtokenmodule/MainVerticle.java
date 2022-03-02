@@ -49,11 +49,10 @@ public class MainVerticle extends AbstractVerticle {
     var authorizeApi = new AuthorizeApi(vertx, tokenCreator);
     var authenticateApi = new AuthenticateApi(vertx, tokenCreator);
     RouterCreator[] routerCreators = {
-      new HealthApi(), // called regardless of tenant
-      //authenticateApi,
-      authorizeApi,  // filtering and hand-coded handlers (Tenant API is postponed)
+      new HealthApi(), // Called regardless of tenant.
+      authorizeApi,  // Filtering happens first. Only then can non-filter endpoints be called.
       new Tenant2Api(authorizeApi),
-      authenticateApi // TODO This has to be here for any of the /token endpoints to work.
+      authenticateApi
     };
     HttpServerOptions so = new HttpServerOptions().setHandle100ContinueAutomatically(true);
 

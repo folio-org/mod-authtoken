@@ -1,0 +1,20 @@
+{
+  "description": "The POST body for the request to generate a signed token",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "description": "TODO",
+      "format": "uuid"
+    },
+    "tenant": {
+      "type": "string",
+      "description": "TODO"
+    },
+    "sub": {
+      "type": "string",
+      "description": "TODO"
+    }
+  },
+  "additionalProperties": true
+}
