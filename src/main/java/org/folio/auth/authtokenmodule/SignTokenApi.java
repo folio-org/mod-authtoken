@@ -4,7 +4,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
@@ -21,14 +20,14 @@ import io.vertx.ext.web.openapi.RouterBuilder;
 
 import org.folio.tlib.RouterCreator;
 
-public class AuthenticateApi implements RouterCreator {
+public class SignTokenApi implements RouterCreator {
   private static final Logger logger = LogManager.getLogger(AuthorizeApi.class);
   PermissionsSource permissionsSource;
   private TokenCreator tokenCreator;
 
-  public AuthenticateApi() {}
+  public SignTokenApi() {}
 
-  public AuthenticateApi(Vertx vertx, TokenCreator tc) {
+  public SignTokenApi(Vertx vertx, TokenCreator tc) {
     tokenCreator = tc;
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
@@ -36,11 +35,7 @@ public class AuthenticateApi implements RouterCreator {
 
    @Override
    public Future<Router> createRouter(Vertx vertx) {
-    // Router router = Router.router(vertx);
-    // router.route("/token").handler(BodyHandler.create());
-    // router.route("/token").handler(this::handleSignToken);
-    // return Future.succeededFuture(router);
-    return RouterBuilder.create(vertx, "openapi/token-1.0.yaml")
+    return RouterBuilder.create(vertx, "openapi/sign-token-1.0.yaml")
         .map(routerBuilder -> {
           handlers(vertx, routerBuilder);
           return routerBuilder.createRouter();
@@ -86,7 +81,7 @@ public class AuthenticateApi implements RouterCreator {
         endText(ctx, 400, "Valid 'payload' field is required");
         return;
       }
-      logger.debug("Payload to create token from is {}", payload.encode());
+      logger.debug("Payload to create signed token from is {}", payload.encode());
 
       if (!payload.containsKey("sub")) {
         endText(ctx, 400, "Payload must contain a 'sub' field");

@@ -47,12 +47,12 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     var authorizeApi = new AuthorizeApi(vertx, tokenCreator);
-    var authenticateApi = new AuthenticateApi(vertx, tokenCreator);
+    var signTokenApi = new SignTokenApi(vertx, tokenCreator);
     RouterCreator[] routerCreators = {
       new HealthApi(), // Called regardless of tenant.
       authorizeApi,  // Filtering happens first. Only then can non-filter endpoints be called.
       new Tenant2Api(authorizeApi),
-      authenticateApi
+      signTokenApi
     };
     HttpServerOptions so = new HttpServerOptions().setHandle100ContinueAutomatically(true);
 

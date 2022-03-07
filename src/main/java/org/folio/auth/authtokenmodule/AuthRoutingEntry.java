@@ -42,6 +42,8 @@ public class AuthRoutingEntry {
   Return true if we're handling the route, false if pass-through
    */
   public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
+    logger.debug("Handling route in AuthRoutingEntry for endpoint {}", endpoint);
+
     JsonObject claims = Token.getClaims(authToken);
     JsonArray extraPermissions = claims.getJsonArray("extra_permissions");
     if (extraPermissions == null) {
@@ -63,6 +65,7 @@ public class AuthRoutingEntry {
       }
     }
     if (requestPerms != null && requestPerms.contains(getMagicPermission(endpoint))) {
+      logger.debug("Calling handler for AuthRoutingEntry with POST body of {}", ctx.getBodyAsString());
       handler.handle(ctx);
       return true;
     }
@@ -83,6 +86,8 @@ public class AuthRoutingEntry {
         .end(String.format("Missing required module-level permissions for endpoint '%s': %s",
           endpoint, String.join(", ", requiredPermissions)));
     } else {
+      logger.debug("Responding with magic permission for AuthRoutingEntry");
+
       String magicPermission = getMagicPermission(endpoint);
       ctx.response()
         .setChunked(true)

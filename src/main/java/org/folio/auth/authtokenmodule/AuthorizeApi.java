@@ -441,6 +441,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
       // Instead of storing tokens, let's store an array of objects that each
 
+      logger.debug("Handling module tokens");
+
       JsonObject moduleTokens = new JsonObject();
       /* TODO get module permissions (if they exist) */
       if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
@@ -480,6 +482,8 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
           return;
         }
       }
+
+      logger.debug("Handling filter request");
 
       // Populate the permissionsRequired array from the header
       JsonArray permissionsRequired = new JsonArray();
