@@ -4,8 +4,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.core.http.HttpMethod;
-import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
 
 import org.apache.logging.log4j.LogManager;
@@ -57,31 +55,13 @@ public class SignTokenApi extends TokenApi implements RouterCreator {
 
       // Tenant and okapiUrl are already checked in AuthorizeApi
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      if (ctx.request().method() != HttpMethod.POST) {
-        endText(ctx, 400, "Unsupported operation: " + ctx.request().method().toString());
-        return;
-      }
       final String postContent = ctx.getBodyAsString();
       JsonObject json;
       JsonObject payload;
-      try {
-        json = new JsonObject(postContent);
-      } catch (DecodeException dex) {
-        endText(ctx, 400, "Unable to decode '" + postContent + "' as valid JSON");
-        return;
-      }
+      json = new JsonObject(postContent);
       payload = json.getJsonObject("payload");
 
-      if (payload == null) {
-        endText(ctx, 400, "Valid 'payload' field is required");
-        return;
-      }
       logger.debug("Payload to create signed token from is {}", payload.encode());
-
-      if (!payload.containsKey("sub")) {
-        endText(ctx, 400, "Payload must contain a 'sub' field");
-        return;
-      }
 
       String userId = payload.getString("user_id");
       if (userId != null) {
