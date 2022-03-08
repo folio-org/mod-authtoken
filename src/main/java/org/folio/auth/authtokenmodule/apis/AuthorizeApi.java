@@ -1,24 +1,19 @@
 package org.folio.auth.authtokenmodule.apis;
 
-import com.nimbusds.jose.JOSEException;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.core.http.HttpMethod;
-import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.AuthRoutingEntry;
 import org.folio.auth.authtokenmodule.AuthtokenException;
 import org.folio.auth.authtokenmodule.MainVerticle;
@@ -28,7 +23,6 @@ import org.folio.auth.authtokenmodule.PermissionsSource;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.UserService;
 import org.folio.auth.authtokenmodule.Util;
-import org.folio.auth.authtokenmodule.UserService.UserServiceException;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
@@ -73,8 +67,6 @@ public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitH
 
   private List<AuthRoutingEntry> authRoutingEntryList;
 
-  private Map<String, TokenCreator> clientTokenCreatorMap;
-
   public AuthorizeApi() {}
 
   public AuthorizeApi(Vertx vertx, TokenCreator tc) {
@@ -87,16 +79,10 @@ public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitH
       new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, this::handleSignRefreshToken));
     authRoutingEntryList.add(new AuthRoutingEntry("/refresh",
       new String[] {}, this::handleRefresh));
-    authRoutingEntryList.add(new AuthRoutingEntry("/encrypted-token/create",
-      new String[] {}, this::handleSignEncryptedToken));
-    authRoutingEntryList.add(new AuthRoutingEntry("/encrypted-token/decode",
-      new String[] {}, this::handleDecodeEncryptedToken));
     authRoutingEntryList.add(new AuthRoutingEntry("/_/tenant",
       new String[] {}, RoutingContext::next));
 
     tokenCreator = tc;
-
-    clientTokenCreatorMap = new HashMap<>();
 
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
@@ -131,74 +117,6 @@ public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitH
     var apiTokenStore = new ApiTokenStore(vertx, tenant, tokenCreator);
     return apiTokenStore.createTableIfNotExists()
       .compose(x -> refreshTokenStore.createTableIfNotExists());
-  }
-
-  private TokenCreator lookupTokenCreator(String passPhrase) throws JOSEException {
-    if (clientTokenCreatorMap.containsKey(passPhrase)) {
-      return clientTokenCreatorMap.get(passPhrase);
-    }
-    TokenCreator localTokenCreator = new TokenCreator(passPhrase);
-    clientTokenCreatorMap.put(passPhrase, localTokenCreator);
-    return localTokenCreator;
-  }
-
-  private void handleSignEncryptedToken(RoutingContext ctx) {
-    try {
-      logger.debug("Encrypted token signing request from {}", ctx.request().absoluteURI());
-
-      JsonObject requestJson = parseEncryptionRequest(ctx, new String[] { "passPhrase", "payload" });
-      String passPhrase = requestJson.getString("passPhrase");
-      TokenCreator localTokenCreator = lookupTokenCreator(passPhrase);
-      String token = localTokenCreator.createJWEToken(requestJson.getJsonObject("payload")
-          .encode());
-
-      JsonObject responseJson = new JsonObject().put("token", token);
-      endJson(ctx, 201, responseJson.encode());
-    } catch (Exception e) {
-      endText(ctx, 400, e);
-    }
-  }
-
-  /*
-   * Decode a provided JSON object into an encrypted token as a service
-   * The content of the request should look like:
-   * {
-   * "passPhrase" : "",
-   * "token" : {
-   * }
-   * }
-   */
-  private void handleDecodeEncryptedToken(RoutingContext ctx) {
-    try {
-      JsonObject requestJson = parseEncryptionRequest(ctx, new String[] { "passPhrase", "token" });
-      String passPhrase = requestJson.getString("passPhrase");
-      TokenCreator localTokenCreator = lookupTokenCreator(passPhrase);
-      String token = requestJson.getString("token");
-      String encodedJson = localTokenCreator.decodeJWEToken(token);
-
-      JsonObject responseJson = new JsonObject().put("payload", new JsonObject(encodedJson));
-      endJson(ctx, 201, responseJson.encode());
-    } catch (Exception e) {
-      endText(ctx, 500, e);
-    }
-  }
-
-  private JsonObject parseEncryptionRequest(RoutingContext ctx, String[] requiredProperties) {
-    if (ctx.request().method() != HttpMethod.POST) {
-      String message = "Invalid method for this endpoint";
-      endText(ctx, 400, message);
-      return null;
-    }
-    String content = ctx.getBodyAsString();
-    JsonObject requestJson;
-    try {
-      requestJson = parseJsonObject(content, requiredProperties);
-    } catch (Exception e) {
-      String message = String.format("Unable to parse content: %s", e.getLocalizedMessage());
-      endText(ctx, 400, message);
-      return null;
-    }
-    return requestJson;
   }
 
   /*
@@ -323,11 +241,14 @@ public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitH
     FolioLoggingContext.put(FolioLoggingContext.TENANT_ID_LOGGING_VAR_NAME, tenant);
     FolioLoggingContext.put(FolioLoggingContext.USER_ID_LOGGING_VAR_NAME, userId);
     logger.debug("Calling handleAuthorize for {}", ctx.request().absoluteURI());
+
+    // TODO Remove. Should be covered by openapi.
     if (tenant == null) {
       endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.TENANT);
       return;
     }
 
+    // TODO Same as above.
     String okapiUrl = ctx.request().headers().get(XOkapiHeaders.URL);
     if (okapiUrl == null) {
       endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.URL);

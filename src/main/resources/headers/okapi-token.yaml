@@ -1,0 +1,6 @@
+in: header
+name: X-Okapi-Token
+description: Okapi Token
+required: false
+schema:
+  type: string
