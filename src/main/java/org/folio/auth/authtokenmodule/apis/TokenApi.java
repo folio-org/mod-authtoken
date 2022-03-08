@@ -3,6 +3,7 @@ package org.folio.auth.authtokenmodule.apis;
 import io.vertx.ext.web.RoutingContext;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.MainVerticle;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 
 public abstract class TokenApi {
   protected static Logger logger;
@@ -27,5 +28,18 @@ public abstract class TokenApi {
 
   protected static void endText(RoutingContext ctx, int code, Throwable t) {
     endText(ctx, code, "Error: ", t);
+  }
+
+  protected void handleTokenValidationFailure(Throwable h, RoutingContext ctx,
+      String msg, String unexpectedExceptionMsg) {
+    if (h instanceof TokenValidationException) {
+      var e = (TokenValidationException)h;
+      logger.error("{}: {}", msg, e.toString());
+      endText(ctx, e.getHttpResponseCode(), msg);
+      return;
+    }
+    logger.error("{}: {}", unexpectedExceptionMsg, h.toString());
+    endText(ctx, 500, unexpectedExceptionMsg);
+    return;
   }
 }

@@ -5,8 +5,8 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.openapi.RouterBuilder;
 
-import org.apache.logging.log4j.LogManager;
 import org.folio.auth.authtokenmodule.PermissionsSource;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
@@ -15,10 +15,13 @@ import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.okapi.common.XOkapiHeaders;
 
-import io.vertx.ext.web.openapi.RouterBuilder;
+import org.apache.logging.log4j.LogManager;
 
 import org.folio.tlib.RouterCreator;
 
+/**
+ * Handles creating and signing a token from the provided token payload.
+ */
 public class SignTokenApi extends TokenApi implements RouterCreator {
   PermissionsSource permissionsSource;
   private TokenCreator tokenCreator;
@@ -41,14 +44,6 @@ public class SignTokenApi extends TokenApi implements RouterCreator {
         });
   }
 
-  /*
-   * Handle a request to sign a new token
-   * (Typically used by login module)
-   * Request content:
-   * {
-   * "payload" : { }
-   * }
-   */
   private void handleSignToken(RoutingContext ctx) {
     try {
       logger.debug("Token signing request from {}", ctx.request().absoluteURI());
@@ -84,6 +79,7 @@ public class SignTokenApi extends TokenApi implements RouterCreator {
       JsonObject responseObject = new JsonObject().put("token", token.encodeAsJWT(tokenCreator));
       endJson(ctx, 201, responseObject.encode());
     } catch (Exception e) {
+      // TODO Shouldn't this be a 500?
       endText(ctx, 400, e);
     }
   }

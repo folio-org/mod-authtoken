@@ -5,7 +5,6 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.util.ArrayList;
@@ -15,7 +14,6 @@ import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.folio.auth.authtokenmodule.AuthRoutingEntry;
-import org.folio.auth.authtokenmodule.AuthtokenException;
 import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.PermService;
 import org.folio.auth.authtokenmodule.PermissionData;
@@ -27,13 +25,10 @@ import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
-import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
-import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
-import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
 
@@ -52,19 +47,14 @@ public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitH
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
   private static final String MISSING_HEADER = "Missing header: ";
   private static final String EXTRA_PERMS = "extra_permissions";
-
-  PermissionsSource permissionsSource;
-
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
-
-  private UserService userService;
   private static final String PERMISSIONS_USERS_ITEM_GET = "users.item.get";
 
+  private PermissionsSource permissionsSource;
+  private UserService userService;
   private PermService permService;
-
   private TokenCreator tokenCreator;
-
   private List<AuthRoutingEntry> authRoutingEntryList;
 
   public AuthorizeApi() {}
@@ -76,9 +66,9 @@ public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitH
     authRoutingEntryList.add(new AuthRoutingEntry("/token",
       new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     authRoutingEntryList.add(new AuthRoutingEntry("/refreshtoken",
-      new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, this::handleSignRefreshToken));
+      new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
     authRoutingEntryList.add(new AuthRoutingEntry("/refresh",
-      new String[] {}, this::handleRefresh));
+      new String[] {}, RoutingContext::next));
     authRoutingEntryList.add(new AuthRoutingEntry("/_/tenant",
       new String[] {}, RoutingContext::next));
 
@@ -118,119 +108,6 @@ public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitH
     return apiTokenStore.createTableIfNotExists()
       .compose(x -> refreshTokenStore.createTableIfNotExists());
   }
-
-  /*
-   * In order to get a new access token, the client should issue a POST request
-   * to the refresh endpoint, with the content being a JSON object with the
-   * following
-   * structure:
-   * {
-   * "refreshToken" : ""
-   * }. The module will then check the refresh token for validity, generate a new
-   * access token
-   * and return it in the body of the response as a JSON object:
-   * {
-   * "token" : ""
-   * }
-   */
-  private void handleRefresh(RoutingContext ctx) {
-    try {
-      logger.debug("Token refresh request from {}", ctx.request().absoluteURI());
-
-      if (ctx.request().method() != HttpMethod.POST) {
-        endText(ctx, 400, "Invalid method for this endpoint");
-        return;
-      }
-
-      String content = ctx.getBodyAsString();
-      JsonObject requestJson;
-
-      try {
-        requestJson = parseJsonObject(content, new String[] { "refreshToken" });
-      } catch (Exception e) {
-        endText(ctx, 400, "Unable to parse content of refresh token request: ", e);
-        return;
-      }
-
-      String encryptedJWE = requestJson.getString("refreshToken");
-      var context = new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE);
-      Future<Token> tokenValidationResult = Token.validate(context);
-
-      tokenValidationResult.onFailure(h -> {
-        String msg = "Invalid token in handleRefresh";
-        String unexpectedExceptionMsg = "Unexpected token exception in handleRefresh";
-        handleTokenValidationFailure(h, ctx, msg, unexpectedExceptionMsg);
-      });
-
-      tokenValidationResult.onSuccess(token -> {
-        String username = token.getClaims().getString("sub");
-        String userId = token.getClaims().getString("user_id");
-        String tenant = token.getClaims().getString("tenant");
-
-        try {
-          // TODO To do RTR we need to return both a new AT and a new RT here.
-          String at = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
-          JsonObject responseObject = new JsonObject().put("token", at);
-          endJson(ctx, 201, responseObject.encode());
-        } catch (Exception e) {
-          endText(ctx, 500, String.format("Unanticipated exception creating access token: %s", e.getMessage()));
-        }
-      });
-    } catch (Exception e) {
-      endText(ctx, 500, String.format("Unanticipated exception when handling refresh: %s", e.getMessage()));
-    }
-  }
-
-  private void handleTokenValidationFailure(Throwable h, RoutingContext ctx,
-      String msg, String unexpectedExceptionMsg) {
-    if (h instanceof TokenValidationException) {
-      var e = (TokenValidationException) h;
-      logger.error("{}: {}", msg, e.toString());
-      endText(ctx, e.getHttpResponseCode(), msg);
-      return;
-    }
-    logger.error("{}: {}", unexpectedExceptionMsg, h.toString());
-    endText(ctx, 500, unexpectedExceptionMsg);
-    return;
-  }
-
-  /*
-   * POST a request with a json payload, containing the following:
-   * {
-   * "userId" : "",
-   * "sub" : ""
-   * }
-   */
-  private void handleSignRefreshToken(RoutingContext ctx) {
-    try {
-      if (ctx.request().method() != HttpMethod.POST) {
-        String message = String.format("Invalid method '%s' for this endpoint '%s'",
-            ctx.request().method().toString(),
-            ctx.request().absoluteURI());
-        endText(ctx, 400, message);
-        return;
-      }
-      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      String address = ctx.request().remoteAddress().host();
-      String content = ctx.getBodyAsString();
-      JsonObject requestJson;
-      try {
-        requestJson = parseJsonObject(content, new String[] { "userId", "sub" });
-      } catch (Exception e) {
-        endText(ctx, 400, "Unable to parse content: ", e);
-        return;
-      }
-      String userId = requestJson.getString("userId");
-      String sub = requestJson.getString("sub");
-      String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
-      JsonObject responseJson = new JsonObject().put("refreshToken", refreshToken);
-      endJson(ctx, 201, responseJson.encode());
-    } catch (Exception e) {
-      endText(ctx, 500, e);
-    }
-  }
-
-
 
   private void handleAuthorize(RoutingContext ctx) {
     String requestId = ctx.request().headers().get(XOkapiHeaders.REQUEST_ID);
@@ -571,23 +448,4 @@ public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitH
     return null;
   }
 
-  private JsonObject parseJsonObject(String encoded, String[] requiredMembers)
-      throws AuthtokenException {
-    JsonObject json;
-    try {
-      json = new JsonObject(encoded);
-    } catch (Exception e) {
-      throw new AuthtokenException(String.format("Unable to parse JSON %s: %s", encoded,
-          e.getLocalizedMessage()));
-    }
-    for (String s : requiredMembers) {
-      if (!json.containsKey(s)) {
-        throw new AuthtokenException(String.format("Missing required member: '%s'", s));
-      }
-      if (json.getValue(s) == null) {
-        throw new AuthtokenException(String.format("Null value for required member: '%s'", s));
-      }
-    }
-    return json;
-  }
 }
