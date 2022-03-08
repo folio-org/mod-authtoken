@@ -1,4 +1,4 @@
-package org.folio.auth.authtokenmodule;
+package org.folio.auth.authtokenmodule.apis;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -9,7 +9,8 @@ import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.JsonObject;
 
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.folio.auth.authtokenmodule.PermissionsSource;
+import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
@@ -20,32 +21,26 @@ import io.vertx.ext.web.openapi.RouterBuilder;
 
 import org.folio.tlib.RouterCreator;
 
-public class SignTokenApi implements RouterCreator {
-  private static final Logger logger = LogManager.getLogger(AuthorizeApi.class);
+public class SignTokenApi extends TokenApi implements RouterCreator {
   PermissionsSource permissionsSource;
   private TokenCreator tokenCreator;
 
-  public SignTokenApi() {}
-
   public SignTokenApi(Vertx vertx, TokenCreator tc) {
+    logger = LogManager.getLogger(SignTokenApi.class);
     tokenCreator = tc;
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
-   }
+  }
 
-   @Override
-   public Future<Router> createRouter(Vertx vertx) {
+  @Override
+  public Future<Router> createRouter(Vertx vertx) {
     return RouterBuilder.create(vertx, "openapi/sign-token-1.0.yaml")
         .map(routerBuilder -> {
-          handlers(vertx, routerBuilder);
+          routerBuilder
+              .operation("token")
+              .handler(this::handleSignToken);
           return routerBuilder.createRouter();
         });
-   }
-
-   private void handlers(Vertx vertx, RouterBuilder routerBuilder) {
-    routerBuilder
-        .operation("token")
-        .handler(this::handleSignToken);
   }
 
   /*
@@ -96,7 +91,8 @@ public class SignTokenApi implements RouterCreator {
       Token token;
 
       // auth 2.0 did not expose the "type" property which is now used internally.
-      // Only normal (access tokens) are exposed as well as dummy tokens (mod-users-bl).
+      // Only normal (access tokens) are exposed as well as dummy tokens
+      // (mod-users-bl).
       if (payload.getBoolean("dummy", Boolean.FALSE)) {
         token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
       } else {
@@ -111,29 +107,4 @@ public class SignTokenApi implements RouterCreator {
       endText(ctx, 400, e);
     }
   }
-
-  // TODO move these somewhere more sensible.
-
-  private static void endText(RoutingContext ctx, int code, String msg) {
-    logger.error(msg);
-    ctx.response().setStatusCode(code);
-    ctx.response().putHeader(MainVerticle.CONTENT_TYPE, "text/plain");
-    ctx.response().end(msg);
-  }
-
-  private static void endJson(RoutingContext ctx, int code, String msg) {
-    ctx.response().setStatusCode(code);
-    ctx.response().putHeader(MainVerticle.CONTENT_TYPE, MainVerticle.APPLICATION_JSON);
-    ctx.response().end(msg);
-  }
-
-  private static void endText(RoutingContext ctx, int code, String lead, Throwable t) {
-    logger.error(lead, t);
-    endText(ctx, code, lead + t.getLocalizedMessage());
-  }
-
-  private static void endText(RoutingContext ctx, int code, Throwable t) {
-    endText(ctx, code, "Error: ", t);
-  }
-
 }

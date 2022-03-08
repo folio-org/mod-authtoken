@@ -1,4 +1,4 @@
-package org.folio.auth.authtokenmodule;
+package org.folio.auth.authtokenmodule.apis;
 
 import com.nimbusds.jose.JOSEException;
 import io.vertx.core.Future;
@@ -19,6 +19,16 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.auth.authtokenmodule.AuthRoutingEntry;
+import org.folio.auth.authtokenmodule.AuthtokenException;
+import org.folio.auth.authtokenmodule.MainVerticle;
+import org.folio.auth.authtokenmodule.PermService;
+import org.folio.auth.authtokenmodule.PermissionData;
+import org.folio.auth.authtokenmodule.PermissionsSource;
+import org.folio.auth.authtokenmodule.TokenCreator;
+import org.folio.auth.authtokenmodule.UserService;
+import org.folio.auth.authtokenmodule.Util;
+import org.folio.auth.authtokenmodule.UserService.UserServiceException;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
@@ -42,7 +52,7 @@ import static java.lang.Boolean.TRUE;
  *
  * @author kurt
  */
-public class AuthorizeApi implements RouterCreator, TenantInitHooks {
+public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitHooks {
 
   public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
@@ -50,7 +60,6 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
   private static final String EXTRA_PERMS = "extra_permissions";
 
   PermissionsSource permissionsSource;
-  private static final Logger logger = LogManager.getLogger(AuthorizeApi.class);
 
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
@@ -66,35 +75,12 @@ public class AuthorizeApi implements RouterCreator, TenantInitHooks {
 
   private Map<String, TokenCreator> clientTokenCreatorMap;
 
-  private static void endText(RoutingContext ctx, int code, String msg) {
-    logger.error(msg);
-    ctx.response().setStatusCode(code);
-    ctx.response().putHeader(MainVerticle.CONTENT_TYPE, "text/plain");
-    ctx.response().end(msg);
-  }
-
-  private static void endJson(RoutingContext ctx, int code, String msg) {
-    ctx.response().setStatusCode(code);
-    ctx.response().putHeader(MainVerticle.CONTENT_TYPE, MainVerticle.APPLICATION_JSON);
-    ctx.response().end(msg);
-  }
-
-  private static void endText(RoutingContext ctx, int code, String lead, Throwable t) {
-    logger.error(lead, t);
-    endText(ctx, code, lead + t.getLocalizedMessage());
-  }
-
-  private static void endText(RoutingContext ctx, int code, Throwable t) {
-    endText(ctx, code, "Error: ", t);
-  }
-
   public AuthorizeApi() {}
 
   public AuthorizeApi(Vertx vertx, TokenCreator tc) {
-    authRoutingEntryList = new ArrayList<>();
-    // authRoutingEntryList.add(new AuthRoutingEntry("/token",
-    //   new String[] { SIGN_TOKEN_PERMISSION }, this::handleSignToken));
+    logger = LogManager.getLogger(AuthorizeApi.class);
 
+    authRoutingEntryList = new ArrayList<>();
     authRoutingEntryList.add(new AuthRoutingEntry("/token",
       new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     authRoutingEntryList.add(new AuthRoutingEntry("/refreshtoken",

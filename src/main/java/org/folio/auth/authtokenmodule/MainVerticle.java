@@ -4,6 +4,8 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
 import org.folio.tlib.api.HealthApi;
+import org.folio.auth.authtokenmodule.apis.AuthorizeApi;
+import org.folio.auth.authtokenmodule.apis.SignTokenApi;
 import org.folio.tlib.RouterCreator;
 import org.folio.tlib.api.Tenant2Api;
 
@@ -15,11 +17,10 @@ import com.nimbusds.jose.JOSEException;
 import org.folio.tlib.postgres.TenantPgPool;
 
 public class MainVerticle extends AbstractVerticle {
-
   public static final String APPLICATION_JSON = "application/json";
   public static final String CONTENT_TYPE = "Content-Type";
   public static final String ACCEPT = "Accept";
-  static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
+  public static final String ZAP_CACHE_HEADER = "Authtoken-Refresh-Cache";
 
   TokenCreator getTokenCreator() throws JOSEException {
     String keySetting = System.getProperty("jwt.signing.key");
