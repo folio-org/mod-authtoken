@@ -11,6 +11,8 @@ import io.vertx.core.http.HttpMethod;
 import org.folio.auth.authtokenmodule.AuthtokenException;
 import org.folio.auth.authtokenmodule.PermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
+import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
+import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
@@ -22,8 +24,9 @@ import org.folio.okapi.common.XOkapiHeaders;
 import org.apache.logging.log4j.LogManager;
 
 import org.folio.tlib.RouterCreator;
+import org.folio.tlib.TenantInitHooks;
 
-public class TokenApi extends Api implements RouterCreator {
+public class TokenApi extends Api implements RouterCreator, TenantInitHooks {
   PermissionsSource permissionsSource;
   private TokenCreator tokenCreator;
 
@@ -49,6 +52,20 @@ public class TokenApi extends Api implements RouterCreator {
               .handler(this::handleSignToken);
           return routerBuilder.createRouter();
         });
+  }
+
+  @Override
+  public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
+    logger.debug("Calling postInit for {}", AuthorizeApi.class.getName());
+
+    if (!tenantAttributes.containsKey("module_to")) {
+      return Future.succeededFuture(); // Do nothing for disable
+    }
+
+    var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
+    var apiTokenStore = new ApiTokenStore(vertx, tenant, tokenCreator);
+    return apiTokenStore.createTableIfNotExists()
+      .compose(x -> refreshTokenStore.createTableIfNotExists());
   }
 
   private void handleSignToken(RoutingContext ctx) {

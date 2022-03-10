@@ -23,8 +23,6 @@ import org.folio.auth.authtokenmodule.UserService;
 import org.folio.auth.authtokenmodule.Util;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
-import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
-import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
@@ -33,7 +31,6 @@ import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
 
 import org.folio.tlib.RouterCreator;
-import org.folio.tlib.TenantInitHooks;
 
 import static java.lang.Boolean.TRUE;
 
@@ -41,7 +38,7 @@ import static java.lang.Boolean.TRUE;
  *
  * @author kurt
  */
-public class AuthorizeApi extends Api implements RouterCreator, TenantInitHooks {
+public class AuthorizeApi extends Api implements RouterCreator {
 
   public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
@@ -93,20 +90,6 @@ public class AuthorizeApi extends Api implements RouterCreator, TenantInitHooks 
     router.route("/*").handler(BodyHandler.create());
     router.route("/*").handler(this::handleAuthorize);
     return Future.succeededFuture(router);
-  }
-
-  @Override
-  public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
-    logger.debug("Calling postInit for {}", AuthorizeApi.class.getName());
-
-    if (!tenantAttributes.containsKey("module_to")) {
-      return Future.succeededFuture(); // Do nothing for disable
-    }
-
-    var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
-    var apiTokenStore = new ApiTokenStore(vertx, tenant, tokenCreator);
-    return apiTokenStore.createTableIfNotExists()
-      .compose(x -> refreshTokenStore.createTableIfNotExists());
   }
 
   private void handleAuthorize(RoutingContext ctx) {

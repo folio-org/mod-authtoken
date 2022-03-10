@@ -48,13 +48,13 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     var authorizeApi = new AuthorizeApi(vertx, tokenCreator);
-    var refreshTokenApi = new TokenApi(vertx, tokenCreator);
+    var tokenApi = new TokenApi(vertx, tokenCreator);
 
     RouterCreator[] routerCreators = {
-      new HealthApi(), // Called regardless of tenant.
-      authorizeApi,  // Filtering happens first. Only then can non-filter endpoints be called.
-      new Tenant2Api(authorizeApi),
-      refreshTokenApi
+      new HealthApi(), // Called regardless of tenant. Can be called first since it isn't secured.
+      authorizeApi,  // Filtering happens next. Only then can non-filter endpoints be called.
+      new Tenant2Api(tokenApi), // Causes postInit to be called (and database creation to happen).
+      tokenApi, // Must be called last for all of the openapi magic to work.
     };
     HttpServerOptions so = new HttpServerOptions().setHandle100ContinueAutomatically(true);
 
