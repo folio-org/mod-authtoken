@@ -3,6 +3,32 @@ info:
   title: Tenant API
   version: v2
 paths:
+  /token:
+    parameters:
+      # TODO Should these be here ore in the yaml for AuthorizeApi?
+      - $ref: headers/okapi-tenant.yaml
+      - $ref: headers/okapi-token.yaml
+    post:
+      description: Sign token
+      operationId: token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/signTokenPayload"
+        required: true
+      responses:
+        "201":
+          description: Created and signed token successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/token"
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "500":
+          $ref: "#/components/responses/trait_500"
+
   /refresh:
     parameters:
       # TODO Should these be here ore in the yaml for AuthorizeApi?
@@ -80,3 +106,5 @@ components:
       $ref: schemas/signRefreshToken.json
     token:
       $ref: schemas/token.json
+    signTokenPayload:
+      $ref: schemas/signTokenPayload.json

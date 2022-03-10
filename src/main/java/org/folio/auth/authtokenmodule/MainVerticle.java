@@ -5,8 +5,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
 import org.folio.tlib.api.HealthApi;
 import org.folio.auth.authtokenmodule.apis.AuthorizeApi;
-import org.folio.auth.authtokenmodule.apis.RefreshTokenApi;
-import org.folio.auth.authtokenmodule.apis.SignTokenApi;
+import org.folio.auth.authtokenmodule.apis.TokenApi;
 import org.folio.tlib.RouterCreator;
 import org.folio.tlib.api.Tenant2Api;
 
@@ -49,14 +48,12 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     var authorizeApi = new AuthorizeApi(vertx, tokenCreator);
-    var signTokenApi = new SignTokenApi(vertx, tokenCreator);
-    var refreshTokenApi = new RefreshTokenApi(vertx, tokenCreator);
+    var refreshTokenApi = new TokenApi(vertx, tokenCreator);
 
     RouterCreator[] routerCreators = {
       new HealthApi(), // Called regardless of tenant.
       authorizeApi,  // Filtering happens first. Only then can non-filter endpoints be called.
       new Tenant2Api(authorizeApi),
-      signTokenApi,
       refreshTokenApi
     };
     HttpServerOptions so = new HttpServerOptions().setHandle100ContinueAutomatically(true);

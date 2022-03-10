@@ -65,7 +65,7 @@ public class AuthRoutingEntry {
       }
     }
     if (requestPerms != null && requestPerms.contains(getMagicPermission(endpoint))) {
-      logger.debug("Calling handler for AuthRoutingEntry with POST body of {}", ctx.getBodyAsString());
+      logger.debug("Calling handler in AuthRoutingEntry for {} with POST body of {}", endpoint, ctx.getBodyAsString());
       handler.handle(ctx);
       return true;
     }

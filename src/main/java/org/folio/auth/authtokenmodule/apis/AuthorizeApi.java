@@ -41,7 +41,7 @@ import static java.lang.Boolean.TRUE;
  *
  * @author kurt
  */
-public class AuthorizeApi extends TokenApi implements RouterCreator, TenantInitHooks {
+public class AuthorizeApi extends Api implements RouterCreator, TenantInitHooks {
 
   public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";

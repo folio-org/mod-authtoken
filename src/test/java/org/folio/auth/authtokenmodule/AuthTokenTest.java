@@ -129,14 +129,13 @@ public class AuthTokenTest {
           if (mainRes.failed()) {
             context.fail(mainRes.cause());
           } else {
+            var tenantAttributes = new JsonObject().put("module_to", "mod-authtoken-1.0.0");
+            initializeTenantForTokenStore(tenant, tenantAttributes);
             async.complete();
           }
         });
       }
     });
-
-    var tenantAttributes = new JsonObject().put("module_to", "mod-authtoken-1.0.0");
-    initializeTenantForTokenStore(tenant, tenantAttributes);
   }
 
   @AfterClass
@@ -221,9 +220,8 @@ public class AuthTokenTest {
 
   @Test
   public void httpWithoutLoginToken() {
-    // A request that should succed
-    // Even without any credentials in the request, we get back the whole lot,
-    // most notably a token that certifies the fact that we have a tenant, but
+    // A request that should succeed even without any credentials in the request, we get back the
+    // whole lot, most notably a token that certifies the fact that we have a tenant, but
     // have not yet identified ourself.
     Response r = given()
       .header("X-Okapi-Tenant", tenant)
@@ -721,18 +719,17 @@ public class AuthTokenTest {
       .statusCode(201).contentType("application/json").extract().path("token");
     assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadAccess.getString("sub")));
 
-    // TODO Now when /refresh and /refreshtoken are wired, this no longer returns 405 but 404. Why?
-    // logger.info("PUT signing request with good token, good payload");
-    // given()
-    //   .header("X-Okapi-Tenant", tenant)
-    //   .header("X-Okapi-Token", accessToken)
-    //   .header("X-Okapi-Url", "http://localhost:" + freePort)
-    //   .header("Content-type", "application/json")
-    //   .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
-    //   .body(new JsonObject().put("payload", payloadDummy).encode())
-    //   .put("/token")
-    //   .then()
-    //   .statusCode(405);
+    logger.info("PUT signing request with good token, good payload");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", accessToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("payload", payloadDummy).encode())
+      .put("/token")
+      .then()
+      .statusCode(405);
 
     logger.info("POST signing request with good token, bad payload");
     given()
@@ -781,7 +778,7 @@ public class AuthTokenTest {
       .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
       .put("/refreshtoken")
       .then()
-      .statusCode(405);
+     .statusCode(405);
 
     // Get a refresh token (bad payload)
     logger.info("GET signing request for a refresh token (bad payload)");
@@ -930,6 +927,31 @@ public class AuthTokenTest {
       .statusCode(202);
 
     logger.debug("AuthToken httpEndpointTest done");
+  }
+
+  @Test
+  public void test405() {
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", accessToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+      .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
+      .put("/refreshtoken")
+      .then()
+    .statusCode(405);
+
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", accessToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("payload", payloadDummy).encode())
+      .put("/token")
+      .then()
+      .statusCode(405);
   }
 
   @Test
@@ -1106,7 +1128,7 @@ public class AuthTokenTest {
   }
 
   // Taken from folio-vertx-lib's tests. Causes postInit to be called.
-  static void initializeTenantForTokenStore(String tenant, JsonObject tenantAttributes) {
+  private static void initializeTenantForTokenStore(String tenant, JsonObject tenantAttributes) {
     // This request triggers postInit inside of AuthorizeApi.
     ExtractableResponse<Response> response = RestAssured.given()
         .header(XOkapiHeaders.TENANT, tenant)
