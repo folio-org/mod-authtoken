@@ -21,24 +21,49 @@ import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 import org.folio.okapi.common.XOkapiHeaders;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 
 import org.folio.tlib.RouterCreator;
 import org.folio.tlib.TenantInitHooks;
 
-public class TokenApi extends Api implements RouterCreator, TenantInitHooks {
-  PermissionsSource permissionsSource;
-  private TokenCreator tokenCreator;
+/**
+ * This API class handles any non-filter routes that this module must serve. The filter API calls
+ * these routes.
+ * @see FilterApi
+ */
+public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
+  private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
+  private static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
 
-  public TokenApi(Vertx vertx, TokenCreator tc) {
-    logger = LogManager.getLogger(TokenApi.class);
+  private PermissionsSource permissionsSource;
+  private TokenCreator tokenCreator;
+  private List<Route> routes;
+
+  public RouteApi(Vertx vertx, TokenCreator tc) {
+    logger = LogManager.getLogger(RouteApi.class);
     tokenCreator = tc;
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
+
+    // Set up the routes. Here next will call operation handler defined in createRouter.
+    // The filter API is responsible for calling these routes, but we define them here.
+    routes = new ArrayList<>();
+    routes.add( new Route("/token",
+      new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
+    routes.add(new Route("/refreshtoken",
+      new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
+    routes.add(new Route("/refresh",
+      new String[] {}, RoutingContext::next));
+    routes.add(new Route("/_/tenant",
+      new String[] {}, RoutingContext::next));
   }
 
   @Override
   public Future<Router> createRouter(Vertx vertx) {
+    // Bind the openapi yaml definition with the handler methods defined here.
     return RouterBuilder.create(vertx, "openapi/token-1.0.yaml")
         .map(routerBuilder -> {
           routerBuilder
@@ -56,16 +81,34 @@ public class TokenApi extends Api implements RouterCreator, TenantInitHooks {
 
   @Override
   public Future<Void> postInit(Vertx vertx, String tenant, JsonObject tenantAttributes) {
-    logger.debug("Calling postInit for {}", AuthorizeApi.class.getName());
+    logger.debug("Calling postInit for {}", RouteApi.class.getName());
 
     if (!tenantAttributes.containsKey("module_to")) {
       return Future.succeededFuture(); // Do nothing for disable
     }
 
+    // Create the datastores needed for the routes associated with this API.
     var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
     var apiTokenStore = new ApiTokenStore(vertx, tenant, tokenCreator);
     return apiTokenStore.createTableIfNotExists()
       .compose(x -> refreshTokenStore.createTableIfNotExists());
+  }
+
+  /**
+   * Given the current request, attempt to handle the request as a route with an endpoint. If
+   * the route has been handled (meaning its method in this class has been called) this method
+   * will return true.
+   * @param ctx The current http context.
+   * @param authToken The auth token in scope for this request.
+   * @param moduleTokens An encoded JSON object of module tokens.
+   */
+  public boolean tryHandleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
+    for (Route route : routes) {
+      if (route.handleRoute(ctx, authToken, moduleTokens)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private void handleSignToken(RoutingContext ctx) {

@@ -4,8 +4,8 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServerOptions;
 import org.folio.tlib.api.HealthApi;
-import org.folio.auth.authtokenmodule.apis.AuthorizeApi;
-import org.folio.auth.authtokenmodule.apis.TokenApi;
+import org.folio.auth.authtokenmodule.apis.FilterApi;
+import org.folio.auth.authtokenmodule.apis.RouteApi;
 import org.folio.tlib.RouterCreator;
 import org.folio.tlib.api.Tenant2Api;
 
@@ -47,14 +47,20 @@ public class MainVerticle extends AbstractVerticle {
       throw new MissingAlgorithmException("Unable to initialize TokenCreator: " + e.getMessage(), e);
     }
 
-    var authorizeApi = new AuthorizeApi(vertx, tokenCreator);
-    var tokenApi = new TokenApi(vertx, tokenCreator);
+    // Define the routes that this module must handle.
+    var routeApi = new RouteApi(vertx, tokenCreator);
 
+    // Define the filter api which fires for every request to this module, passing in the route
+    // API object, because the filter API depends on it.
+    var filterApi = new FilterApi(vertx, tokenCreator, routeApi);
+
+    // NOTE The order of adding these RouterCreator objects is important for the proper functioning
+    // of this module.
     RouterCreator[] routerCreators = {
       new HealthApi(), // Called regardless of tenant. Can be called first since it isn't secured.
-      authorizeApi,  // Filtering happens next. Only then can non-filter endpoints be called.
-      new Tenant2Api(tokenApi), // Causes postInit to be called (and database creation to happen).
-      tokenApi, // Must be called last for all of the openapi magic to work.
+      filterApi,  // Filtering happens next. Only then can non-filter endpoints be called.
+      new Tenant2Api(routeApi), // Causes postInit to be called (and database creation to happen).
+      routeApi, // Must be called last for all of the openapi magic to work.
     };
     HttpServerOptions so = new HttpServerOptions().setHandle100ContinueAutomatically(true);
 

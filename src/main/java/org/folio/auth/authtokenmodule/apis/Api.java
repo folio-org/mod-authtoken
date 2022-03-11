@@ -5,6 +5,9 @@ import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 
+/**
+ * Shared code which API classes can use.
+ */
 public abstract class Api {
   protected static Logger logger;
 

@@ -13,7 +13,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
-import org.folio.auth.authtokenmodule.AuthRoutingEntry;
 import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.PermService;
 import org.folio.auth.authtokenmodule.PermissionData;
@@ -38,10 +37,8 @@ import static java.lang.Boolean.TRUE;
  *
  * @author kurt
  */
-public class AuthorizeApi extends Api implements RouterCreator {
+public class FilterApi extends Api implements RouterCreator {
 
-  public static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
-  public static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
   private static final String MISSING_HEADER = "Missing header: ";
   private static final String EXTRA_PERMS = "extra_permissions";
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
@@ -52,24 +49,14 @@ public class AuthorizeApi extends Api implements RouterCreator {
   private UserService userService;
   private PermService permService;
   private TokenCreator tokenCreator;
-  private List<AuthRoutingEntry> authRoutingEntryList;
+  private RouteApi routeApi;
 
-  public AuthorizeApi() {}
+  public FilterApi() {}
 
-  public AuthorizeApi(Vertx vertx, TokenCreator tc) {
-    logger = LogManager.getLogger(AuthorizeApi.class);
-
-    authRoutingEntryList = new ArrayList<>();
-    authRoutingEntryList.add(new AuthRoutingEntry("/token",
-      new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
-    authRoutingEntryList.add(new AuthRoutingEntry("/refreshtoken",
-      new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
-    authRoutingEntryList.add(new AuthRoutingEntry("/refresh",
-      new String[] {}, RoutingContext::next));
-    authRoutingEntryList.add(new AuthRoutingEntry("/_/tenant",
-      new String[] {}, RoutingContext::next));
-
-    tokenCreator = tc;
+  public FilterApi(Vertx vertx, TokenCreator tokenCreator, RouteApi routeApi) {
+    logger = LogManager.getLogger(FilterApi.class);
+    this.tokenCreator = tokenCreator;
+    this.routeApi = routeApi;
 
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
@@ -234,21 +221,17 @@ public class AuthorizeApi extends Api implements RouterCreator {
       moduleTokens.put("_", authToken);
 
       /*
-       * When the initial request comes in, as a filter, we require that the
-       * auth.signtoken
+       * When the initial request comes in, as a filter, we require that the auth.signtoken
        * permission exists in the module tokens. This means that even if a request has
        * the permission in its permissions list, it cannot request a token unless
-       * it has been granted at the module level. If it passes the filter
-       * successfully,
+       * it has been granted at the module level. If it passes the filter successfully,
        * a new permission, auth.signtoken.execute is attached to the outgoing request
        * which the /token handler will check for when it processes the actual request
        */
-
-      for (AuthRoutingEntry authRoutingEntry : authRoutingEntryList) {
-        if (authRoutingEntry.handleRoute(ctx, authToken, moduleTokens.encode())) {
-          return;
-        }
+      if (routeApi.tryHandleRoute(ctx, authToken, moduleTokens.encode())) {
+        return;
       }
+
 
       logger.debug("Handling filter request");
 
