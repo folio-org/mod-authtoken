@@ -8,7 +8,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.openapi.RouterBuilder;
 import io.vertx.core.http.HttpMethod;
 
-import org.folio.auth.authtokenmodule.AuthtokenException;
 import org.folio.auth.authtokenmodule.PermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
@@ -117,10 +116,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
       // Tenant and okapiUrl are already checked in AuthorizeApi
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      final String postContent = ctx.getBodyAsString();
+      final String content = ctx.getBodyAsString();
       JsonObject json;
       JsonObject payload;
-      json = new JsonObject(postContent);
+      json = new JsonObject(content);
       payload = json.getJsonObject("payload");
 
       logger.debug("Payload to create signed token from is {}", payload.encode());
@@ -176,15 +175,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       }
 
       String content = ctx.getBodyAsString();
-      JsonObject requestJson;
-
-      try {
-        requestJson = parseJsonObject(content, new String[] { "refreshToken" });
-      } catch (Exception e) {
-        endText(ctx, 400, "Unable to parse content of refresh token request: ", e);
-        return;
-      }
-
+      JsonObject requestJson = new JsonObject(content);
       String encryptedJWE = requestJson.getString("refreshToken");
       var context = new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE);
       Future<Token> tokenValidationResult = Token.validate(context);
@@ -234,13 +225,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       String address = ctx.request().remoteAddress().host();
       String content = ctx.getBodyAsString();
-      JsonObject requestJson;
-      try {
-        requestJson = parseJsonObject(content, new String[] { "userId", "sub" });
-      } catch (Exception e) {
-        endText(ctx, 400, "Unable to parse content: ", e);
-        return;
-      }
+      JsonObject requestJson =  new JsonObject(content);
       String userId = requestJson.getString("userId");
       String sub = requestJson.getString("sub");
       String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
@@ -249,26 +234,5 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     } catch (Exception e) {
       endText(ctx, 500, e);
     }
-  }
-
-  // TODO This shouldn't be needed now with openapi
-  private JsonObject parseJsonObject(String encoded, String[] requiredMembers)
-      throws AuthtokenException {
-    JsonObject json;
-    try {
-      json = new JsonObject(encoded);
-    } catch (Exception e) {
-      throw new AuthtokenException(String.format("Unable to parse JSON %s: %s", encoded,
-          e.getLocalizedMessage()));
-    }
-    for (String s : requiredMembers) {
-      if (!json.containsKey(s)) {
-        throw new AuthtokenException(String.format("Missing required member: '%s'", s));
-      }
-      if (json.getValue(s) == null) {
-        throw new AuthtokenException(String.format("Null value for required member: '%s'", s));
-      }
-    }
-    return json;
   }
 }
