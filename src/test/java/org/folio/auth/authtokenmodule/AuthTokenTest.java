@@ -649,7 +649,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(400).body(containsString("Missing header: X-Okapi-Tenant"));
 
-    logger.info("POST empty token with no X-Okapi-URl");
+    logger.info("POST empty token with no X-Okapi-Url");
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", accessToken)
@@ -691,7 +691,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(202);
 
-    //get a good dummy token signing request
+    // Get a good dummy token signing request.
     logger.info("POST signing request with good token, good payload");
     String token = given()
       .header("X-Okapi-Tenant", tenant)
@@ -705,7 +705,7 @@ public class AuthTokenTest {
       .statusCode(201).contentType("application/json").extract().path("token");
     assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadDummy.getString("sub")));
 
-    //get a good access token signing request
+    // Get a good access token signing request.
     logger.info("POST signing request with good token, good payload");
     token = given()
       .header("X-Okapi-Tenant", tenant)
@@ -719,17 +719,17 @@ public class AuthTokenTest {
       .statusCode(201).contentType("application/json").extract().path("token");
     assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadAccess.getString("sub")));
 
-    //logger.info("PUT signing request with good token, good payload");
-    // given()
-    //   .header("X-Okapi-Tenant", tenant)
-    //   .header("X-Okapi-Token", accessToken)
-    //   .header("X-Okapi-Url", "http://localhost:" + freePort)
-    //   .header("Content-type", "application/json")
-    //   .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
-    //   .body(new JsonObject().put("payload", payloadDummy).encode())
-    //   .put("/token")
-    //   .then()
-    //   .statusCode(405);
+    logger.info("PUT signing request with good token, good payload");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", accessToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("payload", payloadDummy).encode())
+      .put("/token")
+      .then()
+      .statusCode(405);
 
     logger.info("POST signing request with good token, bad payload");
     given()
@@ -768,17 +768,17 @@ public class AuthTokenTest {
       .statusCode(400);
 
     // Get a refresh token (bad method)
-    // logger.info("PUT signing request for a refresh token");
-    // given()
-    //   .header("X-Okapi-Tenant", tenant)
-    //   .header("X-Okapi-Token", accessToken)
-    //   .header("X-Okapi-Url", "http://localhost:" + freePort)
-    //   .header("Content-type", "application/json")
-    //   .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
-    //   .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
-    //   .put("/refreshtoken")
-    //   .then()
-    //  .statusCode(405);
+    logger.info("PUT signing request for a refresh token");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", accessToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+      .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
+      .put("/refreshtoken")
+      .then()
+     .statusCode(405);
 
     // Get a refresh token (bad payload)
     logger.info("GET signing request for a refresh token (bad payload)");
@@ -822,17 +822,17 @@ public class AuthTokenTest {
       .extract().body().path("refreshToken");
     logger.info("refreshToken=" + refreshToken);
 
-    // logger.info("PUT /refresh (bad method)");
-    // given()
-    //   .header("X-Okapi-Tenant", tenant)
-    //   .header("X-Okapi-Token", accessToken)
-    //   .header("X-Okapi-Url", "http://localhost:" + freePort)
-    //   .header("Content-type", "application/json")
-    //   .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-    //   .body(new JsonObject().put("refreshToken", refreshToken).encode())
-    //   .put("/refresh")
-    //   .then()
-    //   .statusCode(405);
+    logger.info("PUT /refresh (bad method)");
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", accessToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+      .body(new JsonObject().put("refreshToken", refreshToken).encode())
+      .put("/refresh")
+      .then()
+      .statusCode(405);
 
     logger.info("POST /refresh with bad payload");
     given()

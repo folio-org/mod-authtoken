@@ -17,7 +17,10 @@ import java.util.Arrays;
 import java.util.List;
 
  /**
-  * Any endpoints that this module needs to handle require that a route be defined for them.
+  * Any endpoints that this module needs to handle require that a route be defined for them. These
+  * routes are managed by the RouteApi and called by the FilterApi.
+  * @see RouteApi
+  * @see FilterApi
   * @author kurt
   */
 public class Route {
@@ -32,8 +35,7 @@ public class Route {
    * @param requiredPermissions The permissions that are required for the route.
    * @param handler The handler for the route.
    */
-  public Route(String endpoint, String[] requiredPermissions,
-    Handler<RoutingContext> handler) {
+  public Route(String endpoint, String[] requiredPermissions, Handler<RoutingContext> handler) {
     init(endpoint, new ArrayList<>(Arrays.asList(requiredPermissions)), handler);
   }
 
@@ -52,7 +54,7 @@ public class Route {
    * @return True if the route should be handled, otherwise false if a pass-through.
    */
   public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
-    logger.debug("Handling route in AuthRoutingEntry for endpoint {}", endpoint);
+    logger.debug("Handling route for endpoint {}", endpoint);
 
     JsonObject claims = Token.getClaims(authToken);
     JsonArray extraPermissions = claims.getJsonArray("extra_permissions");
@@ -75,7 +77,7 @@ public class Route {
       }
     }
     if (requestPerms != null && requestPerms.contains(getMagicPermission(endpoint))) {
-      logger.debug("Calling handler in AuthRoutingEntry for {} with POST body of {}", endpoint, ctx.getBodyAsString());
+      logger.debug("Calling handler for {} with POST body of {}", endpoint, ctx.getBodyAsString());
       handler.handle(ctx);
       return true;
     }
@@ -96,7 +98,7 @@ public class Route {
         .end(String.format("Missing required module-level permissions for endpoint '%s': %s",
           endpoint, String.join(", ", requiredPermissions)));
     } else {
-      logger.debug("Responding with magic permission for AuthRoutingEntry");
+      logger.debug("Responding with magic permission for Route");
 
       String magicPermission = getMagicPermission(endpoint);
       ctx.response()

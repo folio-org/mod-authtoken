@@ -41,9 +41,15 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private TokenCreator tokenCreator;
   private List<Route> routes;
 
-  public RouteApi(Vertx vertx, TokenCreator tc) {
+  /**
+   * Constructs the API.
+   * @param vertx A reference to the current Vertx object.
+   * @param tokenCreator A reference to the TokenCreator object. This object is shared among
+   * all Api classes.
+   */
+  public RouteApi(Vertx vertx, TokenCreator tokenCreator) {
     logger = LogManager.getLogger(RouteApi.class);
-    tokenCreator = tc;
+    this.tokenCreator = tokenCreator;
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
@@ -145,34 +151,13 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       JsonObject responseObject = new JsonObject().put("token", token.encodeAsJWT(tokenCreator));
       endJson(ctx, 201, responseObject.encode());
     } catch (Exception e) {
-      // TODO Shouldn't this be a 500?
-      endText(ctx, 400, e);
+      endText(ctx, 500, e);
     }
   }
 
-
-  /*
-   * In order to get a new access token, the client should issue a POST request
-   * to the refresh endpoint, with the content being a JSON object with the
-   * following
-   * structure:
-   * {
-   * "refreshToken" : ""
-   * }. The module will then check the refresh token for validity, generate a new
-   * access token
-   * and return it in the body of the response as a JSON object:
-   * {
-   * "token" : ""
-   * }
-   */
   private void handleRefresh(RoutingContext ctx) {
     try {
       logger.debug("Token refresh request from {}", ctx.request().absoluteURI());
-
-      if (ctx.request().method() != HttpMethod.POST) {
-        endText(ctx, 400, "Invalid method for this endpoint");
-        return;
-      }
 
       String content = ctx.getBodyAsString();
       JsonObject requestJson = new JsonObject(content);
@@ -205,23 +190,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     }
   }
 
-  /*
-   * POST a request with a json payload, containing the following:
-   * {
-   * "userId" : "",
-   * "sub" : ""
-   * }
-   */
   private void handleSignRefreshToken(RoutingContext ctx) {
-    logger.debug("in handleSignRefreshToken");
     try {
-      if (ctx.request().method() != HttpMethod.POST) {
-        String message = String.format("Invalid method '%s' for this endpoint '%s'",
-            ctx.request().method().toString(),
-            ctx.request().absoluteURI());
-        endText(ctx, 400, message);
-        return;
-      }
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       String address = ctx.request().remoteAddress().host();
       String content = ctx.getBodyAsString();

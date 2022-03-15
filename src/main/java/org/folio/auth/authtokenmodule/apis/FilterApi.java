@@ -34,7 +34,10 @@ import org.folio.tlib.RouterCreator;
 import static java.lang.Boolean.TRUE;
 
 /**
- *
+ * Filters every request in order to manage token authorization system-wide. Also handles calling
+ * any routes that mod-authtoken has responsiblity for. This route handling is managed by the
+ * RouteApi, which this class has as a dependency.
+ * @see RouteApi
  * @author kurt
  */
 public class FilterApi extends Api implements RouterCreator {
@@ -53,6 +56,13 @@ public class FilterApi extends Api implements RouterCreator {
 
   public FilterApi() {}
 
+  /**
+   * Constructs the API.
+   * @param vertx A reference to the current Vertx object.
+   * @param tokenCreator A reference to the token creator which is shared among API objects.
+   * @param routeApi A reference to the RouteApi object, which this API depends on for route
+   * handling.
+   */
   public FilterApi(Vertx vertx, TokenCreator tokenCreator, RouteApi routeApi) {
     logger = LogManager.getLogger(FilterApi.class);
     this.tokenCreator = tokenCreator;
@@ -74,6 +84,8 @@ public class FilterApi extends Api implements RouterCreator {
   @Override
   public Future<Router> createRouter(Vertx vertx) {
     Router router = Router.router(vertx);
+    // NOTE These wildcard routes cause this API to act as a filter for every request, meaning
+    // handleAuthorize will be called on every request.
     router.route("/*").handler(BodyHandler.create());
     router.route("/*").handler(this::handleAuthorize);
     return Future.succeededFuture(router);
@@ -89,13 +101,11 @@ public class FilterApi extends Api implements RouterCreator {
     FolioLoggingContext.put(FolioLoggingContext.USER_ID_LOGGING_VAR_NAME, userId);
     logger.debug("Calling handleAuthorize for {}", ctx.request().absoluteURI());
 
-    // TODO Remove. Should be covered by openapi.
     if (tenant == null) {
       endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.TENANT);
       return;
     }
 
-    // TODO Same as above.
     String okapiUrl = ctx.request().headers().get(XOkapiHeaders.URL);
     if (okapiUrl == null) {
       endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.URL);
@@ -229,11 +239,11 @@ public class FilterApi extends Api implements RouterCreator {
        * which the /token handler will check for when it processes the actual request
        */
       if (routeApi.tryHandleRoute(ctx, authToken, moduleTokens.encode())) {
+        logger.debug("Handled mod-authtoken route request");
         return;
       }
 
-
-      logger.debug("Handling filter request");
+      logger.debug("No route found. Proceeding with filter request.");
 
       // Populate the permissionsRequired array from the header
       JsonArray permissionsRequired = new JsonArray();

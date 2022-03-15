@@ -7,6 +7,7 @@ paths:
     parameters:
       - $ref: headers/okapi-tenant.yaml
       - $ref: headers/okapi-token.yaml
+      - $ref: headers/okapi-url.yaml
     post:
       description: Sign token
       operationId: token
@@ -32,6 +33,7 @@ paths:
     parameters:
       - $ref: headers/okapi-tenant.yaml
       - $ref: headers/okapi-token.yaml
+      - $ref: headers/okapi-url.yaml
     post:
       description: Sign token
       operationId: refresh
@@ -56,6 +58,7 @@ paths:
     parameters:
       - $ref: headers/okapi-tenant.yaml
       - $ref: headers/okapi-token.yaml
+      - $ref: headers/okapi-url.yaml
     post:
       description: Sign token
       operationId: refreshtoken
