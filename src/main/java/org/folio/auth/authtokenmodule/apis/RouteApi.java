@@ -100,9 +100,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   }
 
   /**
-   * Given the current request, attempt to handle the request as a route with an endpoint. If
-   * the route has been handled (meaning its method in this class has been called) this method
-   * will return true.
+   * Given the current request, attempt to handle the request as a route with an endpoint specified
+   * in this class. If the route has been found this method will return true.
    * @param ctx The current http context.
    * @param authToken The auth token in scope for this request.
    * @param moduleTokens An encoded JSON object of module tokens.
@@ -116,11 +115,24 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     return false;
   }
 
+  /**
+   * Handles two types of token signing requests:
+   * 1. AccessToken singing requests
+   * 2. DummyToken signing requests.
+   *
+   * When the request is a DummyToken signing request the request will have a boolean "dummy"
+   * property.
+   *
+   * When the request is an AccessToken singing request it will have a user_id property.
+   *
+   * The only property that is required and which both of these requests have in common is the
+   * sub property.
+   */
   private void handleSignToken(RoutingContext ctx) {
     try {
       logger.debug("Token signing request from {}", ctx.request().absoluteURI());
 
-      // Tenant and okapiUrl are already checked in AuthorizeApi
+      // X-Okapi-Tenant and X-Okapi-Url are already checked in FilterApi.
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       final String content = ctx.getBodyAsString();
       JsonObject json;
@@ -130,20 +142,26 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
       logger.debug("Payload to create signed token from is {}", payload.encode());
 
-      String userId = payload.getString("user_id");
-      if (userId != null) {
-        permissionsSource.clearCacheUser(userId, tenant);
-      }
+      // Both types of signing requests (dummy and access) have only this property in common.
       String username = payload.getString("sub");
       Token token;
 
-      // auth 2.0 did not expose the "type" property which is now used internally.
-      // Only normal (access tokens) are exposed as well as dummy tokens
-      // (mod-users-bl).
-      if (payload.getBoolean("dummy", Boolean.FALSE)) {
+      // auth 2.0 did not expose the "type" property which is now used internally. But other
+      // modules like mod-login aren't aware of this type property. Because of this dummy token
+      // singing requests have a boolean which can be checked to distinguish them from regular
+      // access token signing requests.
+      if (isDummyTokenSigningRequest(payload)) {
+        logger.debug("Signing request is for a dummy token");
+
         token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
       } else {
+        logger.debug("Signing request is for an access token");
+
+        String userId = payload.getString("user_id");
         token = new AccessToken(tenant, username, userId);
+
+        // Clear the user from the permissions cache.
+        permissionsSource.clearCacheUser(userId, tenant);
       }
 
       logger.debug("Successfully created and signed token");
@@ -153,6 +171,11 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     } catch (Exception e) {
       endText(ctx, 500, e);
     }
+  }
+
+  // Use to determine the type of signing request.
+  private boolean isDummyTokenSigningRequest(JsonObject payload) {
+    return payload.getBoolean("dummy", Boolean.FALSE); // True property if present, otherwise false.
   }
 
   private void handleRefresh(RoutingContext ctx) {

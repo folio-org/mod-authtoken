@@ -6,23 +6,12 @@
       "type": "object",
       "description": "The payload of the token signing request",
       "properties": {
-        "user_id": {
-          "type": "string",
-          "description": "The unique identifier for the user",
-          "format": "uuid"
-        },
-        "tenant": {
-          "type": "string",
-          "description": "The tenant"
-        },
         "sub": {
           "type": "string",
           "description": "The subject (the username) for the user"
         }
       },
       "required": [
-        "tenant",
-        "user_id",
         "sub"
       ],
       "additionalProperties": true
