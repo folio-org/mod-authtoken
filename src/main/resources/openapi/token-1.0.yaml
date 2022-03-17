@@ -3,6 +3,9 @@ info:
   title: mod-authtoken API
   version: v1
 paths:
+  # NOTE This module relies on the its folio-vertx-lib dependency to handle the /_/tenant
+  # route. Please see its yaml specification for /_/tenant here:
+  # https://github.com/folio-org/folio-vertx-lib/blob/master/core/src/main/resources/openapi/tenant-2.0.yaml
   /token:
     parameters:
       - $ref: headers/okapi-tenant.yaml
