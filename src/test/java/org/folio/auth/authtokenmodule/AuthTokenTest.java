@@ -75,7 +75,6 @@ public class AuthTokenTest {
   @BeforeClass
   public static void setUpClass(TestContext context) throws NoSuchAlgorithmException,
       JOSEException, ParseException {
-    Async async = context.async();
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort();
     freePort = NetworkUtils.nextFreePort();
@@ -113,27 +112,14 @@ public class AuthTokenTest {
         .put("sub", "joe");
 
     RestAssured.port = port;
-    DeploymentOptions mockOptions = new DeploymentOptions().setConfig(
-        new JsonObject()
-            .put("port", mockPort));
-    logger.info("Deploying mock permissions module");
-    vertx.deployVerticle(PermsMock.class.getName(), mockOptions, mockRes -> {
-      if (mockRes.failed()) {
-        mockRes.cause().printStackTrace();
-        context.fail(mockRes.cause());
-      } else {
-        logger.info("Deploying Main Verticle (authtoken)");
-        vertx.deployVerticle(MainVerticle.class.getName(), opt, mainRes -> {
-          if (mainRes.failed()) {
-            context.fail(mainRes.cause());
-          } else {
-            var tenantAttributes = new JsonObject().put("module_to", "mod-authtoken-1.0.0");
-            initializeTenantForTokenStore(tenant, tenantAttributes);
-            async.complete();
-          }
-        });
-      }
-    });
+    DeploymentOptions mockOptions = new DeploymentOptions()
+        .setConfig(new JsonObject().put("port", mockPort));
+    vertx.deployVerticle(PermsMock.class.getName(), mockOptions)
+    .compose(x -> vertx.deployVerticle(MainVerticle.class.getName(), opt))
+    .onComplete(context.asyncAssertSuccess(y -> {
+        var tenantAttributes = new JsonObject().put("module_to", "mod-authtoken-1.0.0");
+        initializeTenantForTokenStore(tenant, tenantAttributes);
+    }));
   }
 
   @AfterClass

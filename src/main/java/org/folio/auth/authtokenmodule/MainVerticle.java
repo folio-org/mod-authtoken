@@ -81,6 +81,9 @@ public class MainVerticle extends AbstractVerticle {
     setLogLevel(Level.toLevel(name));
   }
 
+  // Suppress SonarCloud security hotspot warning:
+  // "Make sure that this logger's configuration is safe"
+  @java.lang.SuppressWarnings({"squid:S1192"})
   static Level setLogLevel(Level level) {
     Level existing = LogManager.getRootLogger().getLevel();
     Configurator.setAllLevels(LogManager.getRootLogger().getName(), level);

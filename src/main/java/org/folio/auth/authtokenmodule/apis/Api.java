@@ -11,11 +11,11 @@ import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 public abstract class Api {
   protected static Logger logger;
 
-  protected static void endText(RoutingContext ctx, int code, String msg) {
-    logger.error(msg);
+  protected static void endText(RoutingContext ctx, int code, String json) {
+    logger.error(json);
     ctx.response().setStatusCode(code);
     ctx.response().putHeader(MainVerticle.CONTENT_TYPE, "text/plain");
-    ctx.response().end(msg);
+    ctx.response().end(json);
   }
 
   protected static void endJson(RoutingContext ctx, int code, String msg) {
