@@ -43,6 +43,5 @@ public abstract class Api {
     }
     logger.error("{}: {}", unexpectedExceptionMsg, h.toString());
     endText(ctx, 500, unexpectedExceptionMsg);
-    return;
   }
 }

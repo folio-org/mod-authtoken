@@ -99,7 +99,6 @@ public class FilterApi extends Api implements RouterCreator {
     FolioLoggingContext.put(FolioLoggingContext.MODULE_ID_LOGGING_VAR_NAME, "mod-authtoken");
     FolioLoggingContext.put(FolioLoggingContext.TENANT_ID_LOGGING_VAR_NAME, tenant);
     FolioLoggingContext.put(FolioLoggingContext.USER_ID_LOGGING_VAR_NAME, userId);
-    logger.debug("Calling handleAuthorize for {}", ctx.request().absoluteURI());
 
     if (tenant == null) {
       endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.TENANT);
@@ -291,7 +290,7 @@ public class FilterApi extends Api implements RouterCreator {
           return permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
               requestId);
         } else {
-          String msg = String.format("Invalid token: user with id {} is not active", finalUserId);
+          String msg = String.format("Invalid token: user with id %s is not active", finalUserId);
           endText(ctx, 401, msg);
           return Future.failedFuture(msg);
         }

@@ -6,7 +6,6 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.openapi.RouterBuilder;
-import io.vertx.core.http.HttpMethod;
 
 import org.folio.auth.authtokenmodule.PermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
@@ -130,8 +129,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
    */
   private void handleSignToken(RoutingContext ctx) {
     try {
-      logger.debug("Token signing request from {}", ctx.request().absoluteURI());
-
       // X-Okapi-Tenant and X-Okapi-Url are already checked in FilterApi.
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       final String content = ctx.getBodyAsString();
@@ -180,8 +177,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
   private void handleRefresh(RoutingContext ctx) {
     try {
-      logger.debug("Token refresh request from {}", ctx.request().absoluteURI());
-
       String content = ctx.getBodyAsString();
       JsonObject requestJson = new JsonObject(content);
       String encryptedJWE = requestJson.getString("refreshToken");
