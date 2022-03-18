@@ -82,7 +82,8 @@ public class MainVerticle extends AbstractVerticle {
   }
 
   // Suppress SonarCloud security hotspot warning:
-  // "Make sure that this logger's configuration is safe"
+  // "Configuring loggers is security-sensitive"
+  // https://sonarcloud.io/organizations/folio-org/rules?open=java%3AS4792&rule_key=java%3AS4792
   @java.lang.SuppressWarnings({"squid:S4792"})
   static Level setLogLevel(Level level) {
     Level existing = LogManager.getRootLogger().getLevel();

@@ -35,7 +35,7 @@ import static java.lang.Boolean.TRUE;
 
 /**
  * Filters every request in order to manage token authorization system-wide. Also handles calling
- * any routes that mod-authtoken has responsiblity for. This route handling is managed by the
+ * any routes that mod-authtoken has responsibility for. This route handling is managed by the
  * RouteApi, which this class has as a dependency.
  * @see RouteApi
  * @author kurt
