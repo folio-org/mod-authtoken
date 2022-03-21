@@ -58,17 +58,4 @@ public class TokenTest {
     assertThat(result.cause(), is(instanceOf(TokenValidationException.class)));
     assertThat(((TokenValidationException) result.cause()).getHttpResponseCode(), is(500));
   }
-
-  @Test
-  public void tokenIsEncryptedTest() throws TokenValidationException, JOSEException, ParseException {
-    String key = System.getProperty("jwt.signing.key");
-    var tokenCreator = new TokenCreator(key);
-    String unencryptedToken =
-      new AccessToken("test-tenant", "username-1", "userid-1").encodeAsJWT(tokenCreator);
-    String encryptedToken =
-      new RefreshToken("test-tenant", "username-1", "userid-1", "http://localhost").encodeAsJWE(tokenCreator);
-
-    assertThat(Token.isEncrypted(encryptedToken), is(true));
-    assertThat(Token.isEncrypted(unencryptedToken), is(false));
-  }
 }
