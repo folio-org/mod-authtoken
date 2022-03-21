@@ -184,9 +184,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       Future<Token> tokenValidationResult = Token.validate(context);
 
       tokenValidationResult.onFailure(h -> {
-        String msg = "Invalid token in handleRefresh";
-        String unexpectedExceptionMsg = "Unexpected token exception in handleRefresh";
-        handleTokenValidationFailure(h, ctx, msg, unexpectedExceptionMsg);
+        handleTokenValidationFailure(h, ctx);
       });
 
       tokenValidationResult.onSuccess(token -> {

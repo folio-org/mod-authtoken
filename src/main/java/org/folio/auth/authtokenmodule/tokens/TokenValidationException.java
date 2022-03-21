@@ -25,13 +25,4 @@ public class TokenValidationException extends Exception {
     super(message, cause);
     this.httpResponseCode = httpResponseCode;
   }
-
-  @Override
-  public String toString() {
-    if (getCause() != null) {
-      return String.format("TokenValidationException: %s %s", getMessage(), getCause().getClass());
-    }
-
-    return String.format("TokenValidationException: %s", getMessage());
-  }
 }

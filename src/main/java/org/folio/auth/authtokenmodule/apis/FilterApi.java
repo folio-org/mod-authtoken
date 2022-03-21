@@ -171,9 +171,7 @@ public class FilterApi extends Api implements RouterCreator {
     Future<Token> tokenValidationResult = Token.validate(context);
 
     tokenValidationResult.onFailure(h -> {
-      String msg = "Invalid token in handleAuthorize";
-      String unexpectedExceptionMsg = "Unexpected token exception in handleAuthorize";
-      handleTokenValidationFailure(h, ctx, msg, unexpectedExceptionMsg);
+      handleTokenValidationFailure(h, ctx);
     });
 
     tokenValidationResult.onSuccess(token -> {

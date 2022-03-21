@@ -33,15 +33,14 @@ public abstract class Api {
     endText(ctx, code, "Error: ", t);
   }
 
-  protected void handleTokenValidationFailure(Throwable h, RoutingContext ctx,
-      String msg, String unexpectedExceptionMsg) {
+  protected void handleTokenValidationFailure(Throwable h, RoutingContext ctx) {
     if (h instanceof TokenValidationException) {
       var e = (TokenValidationException)h;
-      logger.error("{}: {}", msg, e.toString());
-      endText(ctx, e.getHttpResponseCode(), msg);
+      logger.error("{}", e.getMessage(), h);
+      endText(ctx, e.getHttpResponseCode(), "Invalid token");
       return;
     }
-    logger.error("{}: {}", unexpectedExceptionMsg, h.toString());
-    endText(ctx, 500, unexpectedExceptionMsg);
+    logger.error("Unexpected exception during token validation: {}", h.getMessage(), h);
+    endText(ctx, 500, "Unexpected exception during token validation");
   }
 }

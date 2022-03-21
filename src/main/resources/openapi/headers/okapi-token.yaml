@@ -1,7 +1,0 @@
-in: header
-name: X-Okapi-Token
-description: Okapi Token
-# The /_/tenant route will not have this header.
-required: false
-schema:
-  type: string

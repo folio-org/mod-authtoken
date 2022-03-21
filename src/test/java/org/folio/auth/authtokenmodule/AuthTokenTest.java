@@ -367,9 +367,8 @@ public class AuthTokenTest {
         .header("X-Okapi-Permissions-Required", "bar.second")
         .get("/bar")
         .then()
-        .statusCode(403);
-    // TODO Should we be expecting certain error messages? This seems brittle.
-    // .body(containsString("Invalid token for access"));
+        .statusCode(403)
+        .body(containsString("Invalid token"));
 
     // Make a request to bar, with the modulePermissions
     logger.info("Test with bar token and module permissions");
