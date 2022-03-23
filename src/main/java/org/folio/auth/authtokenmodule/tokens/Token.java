@@ -136,6 +136,29 @@ public abstract class Token {
   }
 
   /**
+   * Returns true if the token is encrypted, otherwise false.
+   * @param token A string version of the token to test.
+   * @return True if the token is encrypted, otherwise false.
+   * @throws TokenValidationException
+   */
+  public static boolean isEncrypted(String token) throws TokenValidationException {
+    // This is based on how JOSEObject parses encrypted tokens. It checks the number of "parts"
+    // which are equivalent to the number of "." separators in the token. If there are 5 parts
+    // it is considered to be encrypted. If there are not 5 it is rejected from JWE parsing.
+    // Our unencrypted tokens have 3 parts (and 2 separators).
+    int parts = token.split("\\.").length;
+    if (parts == 5) {
+      return true;
+    }
+
+    if (parts == 3) {
+      return false;
+    }
+
+    throw new TokenValidationException("Unexpected token part count", 401);
+  }
+
+  /**
    * Validate all the things that tokens have in common.
    * @param request The http request context where the token is being provided.
    * @throws TokenValidationException Throws this when any validation step fails, but may throw
@@ -188,8 +211,13 @@ public abstract class Token {
     final String invalidTokenMsg = "Invalid token";
 
     try {
-      tokenCreator.checkJWTToken(sourceToken);
-      claims = getClaims(sourceToken);
+      if (isEncrypted(sourceToken)) {
+        String tokenContent = tokenCreator.decodeJWEToken(sourceToken);
+        claims = new JsonObject(tokenContent);
+      } else {
+        tokenCreator.checkJWTToken(sourceToken);
+        claims = getClaims(sourceToken);
+      }
     } catch (ParseException p) {
       throw new TokenValidationException(invalidTokenMsg, p, 401);
     } catch (JOSEException j) {

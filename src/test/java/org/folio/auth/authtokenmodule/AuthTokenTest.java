@@ -23,8 +23,6 @@ import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
-import org.folio.auth.authtokenmodule.tokens.Token;
-import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
@@ -287,7 +285,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testHttpEndpoints() throws JOSEException, ParseException, TokenValidationException {
+  public void testHttpEndpoints() throws JOSEException, ParseException {
     logger.info("Beginning endpoint tests");
 
     final String noLoginToken = given()
@@ -847,11 +845,11 @@ public class AuthTokenTest {
         .then()
         .statusCode(401).body(containsString("Invalid token"));
 
-    var parsedRefreshToken =(RefreshToken)Token.parse(refreshToken, tokenCreator);
-    parsedRefreshToken.getClaims().put("tenant", "foo");
-    String refreshTokenBadTenant = parsedRefreshToken.encodeAsJWT(tokenCreator);
+    String tokenContent = tokenCreator.decodeJWEToken(refreshToken);
 
     logger.info("POST refresh token with bad tenant");
+    String payloadBadTenant = new JsonObject(tokenContent).put("tenant", "foo").encode();
+    String refreshTokenBadTenant = tokenCreator.createJWEToken(payloadBadTenant);
     given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", accessToken)
@@ -865,10 +863,8 @@ public class AuthTokenTest {
 
     logger.info("POST refresh token with bad address");
 
-    var goodAddress = parsedRefreshToken.getClaims().getString("address");
-    parsedRefreshToken.getClaims().put("tenant", tenant); // Add back the good tenant.
-    parsedRefreshToken.getClaims().put("address", "foo"); // Add a bad address.
-    var refreshTokenBadAddress = parsedRefreshToken.encodeAsJWT(tokenCreator);
+    String refreshTokenBadAddress = tokenCreator.createJWEToken(
+        new JsonObject(tokenContent).put("address", "foo").encode());
     given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", accessToken)
@@ -881,9 +877,8 @@ public class AuthTokenTest {
         .statusCode(401).body(containsString("Invalid token"));
 
     logger.info("POST refresh token with bad expiry");
-    parsedRefreshToken.getClaims().put("address", goodAddress); // Add back the good address.
-    parsedRefreshToken.getClaims().put("exp", 0);
-    var refreshTokenBadExpiry = parsedRefreshToken.encodeAsJWT(tokenCreator);
+    String refreshTokenBadExpiry = tokenCreator.createJWEToken(
+        new JsonObject(tokenContent).put("exp", 0L).encode());
     given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", accessToken)

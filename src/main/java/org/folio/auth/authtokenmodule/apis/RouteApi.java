@@ -214,7 +214,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       JsonObject requestJson =  new JsonObject(content);
       String userId = requestJson.getString("userId");
       String sub = requestJson.getString("sub");
-      String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWT(tokenCreator);
+      String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
       JsonObject responseJson = new JsonObject().put("refreshToken", refreshToken);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
