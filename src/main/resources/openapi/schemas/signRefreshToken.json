@@ -1,0 +1,20 @@
+{
+  "description": "The request to sign a new refresh token",
+  "type": "object",
+  "properties": {
+    "userId": {
+      "type": "string",
+      "description": "The user id of the request",
+      "format": "uuid"
+    },
+    "sub": {
+      "type": "string",
+      "description": "The subject (user id) of the request"
+    }
+  },
+  "required": [
+    "userId",
+    "sub"
+  ],
+  "additionalProperties": false
+}

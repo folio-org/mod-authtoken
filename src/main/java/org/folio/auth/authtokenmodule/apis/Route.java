@@ -1,12 +1,14 @@
-package org.folio.auth.authtokenmodule;
+package org.folio.auth.authtokenmodule.apis;
 
 import com.nimbusds.jose.util.Base64;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.folio.auth.authtokenmodule.PermService;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.okapi.common.XOkapiHeaders;
 
@@ -14,20 +16,26 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- *
- * @author kurt This class defines the values needed to create a non-filter
- * endpoint in the authtoken module
- */
-public class AuthRoutingEntry {
-
+ /**
+  * Any endpoints that this module needs to handle require that a route be defined for them. These
+  * routes are managed by the RouteApi and called by the FilterApi.
+  * @see RouteApi
+  * @see FilterApi
+  * @author kurt
+  */
+public class Route {
   private String endpoint;
   private List<String> requiredPermissions;
   private Handler<RoutingContext> handler;
-  private static final Logger logger = LogManager.getLogger(AuthRoutingEntry.class);
+  private static final Logger logger = LogManager.getLogger(Route.class);
 
-  public AuthRoutingEntry(String endpoint, String[] requiredPermissions,
-    Handler<RoutingContext> handler) {
+  /**
+   * Constructs a new route.
+   * @param endpoint The endpoint that the route should match on.
+   * @param requiredPermissions The permissions that are required for the route.
+   * @param handler The handler for the route.
+   */
+  public Route(String endpoint, String[] requiredPermissions, Handler<RoutingContext> handler) {
     init(endpoint, new ArrayList<>(Arrays.asList(requiredPermissions)), handler);
   }
 
@@ -38,10 +46,16 @@ public class AuthRoutingEntry {
     this.handler = handler;
   }
 
-  /*
-  Return true if we're handling the route, false if pass-through
+  /**
+   * Handle the route (process the request to the given endpoint).
+   * @param ctx The current http context.
+   * @param authToken The token in scope.
+   * @param moduleTokens A string representation of the module tokens in scope.
+   * @return True if the route should be handled, otherwise false if a pass-through.
    */
   public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
+    logger.debug("Handling route for endpoint {}", endpoint);
+
     JsonObject claims = Token.getClaims(authToken);
     JsonArray extraPermissions = claims.getJsonArray("extra_permissions");
     if (extraPermissions == null) {
@@ -63,6 +77,7 @@ public class AuthRoutingEntry {
       }
     }
     if (requestPerms != null && requestPerms.contains(getMagicPermission(endpoint))) {
+      logger.debug("Calling handler for {} with POST body of {}", endpoint, ctx.getBodyAsString());
       handler.handle(ctx);
       return true;
     }
@@ -83,6 +98,8 @@ public class AuthRoutingEntry {
         .end(String.format("Missing required module-level permissions for endpoint '%s': %s",
           endpoint, String.join(", ", requiredPermissions)));
     } else {
+      logger.debug("Responding with magic permission for Route");
+
       String magicPermission = getMagicPermission(endpoint);
       ctx.response()
         .setChunked(true)
