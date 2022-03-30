@@ -617,7 +617,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestUnsupporedMethod() {
+    public void testRefreshTokenUnsupportedMethod() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -714,251 +714,251 @@ public class AuthTokenTest {
           .then()
           .statusCode(405);
 
-    String tokenContent = tokenCreator.decodeJWEToken(refreshToken);
+      String tokenContent = tokenCreator.decodeJWEToken(refreshToken);
 
-    logger.info("POST refresh token with bad tenant");
-    String payloadBadTenant = new JsonObject(tokenContent).put("tenant", "foo").encode();
-    String refreshTokenBadTenant = tokenCreator.createJWEToken(payloadBadTenant);
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("Content-type", "application/json")
-        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-        .body(new JsonObject().put("refreshToken", refreshTokenBadTenant).encode())
-        .post("/refresh")
-        .then()
-        .statusCode(403).body(containsString("Invalid token"));
+      logger.info("POST refresh token with bad tenant");
+      String payloadBadTenant = new JsonObject(tokenContent).put("tenant", "foo").encode();
+      String refreshTokenBadTenant = tokenCreator.createJWEToken(payloadBadTenant);
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", refreshTokenBadTenant).encode())
+          .post("/refresh")
+          .then()
+          .statusCode(403).body(containsString("Invalid token"));
 
-    logger.info("POST refresh token with bad address");
+      logger.info("POST refresh token with bad address");
 
-    String refreshTokenBadAddress = tokenCreator.createJWEToken(
-        new JsonObject(tokenContent).put("address", "foo").encode());
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("Content-type", "application/json")
-        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-        .body(new JsonObject().put("refreshToken", refreshTokenBadAddress).encode())
-        .post("/refresh")
-        .then()
-        .statusCode(401).body(containsString("Invalid token"));
+      String refreshTokenBadAddress = tokenCreator.createJWEToken(
+          new JsonObject(tokenContent).put("address", "foo").encode());
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", refreshTokenBadAddress).encode())
+          .post("/refresh")
+          .then()
+          .statusCode(401).body(containsString("Invalid token"));
 
-    logger.info("POST refresh token with bad expiry");
-    String refreshTokenBadExpiry = tokenCreator.createJWEToken(
-        new JsonObject(tokenContent).put("exp", 0L).encode());
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("Content-type", "application/json")
-        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-        .body(new JsonObject().put("refreshToken", refreshTokenBadExpiry).encode())
-        .post("/refresh")
-        .then()
-        .statusCode(401).body(containsString("Invalid token"));
+      logger.info("POST refresh token with bad expiry");
+      String refreshTokenBadExpiry = tokenCreator.createJWEToken(
+          new JsonObject(tokenContent).put("exp", 0L).encode());
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", refreshTokenBadExpiry).encode())
+          .post("/refresh")
+          .then()
+          .statusCode(401).body(containsString("Invalid token"));
 
-    logger.info("POST refresh token to get a new access token");
-    final String refreshedAccessToken = given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("Content-type", "application/json")
-        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-        .body(new JsonObject().put("refreshToken", refreshToken).encode())
-        .post("/refresh")
-        .then()
-        .statusCode(201)
-        .extract().body().path("token");
+      logger.info("POST refresh token to get a new access token");
+      final String refreshedAccessToken = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", refreshToken).encode())
+          .post("/refresh")
+          .then()
+          .statusCode(201)
+          .extract().body().path("token");
 
-    logger.info(String.format("Test with 'refreshed' token: %s", refreshedAccessToken));
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", refreshedAccessToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-User-Id", userUUID)
-        .get("/bar")
-        .then()
-        .statusCode(202);
-  }
+      logger.info(String.format("Test with 'refreshed' token: %s", refreshedAccessToken));
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", refreshedAccessToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-User-Id", userUUID)
+          .get("/bar")
+          .then()
+          .statusCode(202);
+    }
 
-  @Test
-  public void testWildCardPermissions() throws JOSEException, ParseException {
-    logger.info("Test with wildcard permission - bad X-Okapi-Url");
-    given()
-        .header("Authtoken-Refresh-Cache", "true")
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        // locale dependent message: in English "connection refused", in German
-        // "Verbindungsaufbau abgelehnt"
-        .statusCode(400).body(containsString("" + freePort))
-        .header("X-Okapi-Module-Tokens", not(emptyString()));
+    @Test
+    public void testWildCardPermissions() throws JOSEException, ParseException {
+      logger.info("Test with wildcard permission - bad X-Okapi-Url");
+      given()
+          .header("Authtoken-Refresh-Cache", "true")
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          // locale dependent message: in English "connection refused", in German
+          // "Verbindungsaufbau abgelehnt"
+          .statusCode(400).body(containsString("" + freePort))
+          .header("X-Okapi-Module-Tokens", not(emptyString()));
 
-    logger.info("Test with wildcard 400 /perms/users/id/permissions");
-    PermsMock.handlePermsUsersPermissionsStatusCode = 400;
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(400);
-    PermsMock.handlePermsUsersPermissionsStatusCode = 200;
+      logger.info("Test with wildcard 400 /perms/users/id/permissions");
+      PermsMock.handlePermsUsersPermissionsStatusCode = 400;
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(400);
+      PermsMock.handlePermsUsersPermissionsStatusCode = 200;
 
-    logger.info("Test with wildcard / bad /perms/users/id/permissions");
-    PermsMock.handlePermsUsersPermissionsFail = true;
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(400);
-    PermsMock.handlePermsUsersPermissionsFail = false;
+      logger.info("Test with wildcard / bad /perms/users/id/permissions");
+      PermsMock.handlePermsUsersPermissionsFail = true;
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(400);
+      PermsMock.handlePermsUsersPermissionsFail = false;
 
-    logger.info("Test with wildcard 404 /perms/users/id/permissions");
-    PermsMock.handlePermsUsersPermissionsStatusCode = 404;
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(400);
-    PermsMock.handlePermsUsersPermissionsStatusCode = 200;
+      logger.info("Test with wildcard 404 /perms/users/id/permissions");
+      PermsMock.handlePermsUsersPermissionsStatusCode = 404;
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(400);
+      PermsMock.handlePermsUsersPermissionsStatusCode = 200;
 
-    // Pass a desired permission through as a wildcard.
-    logger.info("Test with wildcard permission");
-    given()
-        .header("Authtoken-Refresh-Cache", "true")
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(202)
-        .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+      // Pass a desired permission through as a wildcard.
+      logger.info("Test with wildcard permission");
+      given()
+          .header("Authtoken-Refresh-Cache", "true")
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(202)
+          .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
 
-    logger.info("Test with wildcard permission - from cache");
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(202);
+      logger.info("Test with wildcard permission - from cache");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(202);
 
-    logger.info("Test with extra /perms/permissions status failure");
-    PermsMock.handlePermsPermissionsStatusCode = 400;
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", moduleToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(400);
-    PermsMock.handlePermsPermissionsStatusCode = 200;
+      logger.info("Test with extra /perms/permissions status failure");
+      PermsMock.handlePermsPermissionsStatusCode = 400;
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", moduleToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(400);
+      PermsMock.handlePermsPermissionsStatusCode = 200;
 
-    logger.info("Test with extra /perms/permissions response error");
-    PermsMock.handlePermsPermissionsFail = true;
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", moduleToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(400);
-    PermsMock.handlePermsPermissionsFail = false;
+      logger.info("Test with extra /perms/permissions response error");
+      PermsMock.handlePermsPermissionsFail = true;
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", moduleToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(400);
+      PermsMock.handlePermsPermissionsFail = false;
 
-    logger.info("Test with extra permissions");
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", moduleToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(202)
-        .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+      logger.info("Test with extra permissions");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", moduleToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(202)
+          .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
 
-    logger.info("Test with extra permissions cached");
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", moduleToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(202)
-        .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+      logger.info("Test with extra permissions cached");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", moduleToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(202)
+          .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
 
-    logger.info("Test with extra permissions - timeout = 0");
-    ModulePermissionsSource.setCacheTimeout(0);
-    given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", moduleToken)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(202)
-        .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
-    ModulePermissionsSource.setCacheTimeout(60);
+      logger.info("Test with extra permissions - timeout = 0");
+      ModulePermissionsSource.setCacheTimeout(0);
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", moduleToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(202)
+          .header("X-Okapi-Permissions", "[\"extra.foobar\"]");
+      ModulePermissionsSource.setCacheTimeout(60);
 
-    logger.info("Test with wildcard permission - zap cache");
-    given()
-        .header("Authtoken-Refresh-Cache", "true")
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("X-Okapi-Permissions-Desired", "extra.*bar")
-        .get("/bar")
-        .then()
-        .statusCode(400);
-  }
+      logger.info("Test with wildcard permission - zap cache");
+      given()
+          .header("Authtoken-Refresh-Cache", "true")
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("X-Okapi-Permissions-Desired", "extra.*bar")
+          .get("/bar")
+          .then()
+          .statusCode(400);
+    }
 
-  @Test
-  public void testExpandSystemPermission() {
-    Response r = given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Request-Id", "1234")
-        .header("X-Okapi-Token", tokenSystemPermission)
-        .header("X-Okapi-Url", "http://localhost:" + mockPort)
-        .header("X-Okapi-Permissions-Required",
-            PermsMock.SYS_PERM_SUB_01 + "," + PermsMock.SYS_PERM_SUB_02)
-        .get("/testsysperm")
-        .then()
-        .statusCode(202)
-        .extract().response();
+    @Test
+    public void testExpandSystemPermission() {
+      Response r = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Request-Id", "1234")
+          .header("X-Okapi-Token", tokenSystemPermission)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("X-Okapi-Permissions-Required",
+              PermsMock.SYS_PERM_SUB_01 + "," + PermsMock.SYS_PERM_SUB_02)
+          .get("/testsysperm")
+          .then()
+          .statusCode(202)
+          .extract().response();
 
-    String headers = r.getHeader("X-Okapi-Permissions");
-    assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_01));
-    assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_02));
-  }
+      String headers = r.getHeader("X-Okapi-Permissions");
+      assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_01));
+      assertTrue(headers.contains(PermsMock.SYS_PERM_SUB_02));
+    }
 
   @Test
   public void testAdminHealth() {
