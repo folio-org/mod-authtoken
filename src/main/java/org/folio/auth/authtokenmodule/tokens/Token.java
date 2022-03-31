@@ -223,7 +223,10 @@ public abstract class Token {
     } catch (JOSEException j) {
       throw new TokenValidationException(invalidTokenMsg, j, 401);
     } catch (BadSignatureException b) {
-      throw new TokenValidationException(invalidTokenMsg, b, 401);
+      final String msg = "Invalid token signature. "
+          + "This might have been caused by a mod-authtoken restart if jwt.signing.key is not set, "
+          + "or by running multiple mod-authtoken instances without setting the same jwt.signing.key.";
+      throw new TokenValidationException(msg, b, 401);
     }
 
     String tokenType = claims.getString("type");

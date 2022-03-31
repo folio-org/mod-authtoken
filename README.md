@@ -47,7 +47,7 @@ The expiration time is hard-coded:
 
 mod-authtoken supports a number of command line options as system properties, set by passing `-D<property.name>=<value>` to the jar when loading.
 
-* `jwt.signing.key` - A passphrase to use as a signing key. Setting this property for all instances of the module allows mod-authtoken to be clustered
+* `jwt.signing.key` - A passphrase to use as a signing key. If not set a random key is generated on each module restart invalidating all previously issued tokens. For clustering all instances of mod-authtoken must be configured to use the same key.
 * `perm.lookup.timeout` - Timeout for lookups to mod-permissions in seconds. Defaults to 10.
 * `user.cache.seconds` - Time to cache user permissions in seconds. Defaults to 60.
 * `user.cache.purge.seconds` - Time before a user is purged from the permissions cache in seconds. Defaults to 43200 (12 hours).

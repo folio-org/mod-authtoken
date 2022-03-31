@@ -450,7 +450,7 @@ public class AuthTokenTest {
         .statusCode(401)
         .assertThat().body(containsString("not active"));
 
-    logger.info("Test with basicBadToken");
+    logger.info("Test with badAccessToken created with wrong key");
     given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", badAccessToken)
@@ -458,7 +458,8 @@ public class AuthTokenTest {
         .header("X-Okapi-User-Id", userUUID)
         .get("/bar")
         .then()
-        .statusCode(401);
+        .statusCode(401)
+        .body(is("Invalid token"));
 
     // fail with a bad token
     logger.info("Test with bad token format");
@@ -469,7 +470,8 @@ public class AuthTokenTest {
         .header("X-Okapi-User-Id", "1234567")
         .get("/bar")
         .then()
-        .statusCode(401);
+        .statusCode(401)
+        .body(is("Invalid token"));
 
     logger.info("Test with wildcard permission - bad X-Okapi-Url");
     given()
