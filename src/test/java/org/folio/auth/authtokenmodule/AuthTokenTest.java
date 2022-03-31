@@ -674,7 +674,6 @@ public class AuthTokenTest {
           .statusCode(400);
     }
 
-    // TODO Where is this in previous version?
     @Test
     public void testRefreshTokenBadPayload3() {
       given()
