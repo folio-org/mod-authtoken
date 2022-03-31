@@ -546,7 +546,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestGoodTokenGoodPayload() {
+    public void testSigningRequestGoodDummyTokenGoodPayload() {
       String token = given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -558,6 +558,22 @@ public class AuthTokenTest {
           .then()
           .statusCode(201).contentType("application/json").extract().path("token");
       assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadDummySigningReq.getString("sub")));
+    }
+
+    @Test
+    public void testSigningRequestGoodAccessTokenGoodPayload() {
+      logger.info("POST signing request with good token, good payload");
+      String token = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+          .post("/token")
+          .then()
+          .statusCode(201).contentType("application/json").extract().path("token");
+      assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadSigningRequest.getString("sub")));
     }
 
     @Test
@@ -658,6 +674,7 @@ public class AuthTokenTest {
           .statusCode(400);
     }
 
+    // TODO Where is this in previous version?
     @Test
     public void testRefreshTokenBadPayload3() {
       given()
