@@ -470,7 +470,8 @@ public class AuthTokenTest {
         .header("X-Okapi-User-Id", userUUID)
         .get("/bar")
         .then()
-        .statusCode(401);
+        .statusCode(401)
+        .body(is("Invalid token"));
   }
 
   @Test
@@ -482,7 +483,8 @@ public class AuthTokenTest {
         .header("X-Okapi-User-Id", "1234567")
         .get("/bar")
         .then()
-        .statusCode(401);
+        .statusCode(401)
+        .body(is("Invalid token"));
   }
 
   @Test
