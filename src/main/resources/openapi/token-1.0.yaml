@@ -32,6 +32,32 @@ paths:
           $ref: "#/components/responses/trait_400"
         "500":
           $ref: "#/components/responses/trait_500"
+  /token/sign:
+    parameters:
+      # folio-vertx-lib has header files but they don't make the headers required so we override
+      # that behavior here since these two headers are required.
+      - $ref: headers/okapi-tenant-required.yaml
+      - $ref: headers/okapi-url-required.yaml
+    post:
+      description: Sign token
+      operationId: token-sign
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/signTokenPayload"
+        required: true
+      responses:
+        "201":
+          description: Created and signed token successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/token"
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "500":
+          $ref: "#/components/responses/trait_500"
 
   /refresh:
     parameters:

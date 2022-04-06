@@ -234,6 +234,8 @@ public abstract class Token {
       throw new TokenValidationException("Token has no type", 400);
 
     switch (tokenType) {
+      case LegacyAccessToken.type:
+        return new LegacyAccessToken(sourceToken, claims);
       case AccessToken.type:
         return new AccessToken(sourceToken, claims);
       case RefreshToken.type:

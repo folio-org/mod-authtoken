@@ -579,6 +579,23 @@ public class AuthTokenTest {
     }
 
     @Test
+    public void testSigningRequestGoodAccessTokenGoodPayloadNonLegacy() {
+      logger.info("POST signing request with good token, good payload");
+      String token = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+          .post("/token/sign")
+          .then()
+          .statusCode(201).contentType("application/json").extract().path("token");
+          logger.info("Token is: {}", token);
+       assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadSigningRequest.getString("sub")));
+    }
+
+    @Test
     public void testSigningRequestUnsupportedMethod() {
       given()
           .header("X-Okapi-Tenant", tenant)
