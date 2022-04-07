@@ -23,6 +23,8 @@ import org.folio.okapi.common.XOkapiHeaders;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.nimbusds.jose.JOSEException;
+
 import org.apache.logging.log4j.LogManager;
 
 import org.folio.tlib.RouterCreator;
@@ -60,10 +62,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add( new Route("/token/sign",
       new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
-    routes.add(new Route("/refreshtoken",
-      new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
-    routes.add(new Route("/refresh",
-      new String[] {}, RoutingContext::next));
+    // routes.add(new Route("/refreshtoken",
+    //   new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
+    routes.add(new Route("/token/refresh",
+      new String[] { SIGN_REFRESH_TOKEN_PERMISSION, SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
       new String[] {}, RoutingContext::next));
   }
@@ -74,11 +76,11 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     return RouterBuilder.create(vertx, "openapi/token-1.0.yaml")
         .map(routerBuilder -> {
           routerBuilder
-              .operation("refresh")
+              .operation("token-refresh")
               .handler(this::handleRefresh);
-          routerBuilder
-              .operation("refreshtoken")
-              .handler(this::handleSignRefreshToken);
+          // routerBuilder
+          //     .operation("refreshtoken")
+          //     .handler(this::handleSignRefreshToken);
           routerBuilder
               .operation("token")
               .handler(this::handleSignLegacyToken);
@@ -147,7 +149,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
       // Both types of signing requests (dummy and access) have only this property in common.
       String username = payload.getString("sub");
-      Token token;
+
+      var responseObject = new JsonObject();
 
       // auth 2.0 did not expose the "type" property which is now used internally. But other
       // modules like mod-login aren't aware of this type property. Because of this dummy token
@@ -156,12 +159,21 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       if (isDummyTokenSigningRequest(payload)) {
         logger.debug("Signing request is for a dummy token");
 
-        token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
+        var dt = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
+        responseObject.put("token", dt.encodeAsJWT(tokenCreator));
       } else {
         logger.debug("Signing request is for an access token");
 
         String userId = payload.getString("user_id");
-        token = new AccessToken(tenant, username, userId);
+
+        // Generate the access token.
+        var at = new AccessToken(tenant, username, userId);
+        responseObject.put("accessToken", at.encodeAsJWT(tokenCreator));
+
+        // Generate the refresh token.
+        String address = ctx.request().remoteAddress().host();
+        var rt = new RefreshToken(tenant, username, userId, address);
+        responseObject.put("refreshToken", rt.encodeAsJWE(tokenCreator));
 
         // Clear the user from the permissions cache.
         permissionsSource.clearCacheUser(userId, tenant);
@@ -169,12 +181,22 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
       logger.debug("Successfully created and signed token");
 
-      JsonObject responseObject = new JsonObject().put("token", token.encodeAsJWT(tokenCreator));
       endJson(ctx, 201, responseObject.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);
     }
   }
+
+  private String generateRefreshToken(RoutingContext ctx) throws JOSEException {
+    String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+    String address = ctx.request().remoteAddress().host();
+    String content = ctx.getBodyAsString();
+    JsonObject requestJson =  new JsonObject(content);
+    String userId = requestJson.getString("userId");
+    String sub = requestJson.getString("sub");
+    return new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
+  }
+
 
   /**
    * Handles two types of token signing requests:
@@ -265,25 +287,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       });
     } catch (Exception e) {
       endText(ctx, 500, String.format("Unanticipated exception when handling refresh: %s", e.getMessage()));
-    }
-  }
-
-  // TODO This should be combined with the new /token/sign route since mod-login is going to
-  // change with login2. The current mod-login /login route doesn't need the RT to be obtained
-  // so that can be removed anyway.
-  private void handleSignRefreshToken(RoutingContext ctx) {
-    try {
-      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      String address = ctx.request().remoteAddress().host();
-      String content = ctx.getBodyAsString();
-      JsonObject requestJson =  new JsonObject(content);
-      String userId = requestJson.getString("userId");
-      String sub = requestJson.getString("sub");
-      String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
-      JsonObject responseJson = new JsonObject().put("refreshToken", refreshToken);
-      endJson(ctx, 201, responseJson.encode());
-    } catch (Exception e) {
-      endText(ctx, 500, e);
     }
   }
 }
