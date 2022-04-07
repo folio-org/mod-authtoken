@@ -26,9 +26,11 @@ import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
+import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
-import org.folio.okapi.common.OkapiToken;
+import org.folio.auth.authtokenmodule.tokens.Token;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -38,6 +40,8 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 import static io.restassured.RestAssured.*;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -487,8 +491,11 @@ public class AuthTokenTest {
         .body(is("Invalid token"));
   }
 
+  // NOTE: Any test with "_Legacy" in the method can be removed when we remove
+  // the LegacyAccessToken token type after it is fully depreciated.
+
   @Test
-  public void testEmptyTokenWithNoTenant() {
+  public void testEmptyTokenWithNoTenant_Legacy() {
     given()
         .header("X-Okapi-Token", accessToken)
         .header("X-Okapi-Url", "http://localhost:" + freePort)
@@ -499,7 +506,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testEmptyTokenWithNoUrl() {
+  public void testEmptyTokenWithNoUrl_Legacy() {
     given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", accessToken)
@@ -510,7 +517,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testEmptyTokenSigningRequest() {
+  public void testEmptyTokenSigningRequest_Legacy() {
     given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", accessToken)
@@ -522,7 +529,7 @@ public class AuthTokenTest {
    }
 
     @Test
-    public void testBadTokenSigningRequest() {
+    public void testBadTokenSigningRequest_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -536,7 +543,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestWithGoodTokenNoPayload() {
+    public void testSigningRequestWithGoodTokenNoPayload_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", moduleToken)
@@ -548,7 +555,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestGoodDummyTokenGoodPayload() {
+    public void testSigningRequestGoodDummyTokenGoodPayload_Legacy() throws TokenValidationException {
       String token = given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -559,11 +566,12 @@ public class AuthTokenTest {
           .post("/token")
           .then()
           .statusCode(201).contentType("application/json").extract().path("token");
-      assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadDummySigningReq.getString("sub")));
-    }
+      var td = (DummyToken)Token.parse(token, tokenCreator);
+      assertThat(td.getClaims().getString("sub"), is(payloadDummySigningReq.getString("sub")));
+   }
 
     @Test
-    public void testSigningRequestGoodAccessTokenGoodPayload() {
+    public void testSigningRequestGoodAccessTokenGoodPayload_Legacy() throws TokenValidationException {
       logger.info("POST signing request with good token, good payload");
       String token = given()
           .header("X-Okapi-Tenant", tenant)
@@ -575,28 +583,13 @@ public class AuthTokenTest {
           .post("/token")
           .then()
           .statusCode(201).contentType("application/json").extract().path("token");
-      assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadSigningRequest.getString("sub")));
+       var lat = (LegacyAccessToken)Token.parse(token, tokenCreator);
+       assertThat(lat.getClaims().getString("sub"), is(payloadSigningRequest.getString("sub")));
+       assertNull(lat.getClaims().getString("exp"));
     }
 
     @Test
-    public void testSigningRequestGoodAccessTokenGoodPayloadNonLegacy() {
-      logger.info("POST signing request with good token, good payload");
-      String token = given()
-          .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", accessToken)
-          .header("X-Okapi-Url", "http://localhost:" + freePort)
-          .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
-          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
-          .post("/token/sign")
-          .then()
-          .statusCode(201).contentType("application/json").extract().path("token");
-          logger.info("Token is: {}", token);
-       assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadSigningRequest.getString("sub")));
-    }
-
-    @Test
-    public void testSigningRequestUnsupportedMethod() {
+    public void testSigningRequestUnsupportedMethod_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -610,7 +603,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestGoodTokenBadPayload() {
+    public void testSigningRequestGoodTokenBadPayload_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -624,7 +617,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestGoodTokenBadPayload2() {
+    public void testSigningRequestGoodTokenBadPayload2_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -638,7 +631,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestGoodTokenBadPayload3() {
+    public void testSigningRequestGoodTokenBadPayload3_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -651,23 +644,175 @@ public class AuthTokenTest {
           .statusCode(400);
     }
 
+    // Methods above this point can be removed when legacy tokens are depreciated.
+
     @Test
-    public void testRefreshTokenUnsupportedMethod() {
+    public void testEmptyTokenWithNoTenant() {
+      given()
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .post("/token/sign")
+          .then()
+          .statusCode(400).body(containsString("Missing header: X-Okapi-Tenant"));
+    }
+
+    @Test
+    public void testEmptyTokenWithNoUrl() {
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("Content-type", "application/json")
+          .post("/token/sign")
+          .then()
+          .statusCode(400).body(containsString("Missing header: X-Okapi-Url"));
+    }
+
+    @Test
+    public void testEmptyTokenSigningRequest() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
-          .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
-          .put("/refreshtoken")
+          .post("/token/sign")
           .then()
-          .statusCode(405);
-    }
+          .statusCode(401).body(containsString("Missing required module-level permissions for endpoint"));
+     }
 
-    @Test
-    public void testRefreshTokenBadPayload() {
-      given()
+      @Test
+      public void testBadTokenSigningRequest() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .body(payloadDummySigningReq.encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(401)
+            .body(containsString("Missing required module-level permissions for endpoint '/token': auth.signtoken"));
+      }
+
+      @Test
+      public void testSigningRequestWithGoodTokenNoPayload() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", moduleToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .post("/token/sign")
+            .then()
+            .statusCode(202);
+      }
+
+      @Test
+      public void testSigningRequestGoodDummyTokenGoodPayload() throws TokenValidationException {
+        String token = given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .body(new JsonObject().put("payload", payloadDummySigningReq).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(201).contentType("application/json").extract().path("token");
+        var td = (DummyToken)Token.parse(token, tokenCreator);
+        assertThat(td.getClaims().getString("sub"), is(payloadDummySigningReq.getString("sub")));
+      }
+
+      @Test
+      public void testSigningRequestGoodAccessTokenGoodPayload() throws TokenValidationException {
+        logger.info("POST signing request with good token, good payload");
+        String token = given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(201).contentType("application/json").extract().path("token");
+        AccessToken at = (AccessToken)Token.parse(token, tokenCreator);
+        assertThat(at.getClaims().getString("sub"), is(payloadSigningRequest.getString("sub")));
+        assertNotNull(at.getClaims().getString("exp"));
+      }
+
+      @Test
+      public void testSigningRequestUnsupportedMethod() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .body(new JsonObject().put("payload", payloadDummySigningReq).encode())
+            .put("/token/sign")
+            .then()
+            .statusCode(405);
+      }
+
+      @Test
+      public void testSigningRequestGoodTokenBadPayload() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .body("{")
+            .post("/token/sign")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testSigningRequestGoodTokenBadPayload2() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .body(new JsonObject().put("noload", payloadDummySigningReq).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testSigningRequestGoodTokenBadPayload3() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .body(new JsonObject().put("payload", new JsonObject().put("x", 1)).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testRefreshTokenUnsupportedMethod() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+            .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
+            .put("/refreshtoken")
+            .then()
+            .statusCode(405);
+      }
+
+     @Test
+     public void testRefreshTokenBadPayload() {
+       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
