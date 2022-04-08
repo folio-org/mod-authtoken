@@ -691,7 +691,7 @@ public class AuthTokenTest {
             .post("/token/sign")
             .then()
             .statusCode(401)
-            .body(containsString("Missing required module-level permissions for endpoint '/token': auth.signtoken"));
+            .body(containsString("Missing required module-level permissions for endpoint '/token/sign': auth.signtoken"));
       }
 
       @Test
@@ -713,7 +713,7 @@ public class AuthTokenTest {
             .header("X-Okapi-Token", accessToken)
             .header("X-Okapi-Url", "http://localhost:" + freePort)
             .header("Content-type", "application/json")
-            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
             .body(new JsonObject().put("payload", payloadDummySigningReq).encode())
             .post("/token/sign")
             .then()
@@ -730,7 +730,7 @@ public class AuthTokenTest {
             .header("X-Okapi-Token", accessToken)
             .header("X-Okapi-Url", "http://localhost:" + freePort)
             .header("Content-type", "application/json")
-            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
             .body(new JsonObject().put("payload", payloadSigningRequest).encode())
             .post("/token/sign")
             .then()
@@ -748,7 +748,7 @@ public class AuthTokenTest {
             .header("X-Okapi-Token", accessToken)
             .header("X-Okapi-Url", "http://localhost:" + freePort)
             .header("Content-type", "application/json")
-            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
             .body(new JsonObject().put("payload", payloadDummySigningReq).encode())
             .put("/token/sign")
             .then()
@@ -762,7 +762,7 @@ public class AuthTokenTest {
             .header("X-Okapi-Token", accessToken)
             .header("X-Okapi-Url", "http://localhost:" + freePort)
             .header("Content-type", "application/json")
-            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
             .body("{")
             .post("/token/sign")
             .then()
@@ -776,7 +776,7 @@ public class AuthTokenTest {
             .header("X-Okapi-Token", accessToken)
             .header("X-Okapi-Url", "http://localhost:" + freePort)
             .header("Content-type", "application/json")
-            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
             .body(new JsonObject().put("noload", payloadDummySigningReq).encode())
             .post("/token/sign")
             .then()
@@ -790,7 +790,7 @@ public class AuthTokenTest {
             .header("X-Okapi-Token", accessToken)
             .header("X-Okapi-Url", "http://localhost:" + freePort)
             .header("Content-type", "application/json")
-            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
             .body(new JsonObject().put("payload", new JsonObject().put("x", 1)).encode())
             .post("/token/sign")
             .then()

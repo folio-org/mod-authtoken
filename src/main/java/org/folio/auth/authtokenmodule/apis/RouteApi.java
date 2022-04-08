@@ -58,16 +58,18 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     // Set up the routes. Here next will call operation handler defined in createRouter.
     // The filter API is responsible for calling these routes, but we define them here.
     routes = new ArrayList<>();
-    routes.add( new Route("/token",
-      new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add( new Route("/token/sign",
       new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     // routes.add(new Route("/refreshtoken",
     //   new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
+    // TODO it is unclear whether the signing permission for the refresh token is needed here.
     routes.add(new Route("/token/refresh",
       new String[] { SIGN_REFRESH_TOKEN_PERMISSION, SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
       new String[] {}, RoutingContext::next));
+    // TODO Because of the startsWith matching this order matters. Should this be like this? Maybe we should have an exact match.
+    routes.add( new Route("/token",
+      new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
   }
 
   @Override
@@ -76,14 +78,14 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     return RouterBuilder.create(vertx, "openapi/token-1.0.yaml")
         .map(routerBuilder -> {
           routerBuilder
+              .operation("token-legacy")
+              .handler(this::handleSignLegacyToken);
+          routerBuilder
               .operation("token-refresh")
               .handler(this::handleRefresh);
           // routerBuilder
           //     .operation("refreshtoken")
           //     .handler(this::handleSignRefreshToken);
-          routerBuilder
-              .operation("token")
-              .handler(this::handleSignLegacyToken);
           routerBuilder
               .operation("token-sign")
               .handler(this::handleSignToken);
@@ -186,17 +188,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       endText(ctx, 500, e);
     }
   }
-
-  private String generateRefreshToken(RoutingContext ctx) throws JOSEException {
-    String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-    String address = ctx.request().remoteAddress().host();
-    String content = ctx.getBodyAsString();
-    JsonObject requestJson =  new JsonObject(content);
-    String userId = requestJson.getString("userId");
-    String sub = requestJson.getString("sub");
-    return new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
-  }
-
 
   /**
    * Handles two types of token signing requests:
