@@ -269,9 +269,15 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
         String tenant = token.getClaims().getString("tenant");
 
         try {
-          // TODO To do RTR we need to return both a new AT and a new RT here.
           String at = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
-          JsonObject responseObject = new JsonObject().put("token", at);
+          JsonObject responseObject = new JsonObject().put("accessToken", at);
+
+          String address = ctx.request().remoteAddress().host();
+          var rt = new RefreshToken(tenant, username, userId, address);
+          responseObject.put("refreshToken", rt.encodeAsJWE(tokenCreator));
+
+          // TODO Store the refresh token.
+
           endJson(ctx, 201, responseObject.encode());
         } catch (Exception e) {
           endText(ctx, 500, String.format("Unanticipated exception creating refresh token: %s", e.getMessage()));
