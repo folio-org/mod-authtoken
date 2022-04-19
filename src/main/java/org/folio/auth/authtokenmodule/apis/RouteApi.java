@@ -64,7 +64,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     //   new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
     // TODO it is unclear whether the signing permission for the refresh token is needed here.
     routes.add(new Route("/token/refresh",
-      new String[] { SIGN_REFRESH_TOKEN_PERMISSION, SIGN_TOKEN_PERMISSION }, RoutingContext::next));
+      new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
       new String[] {}, RoutingContext::next));
     // TODO Because of the startsWith matching this order matters. Should this be like this? Maybe we should have an exact match.
@@ -174,6 +174,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
         // Generate the refresh token.
         String address = ctx.request().remoteAddress().host();
+        logger.debug("Creating refresh token with remote address {}", address);
         var rt = new RefreshToken(tenant, username, userId, address);
         responseObject.put("refreshToken", rt.encodeAsJWE(tokenCreator));
 
@@ -273,7 +274,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
           JsonObject responseObject = new JsonObject().put("token", at);
           endJson(ctx, 201, responseObject.encode());
         } catch (Exception e) {
-          endText(ctx, 500, String.format("Unanticipated exception creating access token: %s", e.getMessage()));
+          endText(ctx, 500, String.format("Unanticipated exception creating refresh token: %s", e.getMessage()));
         }
       });
     } catch (Exception e) {

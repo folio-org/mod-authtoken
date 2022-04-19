@@ -64,6 +64,8 @@ public class AuthTokenTest {
   private static String badAccessToken;
   private static String accessToken404;
   private static String inactiveToken;
+  private static String refreshToken;
+  private static String badRefreshToken;
   private static String tokenSystemPermission;
   private static JsonObject payloadDummySigningReq;
   private static JsonObject payloadSigningRequest;
@@ -101,7 +103,7 @@ public class AuthTokenTest {
     var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
     dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
-
+    refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1").encodeAsJWE(tokenCreator);
 
     // Create some bad tokens, including one with a bad signing key.
     accessToken404 = new AccessToken(tenant, "jones", "404").encodeAsJWT(tokenCreator);
@@ -109,6 +111,7 @@ public class AuthTokenTest {
     String badPassPhrase = "IncorrectBatteryHorseStaple";
     var badTokenCreator = new TokenCreator(badPassPhrase);
     badAccessToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(badTokenCreator);
+    badRefreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1").encodeAsJWE(badTokenCreator);
 
     payloadDummySigningReq = new JsonObject()
         .put("dummy", true)
@@ -797,75 +800,33 @@ public class AuthTokenTest {
             .statusCode(400);
       }
 
-    //   @Test
-    //   public void testRefreshTokenUnsupportedMethod() {
-    //     given()
-    //         .header("X-Okapi-Tenant", tenant)
-    //         .header("X-Okapi-Token", accessToken)
-    //         .header("X-Okapi-Url", "http://localhost:" + freePort)
-    //         .header("Content-type", "application/json")
-    //         .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
-    //         .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
-    //         .put("/refreshtoken")
-    //         .then()
-    //         .statusCode(405);
-    //   }
-
-    //  @Test
-    //  public void testRefreshTokenBadPayload() {
-    //    given()
-    //       .header("X-Okapi-Tenant", tenant)
-    //       .header("X-Okapi-Token", accessToken)
-    //       .header("X-Okapi-Url", "http://localhost:" + freePort)
-    //       .header("Content-type", "application/json")
-    //       .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
-    //       .body("{")
-    //       .post("/refreshtoken")
-    //       .then()
-    //       .statusCode(400);
-    // }
-
-    // @Test
-    // public void testRefreshTokenBadPayload2() {
-    //   given()
-    //       .header("X-Okapi-Tenant", tenant)
-    //       .header("X-Okapi-Token", accessToken)
-    //       .header("X-Okapi-Url", "http://localhost:" + freePort)
-    //       .header("Content-type", "application/json")
-    //       .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
-    //       .body(new JsonObject().put("sub", "jones").encode())
-    //       .post("/refreshtoken")
-    //       .then()
-    //       .statusCode(400);
-    // }
+      @Test
+      public void testRefreshTokenBadPayload3() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+            .body("{")
+            .post("/token/refresh")
+            .then()
+            .statusCode(400);
+      }
 
     @Test
-    public void testRefreshTokenBadPayload3() {
+    public void testRefreshTokenBadRefreshToken() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-          .body("{")
-          .post("/refresh")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", badRefreshToken).encode())
+          .post("/token/refresh")
           .then()
-          .statusCode(400);
+          .statusCode(401).body(containsString("Invalid token"));
     }
-
-    // @Test
-    // public void testRefreshTokenBadRefreshToken() {
-    //   given()
-    //       .header("X-Okapi-Tenant", tenant)
-    //       .header("X-Okapi-Token", accessToken)
-    //       .header("X-Okapi-Url", "http://localhost:" + freePort)
-    //       .header("Content-type", "application/json")
-    //       .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-    //       .body(new JsonObject().put("refreshToken", badAccessToken).encode())
-    //       .post("/token/refresh")
-    //       .then()
-    //       .statusCode(401).body(containsString("Invalid token"));
-    // }
 
     // @Test
     // public void testRefreshToken() throws JOSEException, ParseException {
