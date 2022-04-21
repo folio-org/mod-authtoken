@@ -495,6 +495,20 @@ public class AuthTokenTest {
         .body(is("Invalid token"));
   }
 
+  @Test
+  public void testAccessTokenExpiration() throws JOSEException, ParseException {
+    var at = new AccessToken(tenant, "jones", userUUID);
+    at.getClaims().put("exp", 0L);
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", at.encodeAsJWT(tokenCreator))
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-User-Id", userUUID)
+      .get("/bar")
+      .then()
+      .statusCode(401).body(is("Invalid token"));
+  }
+
   // NOTE: Any test with "_Legacy" in the method can be removed when we remove
   // the LegacyAccessToken token type after it is fully depreciated.
 
@@ -727,9 +741,10 @@ public class AuthTokenTest {
       }
 
       @Test
-      public void testSigningRequestGoodAccessTokenGoodPayload() throws TokenValidationException {
+      public void testSigningRequestGoodAccessTokenGoodPayload()
+        throws TokenValidationException, JOSEException, ParseException {
         logger.info("POST signing request with good token, good payload");
-        String token = given()
+        var response = given()
             .header("X-Okapi-Tenant", tenant)
             .header("X-Okapi-Token", accessToken)
             .header("X-Okapi-Url", "http://localhost:" + freePort)
@@ -738,11 +753,17 @@ public class AuthTokenTest {
             .body(new JsonObject().put("payload", payloadSigningRequest).encode())
             .post("/token/sign")
             .then()
-            .statusCode(201).contentType("application/json").extract().path("accessToken");
-        // TODO Check refresh token
-        AccessToken at = (AccessToken)Token.parse(token, tokenCreator);
+            .statusCode(201).contentType("application/json");
+        var at =(AccessToken)Token.parse(response.extract().path("accessToken"), tokenCreator);
         assertThat(at.getClaims().getString("sub"), is(payloadSigningRequest.getString("sub")));
         assertNotNull(at.getClaims().getString("exp"));
+
+        String encryptedRT = response.extract().path("refreshToken");
+        var rt = (RefreshToken)Token.parse(encryptedRT, tokenCreator);
+        assertThat(rt.getClaims().getString("sub"), is(payloadSigningRequest.getString("sub")));
+        assertNotNull(rt.getClaims().getString("exp"));
+        assertNotNull(rt.getClaims().getString("address"));
+        assertNotNull(rt.getClaims().getString("user_id"));
       }
 
       @Test
@@ -876,7 +897,6 @@ public class AuthTokenTest {
           .statusCode(403).body(containsString("Invalid token"));
 
       logger.info("POST refresh token with bad address");
-
       String refreshTokenBadAddress = tokenCreator.createJWEToken(
           new JsonObject(tokenContent).put("address", "foo").encode());
       given()
