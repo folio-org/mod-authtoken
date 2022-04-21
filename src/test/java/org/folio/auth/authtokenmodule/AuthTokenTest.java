@@ -939,7 +939,6 @@ public class AuthTokenTest {
           .then()
           .statusCode(201).contentType("application/json").extract().path("refreshToken");
 
-
       logger.info("POST refresh token to get a new refresh and access token");
       final String refreshedAccessToken = given()
           .header("X-Okapi-Tenant", tenant)

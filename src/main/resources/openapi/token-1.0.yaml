@@ -64,7 +64,7 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Get a new refresh token
+      description: Get a new refresh token and a new access token
       operationId: token-refresh
       requestBody:
         content:
@@ -78,7 +78,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/tokenResponse"
+                $ref: "#/components/schemas/refreshTokenResponse"
         "400":
           $ref: "#/components/responses/trait_400"
         "500":
@@ -108,6 +108,8 @@ components:
       $ref: schemas/refreshToken.json
     tokenResponse:
       $ref: schemas/tokenResponse.json
+    refreshTokenResponse:
+      $ref: schemas/refreshTokenResponse.json
     tokenResponseLegacy:
       $ref: schemas/tokenResponseLegacy.json
     signTokenPayload:

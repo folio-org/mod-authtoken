@@ -12,7 +12,7 @@
     },
     "accessToken": {
       "type": "string",
-      "description": "A access token"
+      "description": "An access token"
     }
   },
   "additionalProperties": false
