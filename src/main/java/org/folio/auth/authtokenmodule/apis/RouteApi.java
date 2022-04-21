@@ -159,6 +159,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
         var dt = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
         responseObject.put("token", dt.encodeAsJWT(tokenCreator));
+        endJson(ctx, 201, responseObject.encode());
       } else {
         logger.debug("Signing request is for an access token");
 
@@ -176,11 +177,12 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
         // Clear the user from the permissions cache.
         permissionsSource.clearCacheUser(userId, tenant);
+
+        // TODO Is onComplete proper here?
+        new RefreshTokenStore(vertx, tenant).saveToken(rt).onComplete(x -> {
+          endJson(ctx, 201, responseObject.encode());
+        });
       }
-
-      logger.debug("Successfully created and signed token");
-
-      endJson(ctx, 201, responseObject.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);
     }
@@ -252,7 +254,12 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       String content = ctx.getBodyAsString();
       JsonObject requestJson = new JsonObject(content);
       String encryptedJWE = requestJson.getString("refreshToken");
-      var context = new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE);
+
+      // TODO Have to get the tenant from the ctx header here not the token.
+      var refreshTokenStore = new RefreshTokenStore(vertx, "roskilde");
+
+      var context =
+         new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE, refreshTokenStore);
       Future<Token> tokenValidationResult = Token.validate(context);
 
       tokenValidationResult.onFailure(h -> {
@@ -272,11 +279,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
           var rt = new RefreshToken(tenant, username, userId, address);
           responseObject.put("refreshToken", rt.encodeAsJWE(tokenCreator));
 
-          // Store the refresh token so that the number of times it has been used can be tracked.
-          var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
-          refreshTokenStore.saveToken(rt);
-
-          endJson(ctx, 201, responseObject.encode());
+          // TODO Can we fire and forget here?
+          new RefreshTokenStore(vertx, tenant).saveToken(rt).onComplete(x -> {
+            endJson(ctx, 201, responseObject.encode());
+          });
         } catch (Exception e) {
           endText(ctx, 500, String.format("Unanticipated exception creating refresh token: %s", e.getMessage()));
         }

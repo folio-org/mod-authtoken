@@ -5,6 +5,8 @@ import io.vertx.core.json.JsonObject;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
+
 /**
  * Refresh tokens are provided to obtain a new access token.
  * @see AccessToken
@@ -91,10 +93,11 @@ public class RefreshToken extends Token {
       return Future.failedFuture(e);
     }
 
-    // TODO Check storage to ensure that token has not yet been used.
-    // TODO If the token has been used, revoke all RTs for this user_id.
-
-    return Future.succeededFuture(this);
+    // TODO Is this the best way to do this?
+    var ts = (RefreshTokenStore)context.getTokenStore();
+    return ts.checkTokenNotRevoked(this).compose(x -> {
+      return Future.succeededFuture(this);
+    });
   }
 
 }

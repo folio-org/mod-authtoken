@@ -14,7 +14,7 @@ import org.folio.tlib.postgres.TenantPgPool;
 /**
  * The base class for all token storage.
  */
-public abstract class TokenStore {
+public class TokenStore {
   private static final Logger log = LogManager.getLogger(TokenStore.class);
 
   protected TenantPgPool pool;

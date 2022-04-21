@@ -112,7 +112,7 @@ public class RefreshTokenStore extends TokenStore {
    *
    * @param refreshToken The RefreshToken to check.
    * @return A failed future if the token has been revoked. Otherwise a succeeded future
-   * is returned.
+   * with the token is returned.
    */
   public Future<Void> checkTokenNotRevoked(RefreshToken refreshToken) {
     UUID tokenId = refreshToken.getId();
@@ -127,7 +127,7 @@ public class RefreshTokenStore extends TokenStore {
     }
 
     // Next check the token against the database.
-    log.debug("Checking token redeemed of token id {} for tenant {}", tokenId);
+    log.debug("Checking token redeemed of token id {}", tokenId);
 
     // Attempt to update the token to be revoked. If this update succeeds, the token
     // will now be marked as revoked, and a single row will be returned. If no rows

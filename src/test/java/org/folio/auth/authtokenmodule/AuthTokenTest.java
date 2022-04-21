@@ -829,7 +829,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testRefreshToken() throws JOSEException, ParseException {
+    public void testRefreshToken() throws JOSEException, ParseException, InterruptedException {
       logger.info("POST signing request for a refresh token");
 
       String refreshToken = given()
