@@ -1,6 +1,7 @@
 package org.folio.auth.authtokenmodule.storage;
 
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -123,7 +124,7 @@ public class RefreshTokenStore extends TokenStore {
     // else. Note that the token is signed so it can't have reached this point unless it
     // hasn't been tampered with.
     if (tokenHasExpired(refreshToken)) {
-      return Future.failedFuture("Token has expired. Considered revoked.");
+      return Future.failedFuture(new TokenValidationException("Token has expired. Considered revoked.", 401));
     }
 
     // Next check the token against the database.
@@ -155,7 +156,10 @@ public class RefreshTokenStore extends TokenStore {
         log.info(leakedMessage, tokenId, userId);
 
         return revokeAllTokensForUser(conn, userId)
-          .compose(x -> Future.failedFuture("Token leaked. All tokens for user are now revoked."));
+          .compose(x -> {
+             var e = new TokenValidationException("Token leaked. All tokens for user are now revoked.", 401);
+             return Future.failedFuture(e);
+         });
       });
     });
   }

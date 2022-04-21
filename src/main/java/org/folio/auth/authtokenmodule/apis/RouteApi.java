@@ -65,8 +65,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
       new String[] {}, RoutingContext::next));
-    // The legacy route.
-    // TODO Because of the startsWith matching this order matters. Should this be like this? Maybe we should have an exact match.
+    // The "legacy" route.
+    // Because of the startsWith matching this order matters.
     routes.add( new Route("/token",
       new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
   }
@@ -262,8 +262,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
          new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE, refreshTokenStore);
       Future<Token> tokenValidationResult = Token.validate(context);
 
-      tokenValidationResult.onFailure(h -> {
-        handleTokenValidationFailure(h, ctx);
+      tokenValidationResult.onFailure(e -> {
+        handleTokenValidationFailure(e, ctx);
       });
 
       tokenValidationResult.onSuccess(token -> {

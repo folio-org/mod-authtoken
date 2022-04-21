@@ -36,7 +36,9 @@ public abstract class Api {
   protected void handleTokenValidationFailure(Throwable h, RoutingContext ctx) {
     if (h instanceof TokenValidationException) {
       var e = (TokenValidationException)h;
-      logger.error("{}", e.getMessage(), h);
+      // Log the specific message for administrators.
+      logger.error("Token validation failure: {}", e.getMessage(), h);
+      // Return a generic message to clients.
       endText(ctx, e.getHttpResponseCode(), "Invalid token");
       return;
     }

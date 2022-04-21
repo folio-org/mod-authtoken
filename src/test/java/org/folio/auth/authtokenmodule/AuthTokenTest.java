@@ -829,7 +829,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testRefreshToken() throws JOSEException, ParseException, InterruptedException {
+    public void testRefreshToken() throws JOSEException, ParseException {
       logger.info("POST signing request for a refresh token");
 
       String refreshToken = given()
@@ -900,7 +900,7 @@ public class AuthTokenTest {
           .then()
           .statusCode(401).body(containsString("Invalid token"));
 
-      logger.info("POST refresh token to get a new access token");
+      logger.info("POST refresh token to get a new refresh and access token");
       final String refreshedAccessToken = given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -922,6 +922,48 @@ public class AuthTokenTest {
           .get("/bar")
           .then()
           .statusCode(202);
+    }
+
+    @Test
+    public void testRefreshTokenSingleUse() throws JOSEException, ParseException {
+      logger.info("POST signing request for a refresh token");
+
+      String refreshToken = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+          .post("/token/sign")
+          .then()
+          .statusCode(201).contentType("application/json").extract().path("refreshToken");
+
+
+      logger.info("POST refresh token to get a new refresh and access token");
+      final String refreshedAccessToken = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", refreshToken).encode())
+          .post("/token/refresh")
+          .then()
+          .statusCode(201)
+          .extract().body().path("accessToken");
+
+      logger.info("POST same refresh token a second time to simulate token attack/leakage");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", refreshedAccessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", refreshToken).encode())
+          .post("/token/refresh")
+          .then()
+          .statusCode(401).body(is("Invalid token"));
     }
 
     @Test
