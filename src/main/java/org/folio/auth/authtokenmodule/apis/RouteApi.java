@@ -178,7 +178,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
         // Clear the user from the permissions cache.
         permissionsSource.clearCacheUser(userId, tenant);
 
-        // TODO Is onComplete proper here?
+        // Save the RT to track one-time use.
         new RefreshTokenStore(vertx, tenant).saveToken(rt).onComplete(x -> {
           endJson(ctx, 201, responseObject.encode());
         });
@@ -255,8 +255,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       JsonObject requestJson = new JsonObject(content);
       String encryptedJWE = requestJson.getString("refreshToken");
 
-      // TODO Have to get the tenant from the ctx header here not the token.
-      var refreshTokenStore = new RefreshTokenStore(vertx, "roskilde");
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+      var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
 
       var context =
          new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE, refreshTokenStore);
@@ -267,11 +267,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       });
 
       tokenValidationResult.onSuccess(token -> {
-        String username = token.getClaims().getString("sub");
-        String userId = token.getClaims().getString("user_id");
-        String tenant = token.getClaims().getString("tenant");
-
         try {
+          String username = token.getClaims().getString("sub");
+          String userId = token.getClaims().getString("user_id");
+
           String at = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
           JsonObject responseObject = new JsonObject().put("accessToken", at);
 
@@ -279,8 +278,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
           var rt = new RefreshToken(tenant, username, userId, address);
           responseObject.put("refreshToken", rt.encodeAsJWE(tokenCreator));
 
-          // TODO Can we fire and forget here?
-          new RefreshTokenStore(vertx, tenant).saveToken(rt).onComplete(x -> {
+        // Save the RT to track one-time use.
+        new RefreshTokenStore(vertx, tenant).saveToken(rt).onComplete(x -> {
             endJson(ctx, 201, responseObject.encode());
           });
         } catch (Exception e) {

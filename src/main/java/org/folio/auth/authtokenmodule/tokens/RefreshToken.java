@@ -38,8 +38,7 @@ public class RefreshToken extends Token {
     claims.put("exp", to);
   }
 
-  // TODO This could be obtained from the env.
-  int expirationSeconds = 60 * 60 * 24;
+  int expirationSeconds = TOKEN_EXPIRATION_SECONDS;
 
   /**
    * Create a new refresh token.
@@ -86,16 +85,13 @@ public class RefreshToken extends Token {
       return Future.failedFuture(e);
     }
 
-    Long nowTime = Instant.now().getEpochSecond();
-    Long expiration = claims.getLong("exp");
-    if (expiration < nowTime) {
+    if (tokenHasExpired(claims)) {
       var e = new TokenValidationException("Attempt to refresh with expired refresh token", 401);
       return Future.failedFuture(e);
     }
 
-    // TODO Is this the best way to do this?
-    var ts = (RefreshTokenStore)context.getTokenStore();
-    return ts.checkTokenNotRevoked(this).compose(x -> {
+    var refreshTokenStore = (RefreshTokenStore)context.getTokenStore();
+    return refreshTokenStore.checkTokenNotRevoked(this).compose(x -> {
       return Future.succeededFuture(this);
     });
   }

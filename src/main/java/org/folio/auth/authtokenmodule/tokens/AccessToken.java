@@ -10,8 +10,7 @@ import io.vertx.core.json.JsonObject;
  * @see RefreshToken
  */
 public class AccessToken extends Token {
-  // TODO This could be obtained from the env.
-  int expirationSeconds = 60 * 10;
+  int expirationSeconds = TOKEN_EXPIRATION_SECONDS;
 
   /**
    * A string representation of the type of this token.
@@ -53,7 +52,10 @@ public class AccessToken extends Token {
       return Future.failedFuture(e);
     }
 
-    // TODO Validate the exp claim and put behind a system flag.
+    if (tokenHasExpired(claims)) {
+      var e = new TokenValidationException("Access token has expired", 401);
+      return Future.failedFuture(e);
+    }
 
     return Future.succeededFuture(this);
   }
