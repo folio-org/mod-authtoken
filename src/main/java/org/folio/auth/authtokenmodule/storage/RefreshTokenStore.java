@@ -124,7 +124,8 @@ public class RefreshTokenStore extends TokenStore {
     // else. Note that the token is signed so it can't have reached this point unless it
     // hasn't been tampered with.
     if (tokenHasExpired(refreshToken)) {
-      return Future.failedFuture(new TokenValidationException("Token has expired. Considered revoked.", 401));
+      var e = new TokenValidationException("Token has expired. Considered revoked.", 401);
+      return Future.failedFuture(e);
     }
 
     // Next check the token against the database.
@@ -149,15 +150,19 @@ public class RefreshTokenStore extends TokenStore {
           return Future.succeededFuture();
         }
 
-        // The row count is not 1 so the token has been used more than once or has been
-        // revoked when another token has been used more than once.
-        String leakedMessage = "Refresh token {} is revoked." +
+        // The row count is not 1 so the token has been used more than once, has been
+        // revoked when another token has been used more than once, or does not exist at all
+        // either because it has been removed in cleaning up expired tokens or never existed in
+        // the first place.
+        String leakedMessage = "Refresh token {} is considered revoked." +
           " Revoking all tokens for user {}.";
         log.info(leakedMessage, tokenId, userId);
 
         return revokeAllTokensForUser(conn, userId)
           .compose(x -> {
-             var e = new TokenValidationException("Token leaked. All tokens for user are now revoked.", 401);
+             var msg = "Token leaked, does not exist or no longer exists." +
+                 " All tokens for user are now revoked.";
+             var e = new TokenValidationException(msg, 401);
              return Future.failedFuture(e);
          });
       });

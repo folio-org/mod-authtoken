@@ -1255,6 +1255,8 @@ public class AuthTokenTest {
     // A RefreshToken which doesn't exist is treated as revoked.
     var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
     ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
+      assertThat(e.getMessage(), containsString("not exist"));
       assertThat(e.getMessage(), containsString("revoked"));
     }));
   }
@@ -1266,6 +1268,7 @@ public class AuthTokenTest {
     var now = Instant.now().getEpochSecond();
     expiredToken.setExpiresAt(now - 10);
     ts.checkTokenNotRevoked(expiredToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
       assertThat(e.getMessage(), containsString("expired"));
       assertThat(e.getMessage(), containsString("revoked"));
     }));
@@ -1285,6 +1288,8 @@ public class AuthTokenTest {
     // A ApiToken which doesn't exist in storage is treated as revoked.
     var unsavedToken = new ApiToken(tenant);
     ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
+      assertThat(e.getMessage(), containsString("not found"));
       assertThat(e.getMessage(), containsString("revoked"));
     }));
   }
@@ -1299,6 +1304,7 @@ public class AuthTokenTest {
         .onComplete(context.asyncAssertSuccess())
         .compose(x -> ts.checkTokenNotRevoked(apiToken))
         .onComplete(context.asyncAssertFailure(e -> {
+          assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
           assertThat(e.getMessage(), containsString("revoked"));
         }));
   }
@@ -1318,11 +1324,23 @@ public class AuthTokenTest {
         .compose(a -> ts.checkTokenNotRevoked(rt2))
         .onComplete(context.asyncAssertSuccess()) // First check should succeed.
         .compose(a -> ts.checkTokenNotRevoked(rt2))
-        .onComplete(context.asyncAssertFailure(b -> assertThat(b.getMessage(), containsString("revoked"))))
+        .onComplete(context.asyncAssertFailure(b -> {
+          assertThat(((TokenValidationException)b).getHttpResponseCode(), is(401));
+          assertThat(b.getMessage(), containsString("leaked"));
+          assertThat(b.getMessage(), containsString("revoked"));
+        }))
         .compose(a -> ts.checkTokenNotRevoked(rt1))
-        .onComplete(context.asyncAssertFailure(b -> assertThat(b.getMessage(), containsString("revoked"))))
+        .onComplete(context.asyncAssertFailure(b -> {
+          assertThat(((TokenValidationException)b).getHttpResponseCode(), is(401));
+          assertThat(b.getMessage(), containsString("leaked"));
+          assertThat(b.getMessage(), containsString("revoked"));
+        }))
         .compose(a -> ts.checkTokenNotRevoked(rt3))
-        .onComplete(context.asyncAssertFailure(b -> assertThat(b.getMessage(), containsString("revoked"))));
+        .onComplete(context.asyncAssertFailure(b -> {
+          assertThat(((TokenValidationException)b).getHttpResponseCode(), is(401));
+          assertThat(b.getMessage(), containsString("leaked"));
+          assertThat(b.getMessage(), containsString("revoked"));
+        }));
   }
 
   @Test
@@ -1343,8 +1361,7 @@ public class AuthTokenTest {
 
     // Other tests could have added tokens to storage, so remove all of those first.
     // Then save 5 tokens, two of which are expired. When each token is saved, the
-    // method
-    // cleans up expired tokens, so after all 5 have been saved, only 3 should be
+    // method cleans up expired tokens, so after all 5 have been saved, only 3 should be
     // left.
     ts.removeAll()
         .compose(x -> {

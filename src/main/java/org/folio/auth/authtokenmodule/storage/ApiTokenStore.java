@@ -2,6 +2,7 @@ package org.folio.auth.authtokenmodule.storage;
 
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -76,7 +77,9 @@ public class ApiTokenStore extends TokenStore {
       token = apiToken.encodeAsJWT(tokenCreator);
     } catch (Exception e) {
       log.error("Unable to encode token when saving: {}", e.getMessage());
-      return Future.failedFuture("Unable to encode token when saving: " + e.getMessage());
+      var responseException =
+          new TokenValidationException("Unable to encode token when saving: " + e.getMessage(), 500);
+      return Future.failedFuture(responseException);
     }
 
     log.debug("Inserting token id {} into {} token store", id, API_TOKEN_SUFFIX);
@@ -112,7 +115,7 @@ public class ApiTokenStore extends TokenStore {
       if (!isRevoked) {
           return Future.succeededFuture();
       }
-      return Future.failedFuture("API token revoked");
+      return Future.failedFuture(new TokenValidationException("API token revoked", 401));
     });
   }
 

@@ -259,6 +259,6 @@ public abstract class Token {
   protected boolean tokenHasExpired(JsonObject tokenClaims) {
     Long nowTime = Instant.now().getEpochSecond();
     Long expiration = tokenClaims.getLong("exp");
-    return expiration < nowTime;
+    return nowTime > expiration;
   }
 }
