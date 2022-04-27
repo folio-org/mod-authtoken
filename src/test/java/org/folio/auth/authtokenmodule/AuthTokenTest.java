@@ -767,6 +767,64 @@ public class AuthTokenTest {
       }
 
       @Test
+      public void testRefreshTokenUnsupportedMethod_Legacy() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+            .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
+            .put("/refreshtoken")
+            .then()
+            .statusCode(405);
+      }
+
+      @Test
+      public void testRefreshTokenBadPayload_Legacy() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+            .body("{")
+            .post("/refreshtoken")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testRefreshTokenBadPayload2_Legacy() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+            .body(new JsonObject().put("sub", "jones").encode())
+            .post("/refreshtoken")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testRefreshToken_Legacy() throws JOSEException, ParseException {
+        logger.info("POST signing request for a refresh token");
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+            .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
+            .post("/refreshtoken")
+            .then()
+            .statusCode(201)
+            .header("Content-Type", "application/json");
+      }
+
+      @Test
       public void testSigningRequestUnsupportedMethod() {
         given()
             .header("X-Okapi-Tenant", tenant)

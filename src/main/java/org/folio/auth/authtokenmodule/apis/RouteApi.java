@@ -65,8 +65,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
       new String[] {}, RoutingContext::next));
-    // The "legacy" route.
-    // Because of the startsWith matching this order matters.
+    // The "legacy" routes.
+    routes.add(new Route("/refreshtoken",
+      new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
+    // This must be last ecause of the startsWith matching.
     routes.add( new Route("/token",
       new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
   }
@@ -79,6 +81,9 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
           routerBuilder
               .operation("token-legacy")
               .handler(this::handleSignLegacyToken);
+              routerBuilder
+              .operation("token-sign-legacy")
+              .handler(this::handleSignRefreshTokenLegacy);
           routerBuilder
               .operation("token-refresh")
               .handler(this::handleRefresh);
@@ -188,62 +193,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     }
   }
 
-  /**
-   * Handles two types of token signing requests:
-   * 1. AccessToken singing requests
-   * 2. DummyToken signing requests.
-   *
-   * When the request is a DummyToken signing request the request will have a boolean "dummy"
-   * property.
-   *
-   * When the request is an AccessToken singing request it will have a user_id property.
-   *
-   * The only property that is required and which both of these requests have in common is the
-   * sub property.
-   */
-  private void handleSignLegacyToken(RoutingContext ctx) {
-    try {
-      // X-Okapi-Tenant and X-Okapi-Url are already checked in FilterApi.
-      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      final String content = ctx.getBodyAsString();
-      JsonObject json;
-      JsonObject payload;
-      json = new JsonObject(content);
-      payload = json.getJsonObject("payload");
-
-      logger.debug("Payload to create signed token from is {}", payload.encode());
-
-      // Both types of signing requests (dummy and access) have only this property in common.
-      String username = payload.getString("sub");
-      Token token;
-
-      // auth 2.0 did not expose the "type" property which is now used internally. But other
-      // modules like mod-login aren't aware of this type property. Because of this dummy token
-      // singing requests have a boolean which can be checked to distinguish them from regular
-      // access token signing requests.
-      if (isDummyTokenSigningRequest(payload)) {
-        logger.debug("Signing request is for a dummy token");
-
-        token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
-      } else {
-        logger.debug("Signing request is for an access token");
-
-        String userId = payload.getString("user_id");
-        token = new LegacyAccessToken(tenant, username, userId);
-
-        // Clear the user from the permissions cache.
-        permissionsSource.clearCacheUser(userId, tenant);
-      }
-
-      logger.debug("Successfully created and signed token");
-
-      JsonObject responseObject = new JsonObject().put("token", token.encodeAsJWT(tokenCreator));
-      endJson(ctx, 201, responseObject.encode());
-    } catch (Exception e) {
-      endText(ctx, 500, e);
-    }
-  }
-
   // Use to determine the type of signing request.
   private boolean isDummyTokenSigningRequest(JsonObject payload) {
     return payload.getBoolean("dummy", Boolean.FALSE); // True property if present, otherwise false.
@@ -288,6 +237,67 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       });
     } catch (Exception e) {
       endText(ctx, 500, String.format("Unanticipated exception when handling refresh: %s", e.getMessage()));
+    }
+  }
+
+  // Legacy methods. These next two methods can be removed once we stop supporting legacy tokens.
+
+  private void handleSignLegacyToken(RoutingContext ctx) {
+    try {
+      // X-Okapi-Tenant and X-Okapi-Url are already checked in FilterApi.
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+      final String content = ctx.getBodyAsString();
+      JsonObject json;
+      JsonObject payload;
+      json = new JsonObject(content);
+      payload = json.getJsonObject("payload");
+
+      logger.debug("Payload to create signed token from is {}", payload.encode());
+
+      // Both types of signing requests (dummy and access) have only this property in common.
+      String username = payload.getString("sub");
+      Token token;
+
+      // auth 2.0 did not expose the "type" property which is now used internally. But other
+      // modules like mod-login aren't aware of this type property. Because of this dummy token
+      // singing requests have a boolean which can be checked to distinguish them from regular
+      // access token signing requests.
+      if (isDummyTokenSigningRequest(payload)) {
+        logger.debug("Signing request is for a dummy token");
+
+        token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
+      } else {
+        logger.debug("Signing request is for an access token");
+
+        String userId = payload.getString("user_id");
+        token = new LegacyAccessToken(tenant, username, userId);
+
+        // Clear the user from the permissions cache.
+        permissionsSource.clearCacheUser(userId, tenant);
+      }
+
+      logger.debug("Successfully created and signed token");
+
+      JsonObject responseObject = new JsonObject().put("token", token.encodeAsJWT(tokenCreator));
+      endJson(ctx, 201, responseObject.encode());
+    } catch (Exception e) {
+      endText(ctx, 500, e);
+    }
+  }
+
+  private void handleSignRefreshTokenLegacy(RoutingContext ctx) {
+    try {
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+      String address = ctx.request().remoteAddress().host();
+      String content = ctx.getBodyAsString();
+      JsonObject requestJson =  new JsonObject(content);
+      String userId = requestJson.getString("userId");
+      String sub = requestJson.getString("sub");
+      String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
+      JsonObject responseJson = new JsonObject().put("refreshToken", refreshToken);
+      endJson(ctx, 201, responseJson.encode());
+    } catch (Exception e) {
+      endText(ctx, 500, e);
     }
   }
 }
