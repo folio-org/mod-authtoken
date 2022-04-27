@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "authtoken",
-      "version": "2.0",
+      "version": "3.0",
       "handlers": [
         {
           "methods": [ "POST" ],
@@ -18,8 +18,13 @@
         },
         {
           "methods": [ "POST" ],
-          "pathPattern": "/refresh",
-          "permissionsRequired": []
+          "pathPattern": "/token/sign",
+          "permissionsRequired": [ "auth.signtoken" ]
+        },
+        {
+          "methods": [ "POST" ],
+          "pathPattern": "/token/refresh",
+          "permissionsRequired": [ "auth.signrefreshtoken" ]
         }
       ]
     },
