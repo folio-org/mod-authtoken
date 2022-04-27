@@ -4,7 +4,7 @@
   "provides": [
     {
       "id": "authtoken",
-      "version": "3.0",
+      "version": "2.1",
       "handlers": [
         {
           "methods": [ "POST" ],
