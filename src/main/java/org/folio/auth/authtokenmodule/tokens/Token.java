@@ -190,17 +190,17 @@ public abstract class Token {
       throw new TokenValidationException("Token has no type", 400);
 
     switch (tokenType) {
-      case LegacyAccessToken.type:
+      case LegacyAccessToken.TYPE:
         return new LegacyAccessToken(sourceToken, claims);
-      case AccessToken.type:
+      case AccessToken.TYPE:
         return new AccessToken(sourceToken, claims);
-      case RefreshToken.type:
+      case RefreshToken.TYPE:
         return new RefreshToken(sourceToken, claims);
-      case ApiToken.type:
+      case ApiToken.TYPE:
         return new ApiToken(sourceToken, claims);
-      case DummyToken.type:
+      case DummyToken.TYPE:
         return new DummyToken(sourceToken, claims);
-      case ModuleToken.type:
+      case ModuleToken.TYPE:
         return new ModuleToken(sourceToken, claims);
       default:
         throw new TokenValidationException("Unable to parse token", 400);

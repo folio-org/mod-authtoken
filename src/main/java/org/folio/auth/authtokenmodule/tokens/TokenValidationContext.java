@@ -8,8 +8,7 @@ import io.vertx.core.http.HttpServerRequest;
 /**
  * Represents the context in which a token is validated, including any
  * references to items which are needed to validate the token, including items
- * like
- * the http request.
+ * like the http request.
  */
 public class TokenValidationContext {
   private HttpServerRequest httpServerRequest;
@@ -28,7 +27,6 @@ public class TokenValidationContext {
 
   /**
    * Gets a reference to the token creator object associated with this context.
-   *
    * @return The token creator associated with this context.
    */
   public TokenCreator getTokenCreator() {
@@ -37,7 +35,6 @@ public class TokenValidationContext {
 
   /**
    * Gets a reference to the token which is being validated in this context.
-   *
    * @return The token which is being validated in this context.
    */
   public String getTokenToValidate() {
@@ -46,7 +43,6 @@ public class TokenValidationContext {
 
   /**
    * Gets a reference to the token store that this token validation context requires.
-   *
    * @return May be null if no token store is in scope or needed.
    */
   public TokenStore getTokenStore() {

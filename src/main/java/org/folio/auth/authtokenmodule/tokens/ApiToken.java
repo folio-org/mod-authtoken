@@ -14,7 +14,7 @@ public class ApiToken extends Token {
   /**
    * A string representation of the type of this token.
    */
-  public static final String type = "api";
+  public static final String TYPE = "api";
 
   public UUID getId() {
     return UUID.fromString(claims.getString("jti"));
@@ -30,7 +30,7 @@ public class ApiToken extends Token {
    */
   public ApiToken(String tenant) {
     claims = new JsonObject();
-    claims.put("type", type);
+    claims.put("type", TYPE);
     claims.put("tenant", tenant);
     long now = Instant.now().getEpochSecond();
     claims.put("iat", now);

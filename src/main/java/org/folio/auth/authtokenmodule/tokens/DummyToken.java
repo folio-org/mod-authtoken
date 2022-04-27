@@ -18,7 +18,7 @@ public class DummyToken extends Token {
   /**
    * A string representation of the type of this token.
    */
-  public static final String type = "dummy";
+  public static final String TYPE = "dummy";
 
   /**
    * Create a new dummy token for a user who hasn't yet authenticated.
@@ -31,7 +31,7 @@ public class DummyToken extends Token {
     Date now = Calendar.getInstance().getTime();
     String username = Token.UNDEFINED_USER_NAME + remoteIpAddress + "__" + df.format(now);
     claims = new JsonObject()
-    .put("type", type)
+    .put("type", TYPE)
     .put("sub", username)
     .put("tenant", tenant)
     .put("dummy", true);
@@ -54,7 +54,7 @@ public class DummyToken extends Token {
    */
   public DummyToken(String tenant, JsonArray extraPerms, String sub) {
     claims = new JsonObject()
-      .put("type", type)
+      .put("type", TYPE)
       .put("tenant", tenant)
       .put("sub", sub)
       .put("dummy", true)

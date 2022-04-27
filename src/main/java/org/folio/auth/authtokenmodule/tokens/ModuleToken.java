@@ -14,7 +14,7 @@ public class ModuleToken extends Token {
   /**
    * A string representation of the type of this token.
    */
-  public static final String type = "module";
+  public static final String TYPE = "module";
 
   /**
    * Create a new module token.
@@ -26,7 +26,7 @@ public class ModuleToken extends Token {
    */
   public ModuleToken(String tenant, String username, String userId, String moduleName, JsonArray permissionList) {
     claims = new JsonObject()
-    .put("type", type)
+    .put("type", TYPE)
     .put("tenant", tenant)
     .put("sub", username)
     .put("module", moduleName)

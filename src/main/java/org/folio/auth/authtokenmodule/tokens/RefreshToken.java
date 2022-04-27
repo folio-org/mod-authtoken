@@ -16,7 +16,7 @@ public class RefreshToken extends Token {
   /**
    * A string representation of the type of this token.
    */
-  public static final String type = "refresh";
+  public static final String TYPE = "refresh";
 
   public UUID getId() {
     return UUID.fromString(claims.getString("jti"));
@@ -50,7 +50,7 @@ public class RefreshToken extends Token {
   public RefreshToken(String tenant, String username, String userId, String address) {
     long now = Instant.now().getEpochSecond();
     claims = new JsonObject()
-    .put("type", type)
+    .put("type", TYPE)
     .put("exp", now + expirationSeconds)
     .put("iat", now)
     .put("sub", username)
@@ -58,7 +58,7 @@ public class RefreshToken extends Token {
     .put("tenant", tenant)
     .put("address", address)
     .put("jti", UUID.randomUUID().toString())
-    .put("prn", "refresh");
+    .put("prn", TYPE);
   }
 
   /**

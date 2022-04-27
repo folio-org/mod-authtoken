@@ -14,7 +14,7 @@ public class LegacyAccessToken extends Token {
   /**
    * A string representation of the type of this token.
    */
-  public static final String type = "legacy-access";
+  public static final String TYPE = "legacy-access";
 
   /**
    * Create a new access token.
@@ -25,7 +25,7 @@ public class LegacyAccessToken extends Token {
   public LegacyAccessToken(String tenant, String username, String userId) {
     var now = Instant.now().getEpochSecond();
     claims = new JsonObject();
-    claims.put("type", type);
+    claims.put("type", TYPE);
     claims.put("iat", now);
     claims.put("tenant", tenant);
     claims.put("sub", username);
@@ -52,5 +52,4 @@ public class LegacyAccessToken extends Token {
 
     return Future.succeededFuture(this);
   }
-
 }

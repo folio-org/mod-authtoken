@@ -36,6 +36,9 @@ import org.folio.tlib.TenantInitHooks;
 public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   private static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
+  private static final String REFRESH_TOKEN = "refreshToken";
+  private static final String ACCESS_TOKEN = "accessToken";
+  private static final String USER_ID = "user_id";
 
   private PermissionsSource permissionsSource;
   private TokenCreator tokenCreator;
@@ -68,7 +71,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     // The "legacy" routes.
     routes.add(new Route("/refreshtoken",
       new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
-    // This must be last ecause of the startsWith matching.
+    // This must be last because of the startsWith matching.
     routes.add( new Route("/token",
       new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
   }
@@ -148,8 +151,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       json = new JsonObject(content);
       payload = json.getJsonObject("payload");
 
-      logger.debug("Payload to create signed token from is {}", payload.encode());
-
       // Both types of signing requests (dummy and access) have only this property in common.
       String username = payload.getString("sub");
 
@@ -168,25 +169,23 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       } else {
         logger.debug("Signing request is for an access token");
 
-        String userId = payload.getString("user_id");
+        String userId = payload.getString(USER_ID);
 
         // Generate the access token.
         var at = new AccessToken(tenant, username, userId);
-        responseObject.put("accessToken", at.encodeAsJWT(tokenCreator));
+        responseObject.put(ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));
 
         // Generate the refresh token.
         String address = ctx.request().remoteAddress().host();
-        logger.debug("Creating refresh token with remote address {}", address);
         var rt = new RefreshToken(tenant, username, userId, address);
-        responseObject.put("refreshToken", rt.encodeAsJWE(tokenCreator));
+        responseObject.put(REFRESH_TOKEN, rt.encodeAsJWE(tokenCreator));
 
         // Clear the user from the permissions cache.
         permissionsSource.clearCacheUser(userId, tenant);
 
         // Save the RT to track one-time use.
-        new RefreshTokenStore(vertx, tenant).saveToken(rt).onComplete(x -> {
-          endJson(ctx, 201, responseObject.encode());
-        });
+        new RefreshTokenStore(vertx, tenant).saveToken(rt).onComplete(x ->
+          endJson(ctx, 201, responseObject.encode()));
       }
     } catch (Exception e) {
       endText(ctx, 500, e);
@@ -202,7 +201,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       String content = ctx.getBodyAsString();
       JsonObject requestJson = new JsonObject(content);
-      String encryptedJWE = requestJson.getString("refreshToken");
+      String encryptedJWE = requestJson.getString(REFRESH_TOKEN);
 
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
@@ -211,26 +210,24 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
          new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE, refreshTokenStore);
       Future<Token> tokenValidationResult = Token.validate(context);
 
-      tokenValidationResult.onFailure(e -> {
-        handleTokenValidationFailure(e, ctx);
-      });
+      tokenValidationResult.onFailure(e -> handleTokenValidationFailure(e, ctx));
 
       tokenValidationResult.onSuccess(token -> {
         try {
           String username = token.getClaims().getString("sub");
-          String userId = token.getClaims().getString("user_id");
+          String userId = token.getClaims().getString(USER_ID);
 
           String at = new AccessToken(tenant, username, userId).encodeAsJWT(tokenCreator);
-          JsonObject responseObject = new JsonObject().put("accessToken", at);
+          JsonObject responseObject = new JsonObject().put(ACCESS_TOKEN, at);
 
           String address = ctx.request().remoteAddress().host();
           var rt = new RefreshToken(tenant, username, userId, address);
-          responseObject.put("refreshToken", rt.encodeAsJWE(tokenCreator));
+          responseObject.put(REFRESH_TOKEN, rt.encodeAsJWE(tokenCreator));
 
         // Save the RT to track one-time use.
-        new RefreshTokenStore(vertx, tenant).saveToken(rt).onComplete(x -> {
-            endJson(ctx, 201, responseObject.encode());
-          });
+        new RefreshTokenStore(vertx, tenant).saveToken(rt).onComplete(x ->
+            endJson(ctx, 201, responseObject.encode()));
+
         } catch (Exception e) {
           endText(ctx, 500, String.format("Unanticipated exception creating refresh token: %s", e.getMessage()));
         }
@@ -252,8 +249,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       json = new JsonObject(content);
       payload = json.getJsonObject("payload");
 
-      logger.debug("Payload to create signed token from is {}", payload.encode());
-
       // Both types of signing requests (dummy and access) have only this property in common.
       String username = payload.getString("sub");
       Token token;
@@ -269,7 +264,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       } else {
         logger.debug("Signing request is for an access token");
 
-        String userId = payload.getString("user_id");
+        String userId = payload.getString(USER_ID);
         token = new LegacyAccessToken(tenant, username, userId);
 
         // Clear the user from the permissions cache.
@@ -291,10 +286,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       String address = ctx.request().remoteAddress().host();
       String content = ctx.getBodyAsString();
       JsonObject requestJson =  new JsonObject(content);
-      String userId = requestJson.getString("userId");
+      String userId = requestJson.getString(USER_ID);
       String sub = requestJson.getString("sub");
       String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
-      JsonObject responseJson = new JsonObject().put("refreshToken", refreshToken);
+      JsonObject responseJson = new JsonObject().put(REFRESH_TOKEN, refreshToken);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);
