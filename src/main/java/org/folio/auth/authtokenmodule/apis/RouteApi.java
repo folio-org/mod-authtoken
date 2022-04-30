@@ -218,8 +218,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     }
 
     // Save the RT to track one-time use.
-    new RefreshTokenStore(vertx, tenant).saveToken(rt).onSuccess(x ->
-        endJson(ctx, 201, responseObject.encode()))
+    new RefreshTokenStore(vertx, tenant).saveToken(rt)
+        .onSuccess(x -> endJson(ctx, 201, responseObject.encode()))
         .onFailure(e -> handleTokenValidationFailure(e, ctx));
   }
 

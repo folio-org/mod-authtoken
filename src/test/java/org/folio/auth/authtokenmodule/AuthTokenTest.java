@@ -601,9 +601,9 @@ public class AuthTokenTest {
           .post("/token")
           .then()
           .statusCode(201).contentType("application/json").extract().path("token");
-       var lat = (LegacyAccessToken)Token.parse(token, tokenCreator);
-       assertThat(lat.getClaims().getString("sub"), is(payloadSigningRequest.getString("sub")));
-       assertNull(lat.getClaims().getString("exp"));
+      var lat = (LegacyAccessToken)Token.parse(token, tokenCreator);
+      assertThat(lat.getClaims().getString("sub"), is(payloadSigningRequest.getString("sub")));
+      assertNull(lat.getClaims().getString("exp"));
     }
 
     @Test
@@ -1054,17 +1054,17 @@ public class AuthTokenTest {
       logger.info("Create three refresh tokens to simulate multiple logins");
       var tokens = new ArrayList<String>();
       for (int i = 0; i < 3; i++) {
-      String refreshToken = given()
-          .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", accessToken)
-          .header("X-Okapi-Url", "http://localhost:" + freePort)
-          .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
-          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
-          .post("/token/sign")
-          .then()
-          .statusCode(201).contentType("application/json").extract().path("refreshToken");
-          tokens.add(refreshToken);
+        String refreshToken = given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+            .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(201).contentType("application/json").extract().path("refreshToken");
+            tokens.add(refreshToken);
       }
 
       logger.info("POST one of the refresh tokens to get a new refresh and access token");

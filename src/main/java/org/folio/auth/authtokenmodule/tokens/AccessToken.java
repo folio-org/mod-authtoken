@@ -52,7 +52,7 @@ public class AccessToken extends Token {
       return Future.failedFuture(e);
     }
 
-    if (tokenHasExpired(claims)) {
+    if (tokenIsExpired()) {
       var e = new TokenValidationException("Access token has expired", 401);
       return Future.failedFuture(e);
     }

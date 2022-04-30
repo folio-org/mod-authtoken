@@ -101,7 +101,6 @@ public abstract class Token {
    * @return True if the check should be made.
    */
   public boolean shouldCheckIfUserIsActive(String userId) {
-    //var userId = requestHeaders.get(XOkapiHeaders.USER_ID);
     return !usesDummyPermissionsSource && userId != null && !userId.trim().isEmpty();
   }
 
@@ -256,9 +255,9 @@ public abstract class Token {
     }
   }
 
-  protected boolean tokenHasExpired(JsonObject tokenClaims) {
+  protected boolean tokenIsExpired() {
     Long nowTime = Instant.now().getEpochSecond();
-    Long expiration = tokenClaims.getLong("exp");
+    Long expiration = claims.getLong("exp");
     return nowTime > expiration;
   }
 }

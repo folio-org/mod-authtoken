@@ -85,7 +85,7 @@ public class RefreshToken extends Token {
       return Future.failedFuture(e);
     }
 
-    if (tokenHasExpired(claims)) {
+    if (tokenIsExpired()) {
       var e = new TokenValidationException("Attempt to refresh with expired refresh token", 401);
       return Future.failedFuture(e);
     }
