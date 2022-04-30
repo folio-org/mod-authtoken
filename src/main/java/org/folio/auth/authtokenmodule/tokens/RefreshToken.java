@@ -91,6 +91,6 @@ public class RefreshToken extends Token {
     }
 
     var refreshTokenStore = (RefreshTokenStore)context.getTokenStore();
-    return refreshTokenStore.checkTokenNotRevoked(this).compose(x -> Future.succeededFuture(this));
+    return refreshTokenStore.checkTokenNotRevoked(this).map(this);
   }
 }
