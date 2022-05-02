@@ -585,7 +585,7 @@ public class AuthTokenTest {
           .then()
           .statusCode(201).contentType("application/json").extract().path("token");
       var td = (DummyToken)Token.parse(token, tokenCreator);
-      assertThat(td.getClaims().getString("sub"), is(payloadDummySigningReq.getString("sub")));
+      assertThat(td.getClaim("sub"), is(payloadDummySigningReq.getString("sub")));
    }
 
     @Test
@@ -602,8 +602,8 @@ public class AuthTokenTest {
           .then()
           .statusCode(201).contentType("application/json").extract().path("token");
       var lat = (LegacyAccessToken)Token.parse(token, tokenCreator);
-      assertThat(lat.getClaims().getString("sub"), is(payloadSigningRequest.getString("sub")));
-      assertNull(lat.getClaims().getString("exp"));
+      assertThat(lat.getClaim("sub"), is(payloadSigningRequest.getString("sub")));
+      assertNull(lat.getClaim("exp"));
     }
 
     @Test
@@ -737,7 +737,7 @@ public class AuthTokenTest {
             .then()
             .statusCode(201).contentType("application/json").extract().path("token");
         var td = (DummyToken)Token.parse(token, tokenCreator);
-        assertThat(td.getClaims().getString("sub"), is(payloadDummySigningReq.getString("sub")));
+        assertThat(td.getClaim("sub"), is(payloadDummySigningReq.getString("sub")));
       }
 
       @Test
@@ -755,15 +755,15 @@ public class AuthTokenTest {
             .then()
             .statusCode(201).contentType("application/json");
         var at =(AccessToken)Token.parse(response.extract().path("accessToken"), tokenCreator);
-        assertThat(at.getClaims().getString("sub"), is(payloadSigningRequest.getString("sub")));
-        assertNotNull(at.getClaims().getString("exp"));
+        assertThat(at.getClaim("sub"), is(payloadSigningRequest.getString("sub")));
+        assertNotNull(at.getClaim("exp"));
 
         String encryptedRT = response.extract().path("refreshToken");
         var rt = (RefreshToken)Token.parse(encryptedRT, tokenCreator);
-        assertThat(rt.getClaims().getString("sub"), is(payloadSigningRequest.getString("sub")));
-        assertNotNull(rt.getClaims().getString("exp"));
-        assertNotNull(rt.getClaims().getString("address"));
-        assertNotNull(rt.getClaims().getString("user_id"));
+        assertThat(rt.getClaim("sub"), is(payloadSigningRequest.getString("sub")));
+        assertNotNull(rt.getClaim("exp"));
+        assertNotNull(rt.getClaim("address"));
+        assertNotNull(rt.getClaim("user_id"));
       }
 
       @Test

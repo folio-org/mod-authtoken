@@ -243,8 +243,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       tokenValidationResult.onFailure(e -> handleTokenValidationFailure(e, ctx));
 
       tokenValidationResult.onSuccess(token -> {
-        String username = token.getClaims().getString("sub");
-        String userId = token.getClaims().getString(USER_ID);
+        String username = token.getClaim("sub");
+        String userId = token.getClaim(USER_ID);
 
         JsonObject responseObject = new JsonObject();
 

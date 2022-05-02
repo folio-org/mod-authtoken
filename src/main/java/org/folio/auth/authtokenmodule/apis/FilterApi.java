@@ -175,13 +175,13 @@ public class FilterApi extends Api implements RouterCreator {
     });
 
     tokenValidationResult.onSuccess(token -> {
-      logger.debug("Validated token of type: {}", token.getClaims().getString("type"));
+      logger.debug("Validated token of type: {}", token.getClaim("type"));
 
-      String username = token.getClaims().getString("sub");
+      String username = token.getClaim("sub");
 
       // At this point, since we have validated what we can, if there is no userId
       // in the header, we can get the userId from the token.
-      final String finalUserId = userId != null ? userId : token.getClaims().getString("user_id");
+      final String finalUserId = userId != null ? userId : token.getClaim("user_id");
 
       // Check and see if we have any module permissions defined.
       JsonArray extraPermissionsCandidate = token.getClaims().getJsonArray(EXTRA_PERMS);
@@ -262,7 +262,7 @@ public class FilterApi extends Api implements RouterCreator {
 
       PermissionsSource usePermissionsSource;
       if (token.shouldUseDummyPermissionsSource()) {
-        logger.debug("Using dummy permissions source for token type: {}", token.getClaims().getString("type"));
+        logger.debug("Using dummy permissions source for token type: {}", token.getClaim("type"));
         usePermissionsSource = new DummyPermissionsSource();
       } else {
         usePermissionsSource = permissionsSource;

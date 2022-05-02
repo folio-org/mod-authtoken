@@ -30,6 +30,15 @@ public abstract class Token {
   private boolean usesDummyPermissionsSource;
 
   /**
+   * Get the claim value for a given claim.
+   * @param claim The key of the claim.
+   * @return The value of the claim.
+   */
+  public String getClaim(String claim) {
+    return getClaim(claim);
+  }
+
+  /**
    * Gets the claims for this token.
    * @return A JsonObject containing the claims for this token.
    */
