@@ -1383,22 +1383,22 @@ public class AuthTokenTest {
         .onComplete(context.asyncAssertSuccess()) // First check should succeed.
         .compose(a -> ts.checkTokenNotRevoked(rt2))
         .onComplete(context.asyncAssertFailure(b -> {
-          assertThat(((TokenValidationException)b).getHttpResponseCode(), is(401));
-          assertThat(b.getMessage(), containsString("leaked"));
-          assertThat(b.getMessage(), containsString("revoked"));
+          assertLeakedOrRevoked(b);
         }))
         .compose(a -> ts.checkTokenNotRevoked(rt1))
         .onComplete(context.asyncAssertFailure(b -> {
-          assertThat(((TokenValidationException)b).getHttpResponseCode(), is(401));
-          assertThat(b.getMessage(), containsString("leaked"));
-          assertThat(b.getMessage(), containsString("revoked"));
+          assertLeakedOrRevoked(b);
         }))
         .compose(a -> ts.checkTokenNotRevoked(rt3))
         .onComplete(context.asyncAssertFailure(b -> {
-          assertThat(((TokenValidationException)b).getHttpResponseCode(), is(401));
-          assertThat(b.getMessage(), containsString("leaked"));
-          assertThat(b.getMessage(), containsString("revoked"));
+          assertLeakedOrRevoked(b);
         }));
+  }
+
+  private void assertLeakedOrRevoked(Throwable t) {
+    assertThat(((TokenValidationException)t).getHttpResponseCode(), is(401));
+    assertThat(t.getMessage(), containsString("leaked"));
+    assertThat(t.getMessage(), containsString("revoked"));
   }
 
   @Test
