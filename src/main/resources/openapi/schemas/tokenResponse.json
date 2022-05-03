@@ -1,5 +1,5 @@
 {
-  "description": "The signed JWT token based on the payload",
+  "description": "A signed JWT token when used in the context of a dummy token. Otherwise, a signed JWT access token and a signed JWE refresh token.",
   "type": "object",
   "properties": {
     "token": {

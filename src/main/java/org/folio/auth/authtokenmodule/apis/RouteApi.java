@@ -1,6 +1,5 @@
 package org.folio.auth.authtokenmodule.apis;
 
-import io.netty.util.concurrent.FailedFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
@@ -26,7 +25,6 @@ import java.util.List;
 import java.text.ParseException;
 
 import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.shaded.json.JSONObject;
 
 import org.apache.logging.log4j.LogManager;
 

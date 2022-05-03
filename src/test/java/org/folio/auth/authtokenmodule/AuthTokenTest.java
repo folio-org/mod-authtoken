@@ -881,7 +881,7 @@ public class AuthTokenTest {
       }
 
       @Test
-      public void testRefreshTokenBadPayload3() {
+      public void testRefreshTokenBadPayload() {
         given()
             .header("X-Okapi-Tenant", tenant)
             .header("X-Okapi-Token", accessToken)
