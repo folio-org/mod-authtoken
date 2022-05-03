@@ -35,7 +35,7 @@ public abstract class Token {
    * @return The value of the claim.
    */
   public String getClaim(String claim) {
-    return getClaim(claim);
+    return claims.getString(claim);
   }
 
   /**
