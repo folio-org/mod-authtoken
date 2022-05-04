@@ -91,7 +91,7 @@ public class Route {
       }
     }
     if (!allFound) {
-      logger.error("Insufficient permissions to access endpoint {}", endpoint);
+      logger.error("Insufficient permissions to access endpoint {}: {}", endpoint, requiredPermissions);
       ctx.response()
         .setChunked(true)
         .setStatusCode(401)

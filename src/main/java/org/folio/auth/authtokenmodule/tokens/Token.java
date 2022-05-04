@@ -11,6 +11,8 @@ import org.folio.auth.authtokenmodule.BadSignatureException;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.okapi.common.XOkapiHeaders;
 import java.text.ParseException;
+import java.time.Instant;
+
 import static java.lang.Boolean.TRUE;
 
 /**
@@ -20,10 +22,21 @@ import static java.lang.Boolean.TRUE;
  * including a method to parse and validate a token in one step.
  */
 public abstract class Token {
-  private static final Logger logger = LogManager.getLogger(Token.class);
-  private boolean usesDummyPermissionsSource;
   protected static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   protected String source;
+  protected static final int TOKEN_EXPIRATION_SECONDS = 60 * 10;
+
+  private static final Logger logger = LogManager.getLogger(Token.class);
+  private boolean usesDummyPermissionsSource;
+
+  /**
+   * Get the claim value for a given claim.
+   * @param claim The key of the claim.
+   * @return The value of the claim.
+   */
+  public String getClaim(String claim) {
+    return claims.getString(claim);
+  }
 
   /**
    * Gets the claims for this token.
@@ -97,7 +110,6 @@ public abstract class Token {
    * @return True if the check should be made.
    */
   public boolean shouldCheckIfUserIsActive(String userId) {
-    //var userId = requestHeaders.get(XOkapiHeaders.USER_ID);
     return !usesDummyPermissionsSource && userId != null && !userId.trim().isEmpty();
   }
 
@@ -158,6 +170,52 @@ public abstract class Token {
     throw new TokenValidationException("Unexpected token part count", 401);
   }
 
+  public static Token parse(String sourceToken, TokenCreator tokenCreator) throws TokenValidationException {
+    JsonObject claims;
+    final String invalidTokenMsg = "Invalid token";
+
+    try {
+      if (isEncrypted(sourceToken)) {
+        String tokenContent = tokenCreator.decodeJWEToken(sourceToken);
+        claims = new JsonObject(tokenContent);
+      } else {
+        tokenCreator.checkJWTToken(sourceToken);
+        claims = getClaims(sourceToken);
+      }
+    } catch (ParseException p) {
+      throw new TokenValidationException(invalidTokenMsg, p, 401);
+    } catch (JOSEException j) {
+      throw new TokenValidationException(invalidTokenMsg, j, 401);
+    } catch (BadSignatureException b) {
+      final String msg = "Invalid token signature. "
+          + "This might have been caused by a mod-authtoken restart if jwt.signing.key is not set, "
+          + "or by running multiple mod-authtoken instances without setting the same jwt.signing.key.";
+      throw new TokenValidationException(msg, b, 401);
+    }
+
+    String tokenType = claims.getString("type");
+    if (tokenType == null)
+      throw new TokenValidationException("Token has no type", 400);
+
+    switch (tokenType) {
+      case LegacyAccessToken.TYPE:
+        return new LegacyAccessToken(sourceToken, claims);
+      case AccessToken.TYPE:
+        return new AccessToken(sourceToken, claims);
+      case RefreshToken.TYPE:
+        return new RefreshToken(sourceToken, claims);
+      case ApiToken.TYPE:
+        return new ApiToken(sourceToken, claims);
+      case DummyToken.TYPE:
+        return new DummyToken(sourceToken, claims);
+      case ModuleToken.TYPE:
+        return new ModuleToken(sourceToken, claims);
+      default:
+        throw new TokenValidationException("Unable to parse token", 400);
+    }
+  }
+
+
   /**
    * Validate all the things that tokens have in common.
    * @param request The http request context where the token is being provided.
@@ -191,7 +249,7 @@ public abstract class Token {
       // Check that some items in the headers match what are in the token.
       String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
       if (!claims.getString("tenant").equals(headerTenant)) {
-        throw new TokenValidationException("Tenant in header does not equal tenant in token", 403);
+        throw new TokenValidationException("Tenant mismatch: tenant in header does not equal tenant in token", 403);
       }
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
       String claimsUserId = claims.getString("user_id");
@@ -206,46 +264,9 @@ public abstract class Token {
     }
   }
 
-  public static Token parse(String sourceToken, TokenCreator tokenCreator) throws TokenValidationException {
-    JsonObject claims;
-    final String invalidTokenMsg = "Invalid token";
-
-    try {
-      if (isEncrypted(sourceToken)) {
-        String tokenContent = tokenCreator.decodeJWEToken(sourceToken);
-        claims = new JsonObject(tokenContent);
-      } else {
-        tokenCreator.checkJWTToken(sourceToken);
-        claims = getClaims(sourceToken);
-      }
-    } catch (ParseException p) {
-      throw new TokenValidationException(invalidTokenMsg, p, 401);
-    } catch (JOSEException j) {
-      throw new TokenValidationException(invalidTokenMsg, j, 401);
-    } catch (BadSignatureException b) {
-      final String msg = "Invalid token signature. "
-          + "This might have been caused by a mod-authtoken restart if jwt.signing.key is not set, "
-          + "or by running multiple mod-authtoken instances without setting the same jwt.signing.key.";
-      throw new TokenValidationException(msg, b, 401);
-    }
-
-    String tokenType = claims.getString("type");
-    if (tokenType == null)
-      throw new TokenValidationException("Token has no type", 400);
-
-    switch (tokenType) {
-      case AccessToken.type:
-        return new AccessToken(sourceToken, claims);
-      case RefreshToken.type:
-        return new RefreshToken(sourceToken, claims);
-      case ApiToken.type:
-        return new ApiToken(sourceToken, claims);
-      case DummyToken.type:
-        return new DummyToken(sourceToken, claims);
-      case ModuleToken.type:
-        return new ModuleToken(sourceToken, claims);
-      default:
-        throw new TokenValidationException("Unable to parse token", 400);
-    }
+  protected boolean tokenIsExpired() {
+    Long nowTime = Instant.now().getEpochSecond();
+    Long expiration = claims.getLong("exp");
+    return nowTime > expiration;
   }
 }

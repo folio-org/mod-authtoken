@@ -17,6 +17,7 @@ import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.time.Instant;
+import java.util.ArrayList;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,9 +27,11 @@ import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
+import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
-import org.folio.okapi.common.OkapiToken;
+import org.folio.auth.authtokenmodule.tokens.Token;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -38,6 +41,8 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 import static io.restassured.RestAssured.*;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -60,6 +65,8 @@ public class AuthTokenTest {
   private static String badAccessToken;
   private static String accessToken404;
   private static String inactiveToken;
+  private static String refreshToken;
+  private static String badRefreshToken;
   private static String tokenSystemPermission;
   private static JsonObject payloadDummySigningReq;
   private static JsonObject payloadSigningRequest;
@@ -97,7 +104,7 @@ public class AuthTokenTest {
     var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
     dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
-
+    refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1").encodeAsJWE(tokenCreator);
 
     // Create some bad tokens, including one with a bad signing key.
     accessToken404 = new AccessToken(tenant, "jones", "404").encodeAsJWT(tokenCreator);
@@ -105,6 +112,7 @@ public class AuthTokenTest {
     String badPassPhrase = "IncorrectBatteryHorseStaple";
     var badTokenCreator = new TokenCreator(badPassPhrase);
     badAccessToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(badTokenCreator);
+    badRefreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1").encodeAsJWE(badTokenCreator);
 
     payloadDummySigningReq = new JsonObject()
         .put("dummy", true)
@@ -488,7 +496,24 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testEmptyTokenWithNoTenant() {
+  public void testAccessTokenExpiration() throws JOSEException, ParseException {
+    var at = new AccessToken(tenant, "jones", userUUID);
+    at.getClaims().put("exp", 0L);
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", at.encodeAsJWT(tokenCreator))
+      .header("X-Okapi-Url", "http://localhost:" + mockPort)
+      .header("X-Okapi-User-Id", userUUID)
+      .get("/bar")
+      .then()
+      .statusCode(401).body(is("Invalid token"));
+  }
+
+  // NOTE: Any test with "_Legacy" in the method can be removed when we remove
+  // the LegacyAccessToken token type after it is fully depreciated.
+
+  @Test
+  public void testEmptyTokenWithNoTenant_Legacy() {
     given()
         .header("X-Okapi-Token", accessToken)
         .header("X-Okapi-Url", "http://localhost:" + freePort)
@@ -499,7 +524,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testEmptyTokenWithNoUrl() {
+  public void testEmptyTokenWithNoUrl_Legacy() {
     given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", accessToken)
@@ -510,7 +535,7 @@ public class AuthTokenTest {
   }
 
   @Test
-  public void testEmptyTokenSigningRequest() {
+  public void testEmptyTokenSigningRequest_Legacy() {
     given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", accessToken)
@@ -522,7 +547,7 @@ public class AuthTokenTest {
    }
 
     @Test
-    public void testBadTokenSigningRequest() {
+    public void testBadTokenSigningRequest_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -536,7 +561,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestWithGoodTokenNoPayload() {
+    public void testSigningRequestWithGoodTokenNoPayload_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", moduleToken)
@@ -548,7 +573,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestGoodDummyTokenGoodPayload() {
+    public void testSigningRequestGoodDummyTokenGoodPayload_Legacy() throws TokenValidationException {
       String token = given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -559,11 +584,12 @@ public class AuthTokenTest {
           .post("/token")
           .then()
           .statusCode(201).contentType("application/json").extract().path("token");
-      assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadDummySigningReq.getString("sub")));
-    }
+      var td = (DummyToken)Token.parse(token, tokenCreator);
+      assertThat(td.getClaim("sub"), is(payloadDummySigningReq.getString("sub")));
+   }
 
     @Test
-    public void testSigningRequestGoodAccessTokenGoodPayload() {
+    public void testSigningRequestGoodAccessTokenGoodPayload_Legacy() throws TokenValidationException {
       logger.info("POST signing request with good token, good payload");
       String token = given()
           .header("X-Okapi-Tenant", tenant)
@@ -575,11 +601,13 @@ public class AuthTokenTest {
           .post("/token")
           .then()
           .statusCode(201).contentType("application/json").extract().path("token");
-      assertThat(new OkapiToken(token).getUsernameWithoutValidation(), is(payloadSigningRequest.getString("sub")));
+      var lat = (LegacyAccessToken)Token.parse(token, tokenCreator);
+      assertThat(lat.getClaim("sub"), is(payloadSigningRequest.getString("sub")));
+      assertNull(lat.getClaim("exp"));
     }
 
     @Test
-    public void testSigningRequestUnsupportedMethod() {
+    public void testSigningRequestUnsupportedMethod_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -593,7 +621,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestGoodTokenBadPayload() {
+    public void testSigningRequestGoodTokenBadPayload_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -607,7 +635,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestGoodTokenBadPayload2() {
+    public void testSigningRequestGoodTokenBadPayload2_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -621,7 +649,7 @@ public class AuthTokenTest {
     }
 
     @Test
-    public void testSigningRequestGoodTokenBadPayload3() {
+    public void testSigningRequestGoodTokenBadPayload3_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -634,61 +662,237 @@ public class AuthTokenTest {
           .statusCode(400);
     }
 
+    // Methods above this point can be removed when legacy tokens are depreciated.
+
     @Test
-    public void testRefreshTokenUnsupportedMethod() {
+    public void testEmptyTokenWithNoTenant() {
       given()
-          .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
-          .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
-          .put("/refreshtoken")
+          .post("/token/sign")
           .then()
-          .statusCode(405);
+          .statusCode(400).body(containsString("Missing header: X-Okapi-Tenant"));
     }
 
     @Test
-    public void testRefreshTokenBadPayload() {
+    public void testEmptyTokenWithNoUrl() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
-          .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
-          .body("{")
-          .post("/refreshtoken")
+          .post("/token/sign")
           .then()
-          .statusCode(400);
+          .statusCode(400).body(containsString("Missing header: X-Okapi-Url"));
     }
 
     @Test
-    public void testRefreshTokenBadPayload2() {
+    public void testEmptyTokenSigningRequest() {
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
-          .body(new JsonObject().put("sub", "jones").encode())
-          .post("/refreshtoken")
+          .post("/token/sign")
           .then()
-          .statusCode(400);
-    }
+          .statusCode(401).body(containsString("Missing required module-level permissions for endpoint"));
+     }
 
-    @Test
-    public void testRefreshTokenBadPayload3() {
-      given()
-          .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", accessToken)
-          .header("X-Okapi-Url", "http://localhost:" + freePort)
-          .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-          .body("{")
-          .post("/refresh")
-          .then()
-          .statusCode(400);
-    }
+      @Test
+      public void testBadTokenSigningRequest() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .body(payloadDummySigningReq.encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(401)
+            .body(containsString("Missing required module-level permissions for endpoint '/token/sign': auth.signtoken"));
+      }
+
+      @Test
+      public void testSigningRequestWithGoodTokenNoPayload() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", moduleToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .post("/token/sign")
+            .then()
+            .statusCode(202);
+      }
+
+      @Test
+      public void testSigningRequestGoodDummyTokenGoodPayload() throws TokenValidationException {
+        String token = given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+            .body(new JsonObject().put("payload", payloadDummySigningReq).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(201).contentType("application/json").extract().path("token");
+        var td = (DummyToken)Token.parse(token, tokenCreator);
+        assertThat(td.getClaim("sub"), is(payloadDummySigningReq.getString("sub")));
+      }
+
+      @Test
+      public void testSigningRequestGoodAccessTokenGoodPayload()
+        throws TokenValidationException, JOSEException, ParseException {
+        logger.info("POST signing request with good token, good payload");
+        var response = given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+            .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(201).contentType("application/json");
+        var at =(AccessToken)Token.parse(response.extract().path("accessToken"), tokenCreator);
+        assertThat(at.getClaim("sub"), is(payloadSigningRequest.getString("sub")));
+        assertNotNull(at.getClaim("exp"));
+
+        String encryptedRT = response.extract().path("refreshToken");
+        var rt = (RefreshToken)Token.parse(encryptedRT, tokenCreator);
+        assertThat(rt.getClaim("sub"), is(payloadSigningRequest.getString("sub")));
+        assertNotNull(rt.getClaim("exp"));
+        assertNotNull(rt.getClaim("address"));
+        assertNotNull(rt.getClaim("user_id"));
+      }
+
+      @Test
+      public void testRefreshTokenUnsupportedMethod_Legacy() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+            .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
+            .put("/refreshtoken")
+            .then()
+            .statusCode(405);
+      }
+
+      @Test
+      public void testRefreshTokenBadPayload_Legacy() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+            .body("{")
+            .post("/refreshtoken")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testRefreshTokenBadPayload2_Legacy() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+            .body(new JsonObject().put("sub", "jones").encode())
+            .post("/refreshtoken")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testRefreshToken_Legacy() throws JOSEException, ParseException {
+        logger.info("POST signing request for a refresh token");
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
+            .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
+            .post("/refreshtoken")
+            .then()
+            .statusCode(201)
+            .header("Content-Type", "application/json");
+      }
+
+      @Test
+      public void testSigningRequestUnsupportedMethod() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+            .body(new JsonObject().put("payload", payloadDummySigningReq).encode())
+            .put("/token/sign")
+            .then()
+            .statusCode(405);
+      }
+
+      @Test
+      public void testSigningRequestGoodTokenBadPayload() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+            .body("{")
+            .post("/token/sign")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testSigningRequestGoodTokenBadPayload2() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+            .body(new JsonObject().put("noload", payloadDummySigningReq).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testSigningRequestGoodTokenBadPayload3() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+            .body(new JsonObject().put("payload", new JsonObject().put("x", 1)).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(400);
+      }
+
+      @Test
+      public void testRefreshTokenBadPayload() {
+        given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+            .body("{")
+            .post("/token/refresh")
+            .then()
+            .statusCode(400);
+      }
 
     @Test
     public void testRefreshTokenBadRefreshToken() {
@@ -697,9 +901,9 @@ public class AuthTokenTest {
           .header("X-Okapi-Token", accessToken)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-          .body(new JsonObject().put("refreshToken", badAccessToken).encode())
-          .post("/refresh")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", badRefreshToken).encode())
+          .post("/token/refresh")
           .then()
           .statusCode(401).body(containsString("Invalid token"));
     }
@@ -707,59 +911,60 @@ public class AuthTokenTest {
     @Test
     public void testRefreshToken() throws JOSEException, ParseException {
       logger.info("POST signing request for a refresh token");
-      final String refreshToken = given()
+
+      var response = given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refreshtoken") + "\"]")
-          .body(new JsonObject().put("userId", userUUID).put("sub", "jones").encode())
-          .post("/refreshtoken")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+          .post("/token/sign")
           .then()
-          .statusCode(201)
-          .header("Content-Type", "application/json")
-          .extract().body().path("refreshToken");
+          .statusCode(201).contentType("application/json");
+
+      String rt = response.extract().path("refreshToken");
+      String at = response.extract().path("accessToken");
 
       logger.info("PUT /refresh (bad method)");
       given()
           .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Token", at)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-          .body(new JsonObject().put("refreshToken", refreshToken).encode())
-          .put("/refresh")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", rt).encode())
+          .put("/token/refresh")
           .then()
           .statusCode(405);
 
-      String tokenContent = tokenCreator.decodeJWEToken(refreshToken);
+      String tokenContent = tokenCreator.decodeJWEToken(rt);
 
       logger.info("POST refresh token with bad tenant");
       String payloadBadTenant = new JsonObject(tokenContent).put("tenant", "foo").encode();
       String refreshTokenBadTenant = tokenCreator.createJWEToken(payloadBadTenant);
       given()
           .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Token", at)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
           .body(new JsonObject().put("refreshToken", refreshTokenBadTenant).encode())
-          .post("/refresh")
+          .post("/token/refresh")
           .then()
           .statusCode(403).body(containsString("Invalid token"));
 
       logger.info("POST refresh token with bad address");
-
       String refreshTokenBadAddress = tokenCreator.createJWEToken(
           new JsonObject(tokenContent).put("address", "foo").encode());
       given()
           .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Token", at)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
           .body(new JsonObject().put("refreshToken", refreshTokenBadAddress).encode())
-          .post("/refresh")
+          .post("/token/refresh")
           .then()
           .statusCode(401).body(containsString("Invalid token"));
 
@@ -768,27 +973,27 @@ public class AuthTokenTest {
           new JsonObject(tokenContent).put("exp", 0L).encode());
       given()
           .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Token", at)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
           .body(new JsonObject().put("refreshToken", refreshTokenBadExpiry).encode())
-          .post("/refresh")
+          .post("/token/refresh")
           .then()
           .statusCode(401).body(containsString("Invalid token"));
 
-      logger.info("POST refresh token to get a new access token");
+      logger.info("POST refresh token to get a new refresh and access token");
       final String refreshedAccessToken = given()
           .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Token", at)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/refresh") + "\"]")
-          .body(new JsonObject().put("refreshToken", refreshToken).encode())
-          .post("/refresh")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", rt).encode())
+          .post("/token/refresh")
           .then()
           .statusCode(201)
-          .extract().body().path("token");
+          .extract().body().path("accessToken");
 
       logger.info(String.format("Test with 'refreshed' token: %s", refreshedAccessToken));
       given()
@@ -799,6 +1004,107 @@ public class AuthTokenTest {
           .get("/bar")
           .then()
           .statusCode(202);
+    }
+
+    @Test
+    public void testRefreshTokenSingleUse() throws JOSEException, ParseException {
+      logger.info("POST signing request for a refresh token");
+      var response = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+          .post("/token/sign")
+          .then()
+          .statusCode(201).contentType("application/json");
+
+      String rt = response.extract().path("refreshToken");
+      String at = response.extract().path("accessToken");
+
+      logger.info("POST refresh token to get a new refresh and access token");
+      final String refreshedAccessToken = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", at)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", rt).encode())
+          .post("/token/refresh")
+          .then()
+          .statusCode(201)
+          .extract().body().path("accessToken");
+
+      logger.info("POST same refresh token a second time to simulate token attack/leakage");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", refreshedAccessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", rt).encode())
+          .post("/token/refresh")
+          .then()
+          .statusCode(401).body(is("Invalid token"));
+    }
+
+    @Test
+    public void testAllTokensRevokedAfterOneTokenIsRevoked() throws JOSEException, ParseException {
+      logger.info("Create three refresh tokens to simulate multiple logins");
+      var tokens = new ArrayList<String>();
+      for (int i = 0; i < 3; i++) {
+        String refreshToken = given()
+            .header("X-Okapi-Tenant", tenant)
+            .header("X-Okapi-Token", accessToken)
+            .header("X-Okapi-Url", "http://localhost:" + freePort)
+            .header("Content-type", "application/json")
+            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+            .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+            .post("/token/sign")
+            .then()
+            .statusCode(201).contentType("application/json").extract().path("refreshToken");
+            tokens.add(refreshToken);
+      }
+
+      logger.info("POST one of the refresh tokens to get a new refresh and access token");
+      final String newAccessToken = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken) // Using global AT for convenience here.
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", tokens.get(1)).encode())
+          .post("/token/refresh")
+          .then()
+          .statusCode(201)
+          .extract().body().path("accessToken");
+
+      logger.info("POST same refresh token a second time to simulate token attack/leakage");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", newAccessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", tokens.get(1)).encode())
+          .post("/token/refresh")
+          .then()
+          .statusCode(401).body(is("Invalid token"));
+
+      logger.info("Ensure that all tokens have now been revoked");
+      for (int i = 0; i < 3; i++) {
+        given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", newAccessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", tokens.get(i)).encode())
+          .post("/token/refresh")
+          .then()
+          .statusCode(401).body(is("Invalid token"));
+      }
     }
 
     @Test
@@ -1007,6 +1313,8 @@ public class AuthTokenTest {
     // A RefreshToken which doesn't exist is treated as revoked.
     var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
     ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
+      assertThat(e.getMessage(), containsString("not exist"));
       assertThat(e.getMessage(), containsString("revoked"));
     }));
   }
@@ -1018,6 +1326,7 @@ public class AuthTokenTest {
     var now = Instant.now().getEpochSecond();
     expiredToken.setExpiresAt(now - 10);
     ts.checkTokenNotRevoked(expiredToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
       assertThat(e.getMessage(), containsString("expired"));
       assertThat(e.getMessage(), containsString("revoked"));
     }));
@@ -1037,6 +1346,8 @@ public class AuthTokenTest {
     // A ApiToken which doesn't exist in storage is treated as revoked.
     var unsavedToken = new ApiToken(tenant);
     ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
+      assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
+      assertThat(e.getMessage(), containsString("not found"));
       assertThat(e.getMessage(), containsString("revoked"));
     }));
   }
@@ -1051,6 +1362,7 @@ public class AuthTokenTest {
         .onComplete(context.asyncAssertSuccess())
         .compose(x -> ts.checkTokenNotRevoked(apiToken))
         .onComplete(context.asyncAssertFailure(e -> {
+          assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
           assertThat(e.getMessage(), containsString("revoked"));
         }));
   }
@@ -1070,11 +1382,23 @@ public class AuthTokenTest {
         .compose(a -> ts.checkTokenNotRevoked(rt2))
         .onComplete(context.asyncAssertSuccess()) // First check should succeed.
         .compose(a -> ts.checkTokenNotRevoked(rt2))
-        .onComplete(context.asyncAssertFailure(b -> assertThat(b.getMessage(), containsString("revoked"))))
+        .onComplete(context.asyncAssertFailure(b -> {
+          assertLeakedOrRevoked(b);
+        }))
         .compose(a -> ts.checkTokenNotRevoked(rt1))
-        .onComplete(context.asyncAssertFailure(b -> assertThat(b.getMessage(), containsString("revoked"))))
+        .onComplete(context.asyncAssertFailure(b -> {
+          assertLeakedOrRevoked(b);
+        }))
         .compose(a -> ts.checkTokenNotRevoked(rt3))
-        .onComplete(context.asyncAssertFailure(b -> assertThat(b.getMessage(), containsString("revoked"))));
+        .onComplete(context.asyncAssertFailure(b -> {
+          assertLeakedOrRevoked(b);
+        }));
+  }
+
+  private void assertLeakedOrRevoked(Throwable t) {
+    assertThat(((TokenValidationException)t).getHttpResponseCode(), is(401));
+    assertThat(t.getMessage(), containsString("leaked"));
+    assertThat(t.getMessage(), containsString("revoked"));
   }
 
   @Test
@@ -1095,8 +1419,7 @@ public class AuthTokenTest {
 
     // Other tests could have added tokens to storage, so remove all of those first.
     // Then save 5 tokens, two of which are expired. When each token is saved, the
-    // method
-    // cleans up expired tokens, so after all 5 have been saved, only 3 should be
+    // method cleans up expired tokens, so after all 5 have been saved, only 3 should be
     // left.
     ts.removeAll()
         .compose(x -> {

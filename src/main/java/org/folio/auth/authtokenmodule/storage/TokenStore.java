@@ -1,5 +1,7 @@
 package org.folio.auth.authtokenmodule.storage;
 
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -43,7 +45,8 @@ public abstract class TokenStore {
       if (rows.rowCount() == 0) {
         String msg = "Token with id {} not found in token store";
         log.error(msg, parameters.toString());
-        return Future.failedFuture("Token not found. It is considered revoked.");
+        var e = new TokenValidationException("Token not found. It is considered revoked.", 401);
+        return Future.failedFuture(e);
       }
       Row row = rows.iterator().next();
       return Future.succeededFuture(row);

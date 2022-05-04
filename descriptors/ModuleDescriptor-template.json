@@ -15,11 +15,22 @@
           "methods": [ "POST" ],
           "pathPattern": "/refreshtoken",
           "permissionsRequired": [ "auth.signrefreshtoken" ]
+        }
+      ]
+    },
+    {
+      "id": "authtoken2",
+      "version": "1.0",
+      "handlers": [
+        {
+          "methods": [ "POST" ],
+          "pathPattern": "/token/sign",
+          "permissionsRequired": [ "auth.signtoken" ]
         },
         {
           "methods": [ "POST" ],
-          "pathPattern": "/refresh",
-          "permissionsRequired": []
+          "pathPattern": "/token/refresh",
+          "permissionsRequired": [ "auth.signrefreshtoken" ]
         }
       ]
     },

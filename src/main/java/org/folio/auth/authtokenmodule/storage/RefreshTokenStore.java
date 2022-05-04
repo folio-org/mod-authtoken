@@ -1,6 +1,7 @@
 package org.folio.auth.authtokenmodule.storage;
 
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -112,7 +113,7 @@ public class RefreshTokenStore extends TokenStore {
    *
    * @param refreshToken The RefreshToken to check.
    * @return A failed future if the token has been revoked. Otherwise a succeeded future
-   * is returned.
+   * with the token is returned.
    */
   public Future<Void> checkTokenNotRevoked(RefreshToken refreshToken) {
     UUID tokenId = refreshToken.getId();
@@ -123,11 +124,12 @@ public class RefreshTokenStore extends TokenStore {
     // else. Note that the token is signed so it can't have reached this point unless it
     // hasn't been tampered with.
     if (tokenHasExpired(refreshToken)) {
-      return Future.failedFuture("Token has expired. Considered revoked.");
+      var e = new TokenValidationException("Token has expired. Considered revoked.", 401);
+      return Future.failedFuture(e);
     }
 
     // Next check the token against the database.
-    log.debug("Checking token redeemed of token id {} for tenant {}", tokenId);
+    log.debug("Checking token redeemed of token id {}", tokenId);
 
     // Attempt to update the token to be revoked. If this update succeeds, the token
     // will now be marked as revoked, and a single row will be returned. If no rows
@@ -148,14 +150,21 @@ public class RefreshTokenStore extends TokenStore {
           return Future.succeededFuture();
         }
 
-        // The row count is not 1 so the token has been used more than once or has been
-        // revoked when another token has been used more than once.
-        String leakedMessage = "Refresh token {} is revoked." +
+        // The row count is not 1 so the token has been used more than once, has been
+        // revoked when another token has been used more than once, or does not exist at all
+        // either because it has been removed in cleaning up expired tokens or never existed in
+        // the first place.
+        String leakedMessage = "Refresh token {} is considered revoked." +
           " Revoking all tokens for user {}.";
         log.info(leakedMessage, tokenId, userId);
 
         return revokeAllTokensForUser(conn, userId)
-          .compose(x -> Future.failedFuture("Token leaked. All tokens for user are now revoked."));
+          .compose(x -> {
+             var msg = "Token leaked, does not exist or no longer exists." +
+                 " All tokens for user are now revoked.";
+             var e = new TokenValidationException(msg, 401);
+             return Future.failedFuture(e);
+         });
       });
     });
   }

@@ -5,6 +5,8 @@ import io.vertx.core.json.JsonObject;
 import java.time.Instant;
 import java.util.UUID;
 
+import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
+
 /**
  * Refresh tokens are provided to obtain a new access token.
  * @see AccessToken
@@ -14,7 +16,7 @@ public class RefreshToken extends Token {
   /**
    * A string representation of the type of this token.
    */
-  public static final String type = "refresh";
+  public static final String TYPE = "refresh";
 
   public UUID getId() {
     return UUID.fromString(claims.getString("jti"));
@@ -36,8 +38,7 @@ public class RefreshToken extends Token {
     claims.put("exp", to);
   }
 
-  // TODO This could be obtained from the env.
-  int expirationSeconds = 60 * 60 * 24;
+  int expirationSeconds = TOKEN_EXPIRATION_SECONDS;
 
   /**
    * Create a new refresh token.
@@ -49,7 +50,7 @@ public class RefreshToken extends Token {
   public RefreshToken(String tenant, String username, String userId, String address) {
     long now = Instant.now().getEpochSecond();
     claims = new JsonObject()
-    .put("type", type)
+    .put("type", TYPE)
     .put("exp", now + expirationSeconds)
     .put("iat", now)
     .put("sub", username)
@@ -57,7 +58,7 @@ public class RefreshToken extends Token {
     .put("tenant", tenant)
     .put("address", address)
     .put("jti", UUID.randomUUID().toString())
-    .put("prn", "refresh");
+    .put("prn", TYPE);
   }
 
   /**
@@ -84,17 +85,12 @@ public class RefreshToken extends Token {
       return Future.failedFuture(e);
     }
 
-    Long nowTime = Instant.now().getEpochSecond();
-    Long expiration = claims.getLong("exp");
-    if (expiration < nowTime) {
+    if (tokenIsExpired()) {
       var e = new TokenValidationException("Attempt to refresh with expired refresh token", 401);
       return Future.failedFuture(e);
     }
 
-    // TODO Check storage to ensure that token has not yet been used.
-    // TODO If the token has been used, revoke all RTs for this user_id.
-
-    return Future.succeededFuture(this);
+    var refreshTokenStore = (RefreshTokenStore)context.getTokenStore();
+    return refreshTokenStore.checkTokenNotRevoked(this).map(this);
   }
-
 }

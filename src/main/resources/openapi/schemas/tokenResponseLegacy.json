@@ -1,0 +1,14 @@
+{
+  "description": "The signed JWT token based on the payload",
+  "type": "object",
+  "properties": {
+    "token": {
+      "type": "string",
+      "description": "The JWT token"
+    }
+  },
+  "required": [
+    "token"
+  ],
+  "additionalProperties": false
+}

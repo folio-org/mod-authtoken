@@ -3,7 +3,7 @@ info:
   title: mod-authtoken API
   version: v1
 paths:
-  # NOTE This module relies on the its folio-vertx-lib dependency to handle the /_/tenant
+  # NOTE This module relies on its folio-vertx-lib dependency to handle the /_/tenant
   # route. Please see its yaml specification for /_/tenant here:
   # https://dev.folio.org/reference/api/#folio-vertx-lib
   /token:
@@ -13,8 +13,8 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Sign token
-      operationId: token
+      description: Sign token legacy
+      operationId: token-legacy
       requestBody:
         content:
           application/json:
@@ -27,32 +27,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/token"
-        "400":
-          $ref: "#/components/responses/trait_400"
-        "500":
-          $ref: "#/components/responses/trait_500"
-
-  /refresh:
-    parameters:
-      - $ref: headers/okapi-tenant-required.yaml
-      - $ref: headers/okapi-url-required.yaml
-    post:
-      description: Sign token
-      operationId: refresh
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/refreshToken"
-        required: true
-      responses:
-        "201":
-          description: Created and signed token successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/token"
+                $ref: "#/components/schemas/tokenResponseLegacy"
         "400":
           $ref: "#/components/responses/trait_400"
         "500":
@@ -63,7 +38,7 @@ paths:
       - $ref: headers/okapi-url-required.yaml
     post:
       description: Sign token
-      operationId: refreshtoken
+      operationId: token-sign-legacy
       requestBody:
         content:
           application/json:
@@ -77,6 +52,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/token"
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "500":
+          $ref: "#/components/responses/trait_500"
+  /token/sign:
+    parameters:
+      # folio-vertx-lib has header files but they don't make the headers required so we override
+      # that behavior here since these two headers are required.
+      - $ref: headers/okapi-tenant-required.yaml
+      - $ref: headers/okapi-url-required.yaml
+    post:
+      description: Sign token
+      operationId: token-sign
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/signTokenPayload"
+        required: true
+      responses:
+        "201":
+          description: Created and signed tokens successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/tokenResponse"
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "500":
+          $ref: "#/components/responses/trait_500"
+
+  /token/refresh:
+    parameters:
+      - $ref: headers/okapi-tenant-required.yaml
+      - $ref: headers/okapi-url-required.yaml
+    post:
+      description: Get a new refresh token and a new access token
+      operationId: token-refresh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/refreshToken"
+        required: true
+      responses:
+        "201":
+          description: Refreshed tokens successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/refreshTokenResponse"
         "400":
           $ref: "#/components/responses/trait_400"
         "500":
@@ -104,9 +130,15 @@ components:
   schemas:
     refreshToken:
       $ref: schemas/refreshToken.json
+    tokenResponse:
+      $ref: schemas/tokenResponse.json
+    refreshTokenResponse:
+      $ref: schemas/refreshTokenResponse.json
+    tokenResponseLegacy:
+      $ref: schemas/tokenResponseLegacy.json
+    signTokenPayload:
+      $ref: schemas/signTokenPayload.json
     signRefreshToken:
       $ref: schemas/signRefreshToken.json
     token:
       $ref: schemas/token.json
-    signTokenPayload:
-      $ref: schemas/signTokenPayload.json

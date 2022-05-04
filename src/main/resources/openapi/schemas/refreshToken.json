@@ -1,10 +1,10 @@
 {
-  "description": "The refresh token being presented to get a new access token",
+  "description": "The refresh token being presented to get a new refresh token and access token",
   "type": "object",
   "properties": {
     "refreshToken": {
       "type": "string",
-      "description": "The JWT refresh token"
+      "description": "The JWE refresh token"
     }
   },
   "required": [
