@@ -76,8 +76,17 @@ at the [FOLIO issue tracker](https://dev.folio.org/guidelines/issue-tracker/).
 
 ### ModuleDescriptor
 
-See the built `target/ModuleDescriptor.json` for the interfaces that this module
-requires and provides, the permissions, and the additional module metadata.
+See the [ModuleDescriptor](descriptors/ModuleDescriptor-template.json)
+for the interfaces that this module requires and provides, the permissions,
+and the additional module metadata.
+
+### API descriptions:
+
+ * [OpenAPI](src/main/resources/openapi/)
+ * [Schemas](src/main/resources/openapi/schemas/)
+
+Generated [API documentation](https://dev.folio.org/reference/api/#mod-authtoken).
+
 
 ### Code analysis
 
