@@ -1,3 +1,15 @@
+## 2.11.0 2022-06-16
+
+This is the first version of mod-authtoken that uses Postgresql storage.
+
+ * [MODAT-132](https://issues.folio.org/browse/MODAT-132) Upgrade dependencies (folio-vertx-lib 2.0.0, Vert.x 4.3.1, ..
+ * [MODAT-128](https://issues.folio.org/browse/MODAT-128) jwt.signing.key hint on BadSignatureException
+ * [MODAT-126](https://issues.folio.org/browse/MODAT-126) Implement OpenAPI
+ * [MODAT-123](https://issues.folio.org/browse/MODAT-123) Report "no token" when permission required and token missing
+ * [MODAT-125](https://issues.folio.org/browse/MODAT-125) Update dependencies (CVE-2021-27568, CVE-2021-31684)
+ * [MODAT-112](https://issues.folio.org/browse/MODAT-112) Implement access token expiration and refresh token rotation
+ * [MODAT-110](https://issues.folio.org/browse/MODAT-110) Implement token persistent store
+
 ## 2.10.0 2022-02-18
 
 Fixes:
