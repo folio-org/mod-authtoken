@@ -1,5 +1,6 @@
 package org.folio.auth.authtokenmodule.storage;
 
+import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 
 import org.apache.logging.log4j.LogManager;

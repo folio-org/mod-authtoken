@@ -1390,6 +1390,21 @@ public class AuthTokenTest {
   }
 
   @Test
+  public void testRefreshTokenRevoked(TestContext context) {
+    var ts = new RefreshTokenStore(vertx, tenant);
+    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    ts.saveToken(rt)
+        .compose(x -> ts.checkTokenNotRevoked(rt))
+        .compose(x -> ts.revokeToken(rt))
+        .onComplete(context.asyncAssertSuccess())
+        .compose(x -> ts.checkTokenNotRevoked(rt))
+        .onComplete(context.asyncAssertFailure(e -> {
+          assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
+          assertThat(e.getMessage(), containsString("revoked"));
+        }));
+  }
+
+  @Test
   public void testStoreRefreshTokenSingleUse(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
     // Create and save some tokens.
