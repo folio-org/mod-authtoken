@@ -1,6 +1,8 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import java.time.Instant;
+import java.util.UUID;
+
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 
@@ -19,6 +21,10 @@ public class AccessToken extends Token {
 
   public String getExpiresAtInIso8601Format() {
     return Instant.ofEpochSecond(claims.getLong("exp")).toString();
+  }
+
+  public UUID getUserId() {
+    return UUID.fromString(claims.getString("user_id"));
   }
 
   /**

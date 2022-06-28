@@ -65,9 +65,9 @@ public class AuthTokenTest {
   private static String badAccessToken;
   private static String accessToken404;
   private static String inactiveToken;
-  private static String refreshToken;
   private static String badRefreshToken;
   private static String tokenSystemPermission;
+  private static String refreshToken;
   private static JsonObject payloadDummySigningReq;
   private static JsonObject payloadSigningRequest;
 

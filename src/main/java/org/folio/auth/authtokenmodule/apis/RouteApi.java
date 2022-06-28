@@ -100,6 +100,12 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
           routerBuilder
               .operation("token-sign")
               .handler(this::handleSignToken);
+           routerBuilder
+              .operation("token-logout")
+              .handler(this::handleTokenLogout);
+           routerBuilder
+              .operation("token-logout-all")
+              .handler(this::handleTokenLogoutAll);
           return routerBuilder.createRouter();
         });
   }
@@ -311,6 +317,40 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);
+    }
+  }
+
+  private void handleTokenLogout(RoutingContext ctx) {
+    try {
+      String content = ctx.getBodyAsString();
+      JsonObject requestJson = new JsonObject(content);
+      String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+
+      RefreshToken rt = (RefreshToken)Token.parse(encryptedJWE, tokenCreator);
+
+      var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
+      refreshTokenStore.revokeToken(rt)
+          .onSuccess(x -> endNoContent(ctx, 204))
+          .onFailure(e -> handleTokenValidationFailure(e, ctx));
+    } catch (Exception e) {
+      endText(ctx, 500, String.format("Unanticipated exception when handling token logout: %s", e.getMessage()));
+    }
+  }
+
+  private void handleTokenLogoutAll(RoutingContext ctx) {
+    try {
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+      String accessTokenString = ctx.request().headers().get(XOkapiHeaders.TOKEN);
+
+      AccessToken at = (AccessToken)Token.parse(accessTokenString, tokenCreator);
+
+      var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
+      refreshTokenStore.revokeAllTokensForUser(at.getUserId())
+          .onSuccess(x -> endNoContent(ctx, 204))
+          .onFailure(e -> handleTokenValidationFailure(e, ctx));
+    } catch (Exception e) {
+      endText(ctx, 500, String.format("Unanticipated exception when handling token logout all: %s", e.getMessage()));
     }
   }
 }

@@ -24,6 +24,11 @@ public abstract class Api {
     ctx.response().end(msg);
   }
 
+  protected static void endNoContent(RoutingContext ctx, int code) {
+    ctx.response().setStatusCode(code);
+    ctx.response().end();
+  }
+
   protected static void endText(RoutingContext ctx, int code, String lead, Throwable t) {
     logger.error(lead, t);
     endText(ctx, code, lead + t.getLocalizedMessage());

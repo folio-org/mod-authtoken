@@ -169,6 +169,17 @@ public class RefreshTokenStore extends TokenStore {
     });
   }
 
+  /**
+   * Revoke all tokens for the user associated with the given usserId.
+   * @param userId The id of the user.
+   * @return A failed future if the revoke operation did not succeed. Otherwise a succeeded future.
+   */
+  public Future<Void> revokeAllTokensForUser(UUID userId) {
+    return pool.withConnection(conn -> {
+      return revokeAllTokensForUser(conn, userId);
+    });
+  }
+
   private boolean tokenHasExpired(RefreshToken rt) {
     return Instant.now().getEpochSecond() >= rt.getExpiresAt();
   }

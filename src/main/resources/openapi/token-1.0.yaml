@@ -82,7 +82,6 @@ paths:
           $ref: "#/components/responses/trait_400"
         "500":
           $ref: "#/components/responses/trait_500"
-
   /token/refresh:
     parameters:
       - $ref: headers/okapi-tenant-required.yaml
@@ -103,6 +102,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/refreshTokenResponse"
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "500":
+          $ref: "#/components/responses/trait_500"
+  /token/logout:
+    parameters:
+      - $ref: headers/okapi-tenant-required.yaml
+      - $ref: headers/okapi-url-required.yaml
+    post:
+      description: Logout a single token
+      operationId: token-logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/refreshToken"
+        required: true
+      responses:
+        "201":
+          description: Logged out token successfully
+        "400":
+          $ref: "#/components/responses/trait_400"
+        "500":
+          $ref: "#/components/responses/trait_500"
+  /token/logout-all:
+    parameters:
+      - $ref: headers/okapi-tenant-required.yaml
+      - $ref: headers/okapi-url-required.yaml
+    delete:
+      description: Logout all tokens for a user
+      operationId: token-logout-all
+      responses:
+        "201":
+          description: Logged out token successfully
         "400":
           $ref: "#/components/responses/trait_400"
         "500":
