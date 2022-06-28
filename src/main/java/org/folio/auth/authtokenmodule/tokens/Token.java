@@ -22,9 +22,13 @@ import static java.lang.Boolean.TRUE;
  * including a method to parse and validate a token in one step.
  */
 public abstract class Token {
+  public static final String REFRESH_TOKEN = "refreshToken";
+  public static final String ACCESS_TOKEN = "accessToken";
+  public static final String REFRESH_TOKEN_EXPIRATION = "refreshTokenExpiration";
+  public static final String ACCESS_TOKEN_EXPIRATION = "accessTokenExpiration";
+
   protected static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   protected String source;
-  protected static final int TOKEN_EXPIRATION_SECONDS = 60 * 10;
 
   private static final Logger logger = LogManager.getLogger(Token.class);
   private boolean usesDummyPermissionsSource;

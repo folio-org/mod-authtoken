@@ -1,5 +1,7 @@
 package org.folio.auth.authtokenmodule;
 
+import static org.hamcrest.Matchers.hasKey;
+
 import io.restassured.RestAssured;
 import io.restassured.response.ExtractableResponse;
 import io.restassured.response.Response;
@@ -735,7 +737,9 @@ public class AuthTokenTest {
             .body(new JsonObject().put("payload", payloadDummySigningReq).encode())
             .post("/token/sign")
             .then()
-            .statusCode(201).contentType("application/json").extract().path("token");
+            .statusCode(201)
+            .contentType("application/json")
+            .extract().path("token");
         var td = (DummyToken)Token.parse(token, tokenCreator);
         assertThat(td.getClaim("sub"), is(payloadDummySigningReq.getString("sub")));
       }
@@ -921,7 +925,10 @@ public class AuthTokenTest {
           .body(new JsonObject().put("payload", payloadSigningRequest).encode())
           .post("/token/sign")
           .then()
-          .statusCode(201).contentType("application/json");
+          .statusCode(201)
+          .contentType("application/json")
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION));
 
       String rt = response.extract().path("refreshToken");
       String at = response.extract().path("accessToken");
@@ -993,6 +1000,9 @@ public class AuthTokenTest {
           .post("/token/refresh")
           .then()
           .statusCode(201)
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+          .body("$", hasKey(Token.REFRESH_TOKEN))
           .extract().body().path("accessToken");
 
       logger.info(String.format("Test with 'refreshed' token: %s", refreshedAccessToken));
@@ -1018,7 +1028,10 @@ public class AuthTokenTest {
           .body(new JsonObject().put("payload", payloadSigningRequest).encode())
           .post("/token/sign")
           .then()
-          .statusCode(201).contentType("application/json");
+          .statusCode(201)
+          .contentType("application/json")
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION));
 
       String rt = response.extract().path("refreshToken");
       String at = response.extract().path("accessToken");
@@ -1034,6 +1047,9 @@ public class AuthTokenTest {
           .post("/token/refresh")
           .then()
           .statusCode(201)
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+          .body("$", hasKey(Token.REFRESH_TOKEN))
           .extract().body().path("accessToken");
 
       logger.info("POST same refresh token a second time to simulate token attack/leakage");
@@ -1063,7 +1079,12 @@ public class AuthTokenTest {
             .body(new JsonObject().put("payload", payloadSigningRequest).encode())
             .post("/token/sign")
             .then()
-            .statusCode(201).contentType("application/json").extract().path("refreshToken");
+            .statusCode(201)
+            .contentType("application/json")
+            .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+            .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+            .body("$", hasKey(Token.ACCESS_TOKEN))
+            .extract().path("refreshToken");
             tokens.add(refreshToken);
       }
 
@@ -1078,6 +1099,9 @@ public class AuthTokenTest {
           .post("/token/refresh")
           .then()
           .statusCode(201)
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+          .body("$", hasKey(Token.REFRESH_TOKEN))
           .extract().body().path("accessToken");
 
       logger.info("POST same refresh token a second time to simulate token attack/leakage");

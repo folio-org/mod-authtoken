@@ -41,8 +41,6 @@ import org.folio.tlib.TenantInitHooks;
 public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   private static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
-  private static final String REFRESH_TOKEN = "refreshToken";
-  private static final String ACCESS_TOKEN = "accessToken";
   private static final String USER_ID = "user_id";
 
   private PermissionsSource permissionsSource;
@@ -207,8 +205,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     var at = new AccessToken(tenant, username, userId);
 
     try {
-      responseObject.put(ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));
-      responseObject.put(REFRESH_TOKEN, rt.encodeAsJWE(tokenCreator));
+      responseObject.put(Token.ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));
+      responseObject.put(Token.REFRESH_TOKEN, rt.encodeAsJWE(tokenCreator));
+      responseObject.put(Token.ACCESS_TOKEN_EXPIRATION, at.getExpiresAtInIso8601Format());
+      responseObject.put(Token.REFRESH_TOKEN_EXPIRATION, rt.getExpiresAtInIso8601Format());
     } catch (JOSEException e) {
       endText(ctx, 500, "Unable to encode token", e);
     } catch (ParseException e) {
@@ -230,7 +230,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       String content = ctx.getBodyAsString();
       JsonObject requestJson = new JsonObject(content);
-      String encryptedJWE = requestJson.getString(REFRESH_TOKEN);
+      String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
 
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
@@ -307,7 +307,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       String userId = requestJson.getString(USER_ID);
       String sub = requestJson.getString("sub");
       String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
-      JsonObject responseJson = new JsonObject().put(REFRESH_TOKEN, refreshToken);
+      JsonObject responseJson = new JsonObject().put(Token.REFRESH_TOKEN, refreshToken);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);
