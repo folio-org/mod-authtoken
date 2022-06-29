@@ -34,8 +34,7 @@
         },
         {
           "methods": [ "POST" ],
-          "pathPattern": "/token/logout",
-          "permissionsRequired": [ "auth.signtoken" ]
+          "pathPattern": "/token/logout"
         },
         {
           "methods": [ "DELETE" ],

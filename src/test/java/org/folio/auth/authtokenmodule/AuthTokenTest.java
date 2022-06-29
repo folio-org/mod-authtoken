@@ -1066,25 +1066,7 @@ public class AuthTokenTest {
     @Test
     public void testAllTokensRevokedAfterOneTokenIsRevoked() throws JOSEException, ParseException {
       logger.info("Create three refresh tokens to simulate multiple logins");
-      var tokens = new ArrayList<String>();
-      for (int i = 0; i < 3; i++) {
-        String refreshToken = given()
-            .header("X-Okapi-Tenant", tenant)
-            .header("X-Okapi-Token", accessToken)
-            .header("X-Okapi-Url", "http://localhost:" + freePort)
-            .header("Content-type", "application/json")
-            .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
-            .body(new JsonObject().put("payload", payloadSigningRequest).encode())
-            .post("/token/sign")
-            .then()
-            .statusCode(201)
-            .contentType("application/json")
-            .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
-            .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION))
-            .body("$", hasKey(Token.ACCESS_TOKEN))
-            .extract().path(Token.REFRESH_TOKEN);
-            tokens.add(refreshToken);
-      }
+      var tokens = createListOfRefreshTokens();
 
       logger.info("POST one of the refresh tokens to get a new refresh and access token");
       final String newAccessToken = given()
@@ -1115,24 +1097,12 @@ public class AuthTokenTest {
           .statusCode(401).body(is("Invalid token"));
 
       logger.info("Ensure that all tokens have now been revoked");
-      for (int i = 0; i < 3; i++) {
-        given()
-          .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", newAccessToken)
-          .header("X-Okapi-Url", "http://localhost:" + freePort)
-          .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
-          .body(new JsonObject().put("refreshToken", tokens.get(i)).encode())
-          .post("/token/refresh")
-          .then()
-          .statusCode(401).body(is("Invalid token"));
-      }
+      checkAllRefreshTokensAreInvalid(tokens, newAccessToken);
     }
 
     @Test
     public void testLogout() throws JOSEException, ParseException {
-      logger.info("POST signing request for a refresh token");
-
+      logger.info("POST signing request for a refresh token for logout");
       var response = given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -1159,7 +1129,7 @@ public class AuthTokenTest {
           .then()
           .statusCode(405);
 
-      logger.info("PUT /token/logout (bad request - no RT provided)");
+      logger.info("POST /token/logout (bad request - no RT provided)");
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", at)
@@ -1182,7 +1152,7 @@ public class AuthTokenTest {
           .then()
           .statusCode(204);
 
-      logger.info("POST /token/refresh (should fail)");
+      logger.info("POST /token/refresh (should fail after logout)");
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", at) // Using global AT for convenience here.
@@ -1193,7 +1163,38 @@ public class AuthTokenTest {
           .post("/token/refresh")
           .then()
           .statusCode(401);
-     }
+    }
+
+    @Test
+    public void testLogoutAll() throws JOSEException, ParseException {
+      logger.info("Create some refresh tokens for logout all test");
+      var tokens = createListOfRefreshTokens();
+
+      logger.info("POST /token/logout-all (bad method)");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout-all") + "\"]")
+          .post("/token/logout-all")
+          .then()
+          .statusCode(405);
+
+      logger.info("DELETE /token/logout-all");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout-all") + "\"]")
+          .delete("/token/logout-all")
+          .then()
+          .statusCode(204);
+
+      logger.info("POST /token/refresh (should fail for all tokens created after logout-all)");
+      checkAllRefreshTokensAreInvalid(tokens, accessToken);
+    }
 
     @Test
     public void testWildCardPermissions() throws JOSEException, ParseException {
@@ -1585,5 +1586,40 @@ public class AuthTokenTest {
         .then()
         .statusCode(200)
         .body("complete", is(true));
+  }
+
+  private ArrayList<String> createListOfRefreshTokens() {
+    var tokens = new ArrayList<String>();
+    for (int i = 0; i < 3; i++) {
+      String refreshToken = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+          .post("/token/sign")
+          .then()
+          .statusCode(201)
+          .contentType("application/json")
+          .extract().path(Token.REFRESH_TOKEN);
+      tokens.add(refreshToken);
+    }
+    return tokens;
+  }
+
+  private void checkAllRefreshTokensAreInvalid(ArrayList<String> tokens, String accessToken) {
+    for (String token : tokens) {
+      given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Token", accessToken)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("Content-type", "application/json")
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+        .body(new JsonObject().put("refreshToken", token).encode())
+        .post("/token/refresh")
+        .then()
+        .statusCode(401).body(is("Invalid token"));
+    }
   }
 }

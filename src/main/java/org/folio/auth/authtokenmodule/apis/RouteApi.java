@@ -65,24 +65,24 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     // Set up the routes. Here next will call operation handler defined in
-    // createRouter.
-    // The filter API is responsible for calling these routes, but we define them
-    // here.
+    // createRouter. The filter API is responsible for calling these routes, but we
+    // define them here.
     routes = new ArrayList<>();
     routes.add(new Route("/token/sign",
         new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/token/refresh",
         new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
-    routes.add(new Route("/token/logout",
+    routes.add(new Route("/token/logout-all",
         new String[] { }, RoutingContext::next));
-        routes.add(new Route("/token/logout-all",
+    // Must come after /logout-all because of startsWithMatching in Route.java.
+    routes.add(new Route("/token/logout",
         new String[] { }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
         new String[] {}, RoutingContext::next));
     // The "legacy" routes.
     routes.add(new Route("/refreshtoken",
         new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
-    // This must be last because of the startsWith matching.
+    // This must be last because of the startsWith matching in Route.java.
     routes.add(new Route("/token",
         new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
   }
@@ -284,6 +284,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
   private void handleTokenLogoutAll(RoutingContext ctx) {
     try {
+      logger.debug("Called handleTokenLogoutAll");
+
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       String accessTokenString = ctx.request().headers().get(XOkapiHeaders.TOKEN);
 

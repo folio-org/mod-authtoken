@@ -384,6 +384,7 @@ public class FilterApi extends Api implements RouterCreator {
         }
 
         // Return header containing relevant permissions
+        logger.debug("Returning 202 from filter");
         ctx.response()
             .setChunked(true)
             .setStatusCode(202)
