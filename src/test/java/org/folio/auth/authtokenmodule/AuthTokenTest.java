@@ -329,7 +329,7 @@ public class AuthTokenTest {
         .get("/bar")
         .then()
         .statusCode(400)
-        .body(containsString("Conflicting token information in Authorization and "));
+        .body(containsString("More than one authorization header received"));
 
     logger.info("Test with conflicting Authorization and X-Okapi-Token (2)");
     given()
@@ -342,7 +342,7 @@ public class AuthTokenTest {
         .get("/bar")
         .then()
         .statusCode(400)
-        .body(containsString("Conflicting token information in Authorization and "));
+        .body(containsString("More than one authorization header received"));
 
     logger.info("Test with Authorization=X-Okapi-Token");
     given()
