@@ -1130,6 +1130,72 @@ public class AuthTokenTest {
     }
 
     @Test
+    public void testLogout() throws JOSEException, ParseException {
+      logger.info("POST signing request for a refresh token");
+
+      var response = given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", accessToken)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+          .post("/token/sign")
+          .then()
+          .statusCode(201);
+
+      String rt = response.extract().path(Token.REFRESH_TOKEN);
+      String at = response.extract().path(Token.ACCESS_TOKEN);
+
+      logger.info("PUT /token/logout (bad method)");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", at)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout") + "\"]")
+          .body(new JsonObject().put(Token.REFRESH_TOKEN, rt).encode())
+          .put("/token/logout")
+          .then()
+          .statusCode(405);
+
+      logger.info("PUT /token/logout (bad request - no RT provided)");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", at)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout") + "\"]")
+          .post("/token/logout")
+          .then()
+          .statusCode(400);
+
+      logger.info("POST /token/logout");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", at)
+          .header("X-Okapi-Url", "http://localhost:" + mockPort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout") + "\"]")
+          .body(new JsonObject().put(Token.REFRESH_TOKEN, rt).encode())
+          .post("/token/logout")
+          .then()
+          .statusCode(204);
+
+      logger.info("POST /token/refresh (should fail)");
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", at) // Using global AT for convenience here.
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put(Token.REFRESH_TOKEN, rt).encode())
+          .post("/token/refresh")
+          .then()
+          .statusCode(401);
+     }
+
+    @Test
     public void testWildCardPermissions() throws JOSEException, ParseException {
       logger.info("Test with wildcard permission - bad X-Okapi-Url");
       given()

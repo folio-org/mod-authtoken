@@ -73,6 +73,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
         new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/token/refresh",
         new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
+    routes.add(new Route("/token/logout",
+        new String[] { }, RoutingContext::next));
+        routes.add(new Route("/token/logout-all",
+        new String[] { }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
         new String[] {}, RoutingContext::next));
     // The "legacy" routes.
@@ -234,7 +238,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
   private void handleRefresh(RoutingContext ctx) {
     try {
-      String content = ctx.getBodyAsString();
+      String content = ctx.body().asString();
       JsonObject requestJson = new JsonObject(content);
       String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
 
@@ -259,6 +263,41 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     }
   }
 
+  private void handleTokenLogout(RoutingContext ctx) {
+    try {
+      logger.debug("Called handleTokenLogout");
+      String content = ctx.body().asString();
+      JsonObject requestJson = new JsonObject(content);
+      String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+
+      RefreshToken rt = (RefreshToken)Token.parse(encryptedJWE, tokenCreator);
+
+      var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
+      refreshTokenStore.revokeToken(rt)
+          .onSuccess(x -> endNoContent(ctx, 204))
+          .onFailure(e -> handleTokenValidationFailure(e, ctx));
+    } catch (Exception e) {
+      endText(ctx, 500, String.format("Unanticipated exception when handling token logout: %s", e.getMessage()));
+    }
+  }
+
+  private void handleTokenLogoutAll(RoutingContext ctx) {
+    try {
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+      String accessTokenString = ctx.request().headers().get(XOkapiHeaders.TOKEN);
+
+      AccessToken at = (AccessToken)Token.parse(accessTokenString, tokenCreator);
+
+      var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
+      refreshTokenStore.revokeAllTokensForUser(at.getUserId())
+          .onSuccess(x -> endNoContent(ctx, 204))
+          .onFailure(e -> handleTokenValidationFailure(e, ctx));
+    } catch (Exception e) {
+      endText(ctx, 500, String.format("Unanticipated exception when handling token logout all: %s", e.getMessage()));
+    }
+  }
+
   // Legacy methods. These next two methods can be removed once we stop supporting
   // legacy tokens.
 
@@ -266,7 +305,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       // X-Okapi-Tenant and X-Okapi-Url are already checked in FilterApi.
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      final String content = ctx.getBodyAsString();
+      final String content = ctx.body().asString();
       JsonObject json;
       JsonObject payload;
       json = new JsonObject(content);
@@ -308,7 +347,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       String address = ctx.request().remoteAddress().host();
-      String content = ctx.getBodyAsString();
+      String content = ctx.body().asString();
       JsonObject requestJson = new JsonObject(content);
       String userId = requestJson.getString(USER_ID);
       String sub = requestJson.getString("sub");
@@ -317,40 +356,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);
-    }
-  }
-
-  private void handleTokenLogout(RoutingContext ctx) {
-    try {
-      String content = ctx.getBodyAsString();
-      JsonObject requestJson = new JsonObject(content);
-      String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
-      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-
-      RefreshToken rt = (RefreshToken)Token.parse(encryptedJWE, tokenCreator);
-
-      var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
-      refreshTokenStore.revokeToken(rt)
-          .onSuccess(x -> endNoContent(ctx, 204))
-          .onFailure(e -> handleTokenValidationFailure(e, ctx));
-    } catch (Exception e) {
-      endText(ctx, 500, String.format("Unanticipated exception when handling token logout: %s", e.getMessage()));
-    }
-  }
-
-  private void handleTokenLogoutAll(RoutingContext ctx) {
-    try {
-      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      String accessTokenString = ctx.request().headers().get(XOkapiHeaders.TOKEN);
-
-      AccessToken at = (AccessToken)Token.parse(accessTokenString, tokenCreator);
-
-      var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
-      refreshTokenStore.revokeAllTokensForUser(at.getUserId())
-          .onSuccess(x -> endNoContent(ctx, 204))
-          .onFailure(e -> handleTokenValidationFailure(e, ctx));
-    } catch (Exception e) {
-      endText(ctx, 500, String.format("Unanticipated exception when handling token logout all: %s", e.getMessage()));
     }
   }
 }
