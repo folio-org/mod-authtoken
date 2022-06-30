@@ -217,10 +217,8 @@ public class AuthTokenTest {
   @Test
   public void httpWithoutLoginToken() {
     // A request that should succeed even without any credentials in the request, we
-    // get back the
-    // whole lot, most notably a token that certifies the fact that we have a
-    // tenant, but
-    // have not yet identified ourself.
+    // get back the whole lot, most notably a token that certifies the fact that we have a
+    // tenant, but have not yet identified ourself.
     Response r = given()
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Url", "http://localhost:" + freePort)
@@ -230,7 +228,6 @@ public class AuthTokenTest {
         .header("X-Okapi-Permissions", "[]")
         .header("X-Okapi-Module-Tokens", startsWith("{\"_\":\""))
         .header("X-Okapi-Token", not(emptyString()))
-        .header("Authorization", startsWith("Bearer "))
         .extract().response();
     final String noLoginToken = r.getHeader(XOkapiHeaders.TOKEN);
 
@@ -318,48 +315,11 @@ public class AuthTokenTest {
     final JsonObject modtoks = new JsonObject(modTokens);
     final String barToken = modtoks.getString("bar");
 
-    logger.info("Test with conflicting Authorization and X-Okapi-Token");
-    given()
-        .header("Authorization", "guf")
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", barToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("X-Okapi-Permissions-Desired", "bar.first")
-        .header("X-Okapi-Permissions-Required", "bar.second")
-        .get("/bar")
-        .then()
-        .statusCode(400)
-        .body(containsString("More than one authorization header received"));
-
-    logger.info("Test with conflicting Authorization and X-Okapi-Token (2)");
-    given()
-        .header("Authorization", "Bearer guf")
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", barToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("X-Okapi-Permissions-Desired", "bar.first")
-        .header("X-Okapi-Permissions-Required", "bar.second")
-        .get("/bar")
-        .then()
-        .statusCode(400)
-        .body(containsString("More than one authorization header received"));
-
     logger.info("Test with Authorization=X-Okapi-Token");
     given()
         .header("Authorization", "Bearer " + barToken)
         .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Token", barToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("X-Okapi-Permissions-Desired", "bar.first")
-        .header("X-Okapi-Permissions-Required", "bar.second")
-        .get("/bar")
-        .then()
-        .statusCode(202);
-
-    logger.info("Test with Authorization and no X-Okapi-Token");
-    given()
-        .header("Authorization", "Bearer " + barToken)
-        .header("X-Okapi-Tenant", tenant)
         .header("X-Okapi-Url", "http://localhost:" + freePort)
         .header("X-Okapi-Permissions-Desired", "bar.first")
         .header("X-Okapi-Permissions-Required", "bar.second")

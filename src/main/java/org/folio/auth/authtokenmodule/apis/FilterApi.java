@@ -117,22 +117,9 @@ public class FilterApi extends Api implements RouterCreator {
     String zapCacheString = ctx.request().headers().get(MainVerticle.ZAP_CACHE_HEADER);
     boolean zapCache = "true".equals(zapCacheString);
 
-    // The candidate token will either be presented in one of three forms
-    // (an Authorization header, a X-Okapi-Token header, or in a Cookie header)
-    // or it will be present in none of those headers. In that case it will be null
-    // and a dummy token will be substituted.
-    String candidateToken;
-    try {
-      candidateToken = getAccessTokenFromHeaders(ctx.request().headers());
-    } catch (TokenHeaderMalformedException e) {
-      logger.debug("Caught exception in catch");
-      endText(ctx, 400, e.getMessage());
-      return;
-    }
-
-    // When it doesn't work it never reaches this point...
-    logger.debug("Candidate token outside method is {}", candidateToken);
-
+    // The candidate token will either be present or null. If it is null a dummy token
+    // is assigned.
+    String candidateToken = ctx.request().headers().get(XOkapiHeaders.TOKEN);
     final boolean isDummyToken = candidateToken == null;
     if (isDummyToken) {
       logger.debug("Generating dummy authtoken");
@@ -389,7 +376,6 @@ public class FilterApi extends Api implements RouterCreator {
             .putHeader(MainVerticle.CONTENT_TYPE, "text/plain")
             .putHeader(XOkapiHeaders.PERMISSIONS, permissions.encode())
             .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
-            .putHeader("Authorization", "Bearer " + finalToken)
             .putHeader(XOkapiHeaders.TOKEN, finalToken);
 
         if (finalUserId != null) {
@@ -408,88 +394,5 @@ public class FilterApi extends Api implements RouterCreator {
         perms.add(permName);
       }
     }
-  }
-
-  public String getBearerTokenFromAuthorizationHeader(String authorizationHeader) {
-    // Grab anything after 'Bearer' and whitespace
-    Pattern pattern = Pattern.compile("Bearer\\s+(.+)");
-    Matcher matcher = pattern.matcher(authorizationHeader);
-    if (matcher.find()) {
-      return matcher.group(1);
-    }
-    return null;
-  }
-
-  private String getAccessTokenFromCookie(String cookieHeader) {
-    if (cookieHeader == null) {
-      return null;
-    }
-    String[] cookies = cookieHeader.split(";");
-    for (String c : cookies) {
-      String[] cookeNameValue = c.trim().split("=", 2);
-      String cookieName = cookeNameValue[0].trim();
-      String cookieValue = cookeNameValue[1].trim();
-      if (cookieName.equals(Token.ACCESS_TOKEN)) {
-        return cookieValue;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Tokens can arrive in one of three headers. For historical reasons we don't always fail
-   * if more than one token is present. Instead we allow certain combinations based on the
-   * conditions in this method.
-   * 1. None are present. Return null.
-   * 2. More than one is present. Throw an exception under certain combinations
-   * 3. If the conditions are met, return a token.
-   */
-  private String getAccessTokenFromHeaders(MultiMap headerMap) throws TokenHeaderMalformedException {
-    String cookieHeader = getAccessTokenFromCookie(headerMap.get("Cookie"));
-    String okapiTokenHeader = headerMap.get(XOkapiHeaders.TOKEN);
-    String authHeader = headerMap.get("Authorization");
-    String authBearer = null;
-
-    // The authorization header has the Bearer attribute which we need to deal with here.
-    if (authHeader != null) {
-      authBearer = getBearerTokenFromAuthorizationHeader(authHeader);
-    }
-
-    var headers = new String[] { cookieHeader, okapiTokenHeader, authHeader };
-    int headerCount = 0;
-    for (String h : headers) {
-      if (h != null) {
-        headerCount++;
-      }
-    }
-
-    if (headerCount > 1) {
-      logger.debug("The header count is > 1");
-      // It's ok if x-okapi-token and authorization are the same. This is for backwards compatibility
-      // since historically the presence of more than one header was allowed if these two tokens were equal.
-      if (okapiTokenHeader.equals(authBearer)) {
-        return okapiTokenHeader;
-      }
-
-      String msg = "More than one authorization header received";
-      throw new TokenHeaderMalformedException(msg);
-    }
-
-    // One of these headers having a value is what we would normally expect although it is also possible
-    // that none will have a value.
-    if (cookieHeader != null) {
-      return cookieHeader;
-    }
-
-    if (authBearer != null) {
-      return authBearer;
-    }
-
-    if (okapiTokenHeader != null) {
-      return okapiTokenHeader;
-    }
-
-    logger.debug("The header count is 0. Returning null.");
-    return null;
   }
 }
