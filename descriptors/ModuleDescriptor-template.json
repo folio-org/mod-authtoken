@@ -34,11 +34,13 @@
         },
         {
           "methods": [ "POST" ],
-          "pathPattern": "/token/logout"
+          "pathPattern": "/token/logout",
+          "permissionsRequired" : [ ]
         },
         {
           "methods": [ "DELETE" ],
-          "pathPattern": "/token/logout-all"
+          "pathPattern": "/token/logout-all",
+          "permissionsRequired" : [ ]
         }
       ]
     },
