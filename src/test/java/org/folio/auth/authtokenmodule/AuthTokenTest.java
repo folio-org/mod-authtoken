@@ -1137,7 +1137,7 @@ public class AuthTokenTest {
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
           .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout-all") + "\"]")
-          .post("/token/logout-all")
+          .put("/token/logout-all")
           .then()
           .statusCode(405);
 
@@ -1148,7 +1148,7 @@ public class AuthTokenTest {
           .header("X-Okapi-Url", "http://localhost:" + mockPort)
           .header("Content-type", "application/json")
           .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout-all") + "\"]")
-          .delete("/token/logout-all")
+          .post("/token/logout-all")
           .then()
           .statusCode(204);
 

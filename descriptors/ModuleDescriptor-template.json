@@ -38,7 +38,7 @@
           "permissionsRequired" : [ ]
         },
         {
-          "methods": [ "DELETE" ],
+          "methods": [ "POST" ],
           "pathPattern": "/token/logout-all",
           "permissionsRequired" : [ ]
         }
