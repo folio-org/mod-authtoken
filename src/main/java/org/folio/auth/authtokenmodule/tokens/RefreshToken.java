@@ -16,8 +16,8 @@ public class RefreshToken extends Token {
   /**
    * A string representation of the type of this token.
    */
-  public static final String TYPE = "refresh"
-  
+  public static final String TYPE = "refresh";
+
   /**
    * Time after which token is expired. 604800 seconds = 7 days.
    */

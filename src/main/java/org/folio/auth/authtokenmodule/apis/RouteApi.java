@@ -258,7 +258,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
         returnTokens(ctx, tenant, username, userId, responseObject);
       });
     } catch (Exception e) {
-      endText(ctx, 500, String.format("Unanticipated exception when handling refresh: %s", e.getMessage()));
+      endText(ctx, 500, "Cannot handle refresh: " + e.getMessage());
     }
   }
 
@@ -276,7 +276,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
           .onSuccess(x -> endNoContent(ctx, 204))
           .onFailure(e -> handleTokenValidationFailure(e, ctx));
     } catch (Exception e) {
-      endText(ctx, 500, String.format("Unanticipated exception when handling token logout: %s", e.getMessage()));
+      endText(ctx, 500, "Cannot handle token logout:" + e.getMessage());
     }
   }
 
@@ -294,7 +294,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
           .onSuccess(x -> endNoContent(ctx, 204))
           .onFailure(e -> handleTokenValidationFailure(e, ctx));
     } catch (Exception e) {
-      endText(ctx, 500, String.format("Unanticipated exception when handling token logout all: %s", e.getMessage()));
+      endText(ctx, 500, "Cannot handle token logout all: " + e.getMessage());
     }
   }
 

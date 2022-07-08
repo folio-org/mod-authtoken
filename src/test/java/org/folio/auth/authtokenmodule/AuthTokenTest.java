@@ -1130,7 +1130,7 @@ public class AuthTokenTest {
       logger.info("Create some refresh tokens for logout all test");
       var tokens = createListOfRefreshTokens();
 
-      logger.info("POST /token/logout-all (bad method)");
+      logger.info("PUT /token/logout-all (bad method)");
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
@@ -1141,7 +1141,7 @@ public class AuthTokenTest {
           .then()
           .statusCode(405);
 
-      logger.info("DELETE /token/logout-all");
+      logger.info("POST /token/logout-all");
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
