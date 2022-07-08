@@ -238,8 +238,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
   private void handleRefresh(RoutingContext ctx) {
     try {
-      String content = ctx.body().asString();
-      JsonObject requestJson = new JsonObject(content);
+      JsonObject requestJson = ctx.body().asJsonObject();
       String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
 
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
@@ -266,8 +265,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private void handleTokenLogout(RoutingContext ctx) {
     try {
       logger.debug("Called handleTokenLogout");
-      String content = ctx.body().asString();
-      JsonObject requestJson = new JsonObject(content);
+      JsonObject requestJson = ctx.body().asJsonObject();
       String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
 
@@ -307,10 +305,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       // X-Okapi-Tenant and X-Okapi-Url are already checked in FilterApi.
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      final String content = ctx.body().asString();
-      JsonObject json;
+      JsonObject json = ctx.body().asJsonObject();
       JsonObject payload;
-      json = new JsonObject(content);
       payload = json.getJsonObject("payload");
 
       // Both types of signing requests (dummy and access) have only this property in
@@ -349,8 +345,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       String address = ctx.request().remoteAddress().host();
-      String content = ctx.body().asString();
-      JsonObject requestJson = new JsonObject(content);
+      JsonObject requestJson = ctx.body().asJsonObject();
       String userId = requestJson.getString(USER_ID);
       String sub = requestJson.getString("sub");
       String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
