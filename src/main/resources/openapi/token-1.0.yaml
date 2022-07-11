@@ -13,7 +13,7 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Sign token legacy
+      description: Returns a signed, non-expiring legacy access token.
       operationId: token-legacy
       requestBody:
         content:
@@ -37,7 +37,9 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Sign token
+      description: |
+        Returns a signed, expiring refresh token. This is a legacy endpoint and should not be
+        called by new code and will soon be fully depreciated.
       operationId: token-sign-legacy
       requestBody:
         content:
@@ -63,7 +65,10 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Sign token
+      description: |
+        Returns a signed, expiring access token and refresh token. Also returns the expiration
+        of each token in the body of the response.The access token time to live is 10 minutes and
+        the refresh token is one week.
       operationId: token-sign
       requestBody:
         content:
@@ -87,7 +92,10 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Get a new refresh token and a new access token
+      description: |
+        May be called to obtain a new refresh token and a new access token. Returns a signed, expiring
+        access token and refresh token. Also returns the expiration of each token in the body of the
+        response. The access token time to live is 10 minutes and the refresh token is one week.
       operationId: token-refresh
       requestBody:
         content:
@@ -101,7 +109,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/refreshTokenResponse"
+                $ref: "#/components/schemas/tokenResponse"
         "400":
           $ref: "#/components/responses/trait_400"
         "500":
@@ -165,8 +173,6 @@ components:
       $ref: schemas/refreshToken.json
     tokenResponse:
       $ref: schemas/tokenResponse.json
-    refreshTokenResponse:
-      $ref: schemas/refreshTokenResponse.json
     tokenResponseLegacy:
       $ref: schemas/tokenResponseLegacy.json
     signTokenPayload:

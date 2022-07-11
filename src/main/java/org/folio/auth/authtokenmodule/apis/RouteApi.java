@@ -203,34 +203,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     }
   }
 
-  private void returnTokens(
-      RoutingContext ctx,
-      String tenant,
-      String username,
-      String userId,
-      JsonObject responseObject) {
-
-    String address = ctx.request().remoteAddress().host();
-    var rt = new RefreshToken(tenant, username, userId, address);
-    var at = new AccessToken(tenant, username, userId);
-
-    try {
-      responseObject.put(Token.ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));
-      responseObject.put(Token.REFRESH_TOKEN, rt.encodeAsJWE(tokenCreator));
-      responseObject.put(Token.ACCESS_TOKEN_EXPIRATION, at.getExpiresAtInIso8601Format());
-      responseObject.put(Token.REFRESH_TOKEN_EXPIRATION, rt.getExpiresAtInIso8601Format());
-    } catch (JOSEException e) {
-      endText(ctx, 500, "Unable to encode token", e);
-    } catch (ParseException e) {
-      endText(ctx, 500, "Parse exception", e);
-    }
-
-    // Save the RT to track one-time use.
-    new RefreshTokenStore(vertx, tenant).saveToken(rt)
-        .onSuccess(x -> endJson(ctx, 201, responseObject.encode()))
-        .onFailure(e -> handleTokenValidationFailure(e, ctx));
-  }
-
   // Use to determine the type of signing request.
   private boolean isDummyTokenSigningRequest(JsonObject payload) {
     return payload.getBoolean("dummy", Boolean.FALSE); // True property if present, otherwise false.
@@ -260,6 +232,34 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     } catch (Exception e) {
       endText(ctx, 500, "Cannot handle refresh: " + e.getMessage());
     }
+  }
+
+  private void returnTokens(
+      RoutingContext ctx,
+      String tenant,
+      String username,
+      String userId,
+      JsonObject responseObject) {
+
+    String address = ctx.request().remoteAddress().host();
+    var rt = new RefreshToken(tenant, username, userId, address);
+    var at = new AccessToken(tenant, username, userId);
+
+    try {
+      responseObject.put(Token.ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));
+      responseObject.put(Token.REFRESH_TOKEN, rt.encodeAsJWE(tokenCreator));
+      responseObject.put(Token.ACCESS_TOKEN_EXPIRATION, at.getExpiresAtInIso8601Format());
+      responseObject.put(Token.REFRESH_TOKEN_EXPIRATION, rt.getExpiresAtInIso8601Format());
+    } catch (JOSEException e) {
+      endText(ctx, 500, "Unable to encode token", e);
+    } catch (ParseException e) {
+      endText(ctx, 500, "Parse exception", e);
+    }
+
+    // Save the RT to track one-time use.
+    new RefreshTokenStore(vertx, tenant).saveToken(rt)
+        .onSuccess(x -> endJson(ctx, 201, responseObject.encode()))
+        .onFailure(e -> handleTokenValidationFailure(e, ctx));
   }
 
   private void handleTokenLogout(RoutingContext ctx) {
