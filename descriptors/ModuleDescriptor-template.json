@@ -34,12 +34,12 @@
         },
         {
           "methods": [ "POST" ],
-          "pathPattern": "/token/logout",
+          "pathPattern": "/token/invalidate",
           "permissionsRequired" : [ ]
         },
         {
           "methods": [ "POST" ],
-          "pathPattern": "/token/logout-all",
+          "pathPattern": "/token/invalidate-all",
           "permissionsRequired" : [ ]
         }
       ]

@@ -1077,38 +1077,38 @@ public class AuthTokenTest {
       String rt = response.extract().path(Token.REFRESH_TOKEN);
       String at = response.extract().path(Token.ACCESS_TOKEN);
 
-      logger.info("PUT /token/logout (bad method)");
+      logger.info("PUT /token/invalidate (bad method)");
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", at)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout") + "\"]")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/invalidate") + "\"]")
           .body(new JsonObject().put(Token.REFRESH_TOKEN, rt).encode())
-          .put("/token/logout")
+          .put("/token/invalidate")
           .then()
           .statusCode(405);
 
-      logger.info("POST /token/logout (bad request - no RT provided)");
+      logger.info("POST /token/invalidate (bad request - no RT provided)");
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", at)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout") + "\"]")
-          .post("/token/logout")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/invalidate") + "\"]")
+          .post("/token/invalidate")
           .then()
           .statusCode(400);
 
-      logger.info("POST /token/logout");
+      logger.info("POST /token/invalidate");
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", at)
           .header("X-Okapi-Url", "http://localhost:" + mockPort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout") + "\"]")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/invalidate") + "\"]")
           .body(new JsonObject().put(Token.REFRESH_TOKEN, rt).encode())
-          .post("/token/logout")
+          .post("/token/invalidate")
           .then()
           .statusCode(204);
 
@@ -1130,25 +1130,25 @@ public class AuthTokenTest {
       logger.info("Create some refresh tokens for logout all test");
       var tokens = createListOfRefreshTokens();
 
-      logger.info("PUT /token/logout-all (bad method)");
+      logger.info("PUT /token/invalidate-all (bad method)");
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout-all") + "\"]")
-          .put("/token/logout-all")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/invalidate-all") + "\"]")
+          .put("/token/invalidate-all")
           .then()
           .statusCode(405);
 
-      logger.info("POST /token/logout-all");
+      logger.info("POST /token/invalidate-all");
       given()
           .header("X-Okapi-Tenant", tenant)
           .header("X-Okapi-Token", accessToken)
           .header("X-Okapi-Url", "http://localhost:" + mockPort)
           .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/logout-all") + "\"]")
-          .post("/token/logout-all")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/invalidate-all") + "\"]")
+          .post("/token/invalidate-all")
           .then()
           .statusCode(204);
 
