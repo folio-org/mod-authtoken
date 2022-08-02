@@ -71,7 +71,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     routes.add(new Route("/token/sign",
         new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/token/refresh",
-        new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
+        new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/token/invalidate-all",
         new String[] { }, RoutingContext::next));
     // Must come after /invalidate-all because of startsWithMatching in Route.java.
