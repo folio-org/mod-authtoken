@@ -189,7 +189,7 @@ public class FilterApi extends Api implements RouterCreator {
       if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
         String modPermsHeader = ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS);
         logger.debug("Module permissions from X-Okapi-Module-Permissions header: {}", modPermsHeader);
-        JsonObject modulePermissions = new JsonObject();
+        JsonObject modulePermissions = new JsonObject(modPermsHeader);
         for (String moduleName : modulePermissions.fieldNames()) {
           JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
           String moduleToken;
