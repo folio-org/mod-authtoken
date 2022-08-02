@@ -188,6 +188,7 @@ public class FilterApi extends Api implements RouterCreator {
       /* TODO get module permissions (if they exist) */
       if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
         JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS));
+        logger.debug("Module permissions from X-Okapi-Module-Permissions header: {}", modulePermissions);
         for (String moduleName : modulePermissions.fieldNames()) {
           JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
           String moduleToken;
@@ -213,7 +214,7 @@ public class FilterApi extends Api implements RouterCreator {
        * the permission in its permissions list, it cannot request a token unless
        * it has been granted at the module level. If it passes the filter successfully,
        * a new permission, auth.signtoken.execute is attached to the outgoing request
-       * which the /token handler will check for when it processes the actual request
+       * which the /token/.. handlers will check for when it processes the actual request
        */
       if (routeApi.tryHandleRoute(ctx, authToken, moduleTokens.encode())) {
         logger.debug("Handled mod-authtoken route request");

@@ -59,6 +59,7 @@ public class Route {
     JsonObject claims = Token.getClaims(authToken);
     JsonArray extraPermissions = claims.getJsonArray("extra_permissions");
     if (extraPermissions == null) {
+      logger.debug("extra_permissions from ModuleToken is null");
       extraPermissions = new JsonArray();
     }
     if (!ctx.request().path().startsWith(endpoint)) {
@@ -76,12 +77,17 @@ public class Route {
         logger.warn(String.format("Headers are: %s", ctx.request().headers().toString()));
       }
     }
+
+    // The first time this is called there won't be a magic permission yet so we don't yet call
+    // the actual route but instead apply the magic perm.
     if (requestPerms != null && requestPerms.contains(getMagicPermission(endpoint))) {
-      logger.debug("Calling handler for {} with POST body of {}", endpoint, ctx.getBodyAsString());
+      // If we've reached this code this is the second request and the magic perm exists.
+      logger.debug("Magic perm found. Calling handler for {}", endpoint);
       handler.handle(ctx);
       return true;
     }
-    // Check for permissions
+    // If we've reached this point, this is still the first time the perm has been called so we
+    // make sure the permissions exist in storage.
     extraPermissions = PermService.expandSystemPermissionsUsingCache(extraPermissions);
     boolean allFound = true;
     for (String perm : requiredPermissions) {
@@ -98,8 +104,9 @@ public class Route {
         .end(String.format("Missing required module-level permissions for endpoint '%s': %s",
           endpoint, String.join(", ", requiredPermissions)));
     } else {
-      logger.debug("Responding with magic permission for Route");
+      logger.debug("Responding with magic permission for route: {}", endpoint);
 
+      // Finally respond with the magic perm header. This is the first request still.
       String magicPermission = getMagicPermission(endpoint);
       ctx.response()
         .setChunked(true)
