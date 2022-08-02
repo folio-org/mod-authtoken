@@ -86,8 +86,8 @@ public class Route {
       handler.handle(ctx);
       return true;
     }
-    // If we've reached this point, this is still the first time the perm has been called so we
-    // make sure the permissions exist in storage.
+    // If we've reached this point, this is still the first time the method has been called so we
+    // make sure the permissions exist.
     extraPermissions = PermService.expandSystemPermissionsUsingCache(extraPermissions);
     boolean allFound = true;
     for (String perm : requiredPermissions) {
