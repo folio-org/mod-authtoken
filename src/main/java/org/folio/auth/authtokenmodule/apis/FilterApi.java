@@ -222,7 +222,7 @@ public class FilterApi extends Api implements RouterCreator {
          * a new permission, auth.signtoken.execute is attached to the outgoing request
          * which the /token/.. handlers will check for when it processes the actual request
          */
-        if (routeApi.tryHandleRoute(ctx, authToken, moduleTokens.encode(), extraPermissions)) {
+        if (routeApi.tryHandleRoute(ctx, authToken, moduleTokens.encode(), expandedPermissions)) {
           logger.debug("Handled mod-authtoken route request");
           return;
         }

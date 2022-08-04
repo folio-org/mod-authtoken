@@ -7,7 +7,6 @@ import io.vertx.ext.web.RoutingContext;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.folio.auth.authtokenmodule.PermService;
 import org.folio.okapi.common.XOkapiHeaders;
 
 import java.util.ArrayList;
@@ -49,11 +48,11 @@ public class Route {
    * @param ctx The current http context.
    * @param authToken The token in scope.
    * @param moduleTokens A string representation of the module tokens in scope.
-   * @param extraPermissions permissions from token or header.
+   * @param expandedPermissions expanded permissions from token or header.
    * @return True if the route should be handled, otherwise false if a pass-through.
    */
   public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens,
-    JsonArray extraPermissions) {
+    JsonArray expandedPermissions) {
     if (!ctx.request().path().startsWith(endpoint)) {
       return false;
     }
@@ -81,10 +80,9 @@ public class Route {
     }
     // If we've reached this point, this is still the first time the method has been called so we
     // make sure the permissions exist.
-    extraPermissions = PermService.expandSystemPermissionsUsingCache(extraPermissions);
     boolean allFound = true;
     for (String perm : requiredPermissions) {
-      if (!extraPermissions.contains(perm)) {
+      if (!expandedPermissions.contains(perm)) {
         allFound = false;
         break;
       }

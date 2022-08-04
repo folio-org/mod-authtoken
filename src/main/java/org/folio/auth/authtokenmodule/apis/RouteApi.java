@@ -138,12 +138,12 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
    * @param ctx          The current http context.
    * @param authToken    The auth token in scope for this request.
    * @param moduleTokens An encoded JSON object of module tokens.
-   * @param extraPermissions extra permissions from token or header.
+   * @param expandedPermissions expanded permissions from token or header.
    */
   public boolean tryHandleRoute(RoutingContext ctx, String authToken, String moduleTokens,
-    JsonArray extraPermissions) {
+    JsonArray expandedPermissions) {
     for (Route route : routes) {
-      if (route.handleRoute(ctx, authToken, moduleTokens, extraPermissions)) {
+      if (route.handleRoute(ctx, authToken, moduleTokens, expandedPermissions)) {
         return true;
       }
     }
