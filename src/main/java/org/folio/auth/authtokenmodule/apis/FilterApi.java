@@ -91,7 +91,7 @@ public class FilterApi extends Api implements RouterCreator {
   }
 
   private void handleAuthorize(RoutingContext ctx) {
-    logger.debug("handleAuthorize path={}", ctx.request().path());
+    logger.debug("handleAuthorize path={}", () -> ctx.request().path());
     String requestId = ctx.request().headers().get(XOkapiHeaders.REQUEST_ID);
     String userId = ctx.request().headers().get(XOkapiHeaders.USER_ID);
     String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
