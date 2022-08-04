@@ -2,6 +2,7 @@ package org.folio.auth.authtokenmodule.apis;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.core.json.JsonObject;
@@ -137,10 +138,12 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
    * @param ctx          The current http context.
    * @param authToken    The auth token in scope for this request.
    * @param moduleTokens An encoded JSON object of module tokens.
+   * @param extraPermissions extra permissions from token or header.
    */
-  public boolean tryHandleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
+  public boolean tryHandleRoute(RoutingContext ctx, String authToken, String moduleTokens,
+    JsonArray extraPermissions) {
     for (Route route : routes) {
-      if (route.handleRoute(ctx, authToken, moduleTokens)) {
+      if (route.handleRoute(ctx, authToken, moduleTokens, extraPermissions)) {
         return true;
       }
     }

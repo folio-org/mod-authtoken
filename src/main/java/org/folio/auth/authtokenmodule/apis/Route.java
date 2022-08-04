@@ -3,13 +3,11 @@ package org.folio.auth.authtokenmodule.apis;
 import com.nimbusds.jose.util.Base64;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.PermService;
-import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.okapi.common.XOkapiHeaders;
 
 import java.util.ArrayList;
@@ -51,20 +49,15 @@ public class Route {
    * @param ctx The current http context.
    * @param authToken The token in scope.
    * @param moduleTokens A string representation of the module tokens in scope.
+   * @param extraPermissions permissions from token or header.
    * @return True if the route should be handled, otherwise false if a pass-through.
    */
-  public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
-    logger.debug("Handling route for endpoint {}", endpoint);
-
-    JsonObject claims = Token.getClaims(authToken);
-    JsonArray extraPermissions = claims.getJsonArray("extra_permissions");
-    if (extraPermissions == null) {
-      logger.debug("extra_permissions from ModuleToken is null");
-      extraPermissions = new JsonArray();
-    }
+  public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens,
+    JsonArray extraPermissions) {
     if (!ctx.request().path().startsWith(endpoint)) {
       return false;
     }
+    logger.debug("Handling route for endpoint {}", endpoint);
     JsonArray requestPerms = null;
     String permissionsHeader = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS);
     // Vert.x 3.5.4 accepted null for JsonArray constructor; Vert.x 3.9.1 does not
