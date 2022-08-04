@@ -269,8 +269,6 @@ public class FilterApi extends Api implements RouterCreator {
           activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
         }
         Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
-          logger.info("AD: retrievedPermissionsSource b={} extraPermissions={}",
-            b, extraPermissions.encodePrettily());
           if (TRUE.equals(b)) {
             JsonArray extraPermsMinusSystemOnes = new JsonArray();
             extraPermissions.forEach(it -> {
