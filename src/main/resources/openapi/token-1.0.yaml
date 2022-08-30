@@ -67,7 +67,7 @@ paths:
     post:
       description: |
         Returns a signed, expiring access token and refresh token. Also returns the expiration
-        of each token in the body of the response.The access token time to live is 10 minutes and
+        of each token in the body of the response. The access token time to live is 10 minutes and
         the refresh token is one week.
       operationId: token-sign
       requestBody:
@@ -119,8 +119,8 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Logout a single token
-      operationId: token-logout
+      description: Invalidate a single token
+      operationId: token-invalidate
       requestBody:
         content:
           application/json:
@@ -129,7 +129,7 @@ paths:
         required: true
       responses:
         "204":
-          description: Logged out token successfully
+          description: Invalidated token successfully
         "400":
           $ref: "#/components/responses/trait_400"
         "500":
@@ -139,11 +139,11 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Logout all tokens for a user
-      operationId: token-logout-all
+      description: Invalidate all tokens for a user
+      operationId: token-invalidate-all
       responses:
         "204":
-          description: Logged out token successfully
+          description: Invalidated token successfully
         "400":
           $ref: "#/components/responses/trait_400"
         "500":

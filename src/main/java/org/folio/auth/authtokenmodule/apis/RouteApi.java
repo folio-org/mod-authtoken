@@ -106,10 +106,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
               .operation("token-sign")
               .handler(this::handleSignToken);
            routerBuilder
-              .operation("token-logout")
+              .operation("token-invalidate")
               .handler(this::handleTokenLogout);
            routerBuilder
-              .operation("token-logout-all")
+              .operation("token-invalidate-all")
               .handler(this::handleTokenLogoutAll);
           return routerBuilder.createRouter();
         });
