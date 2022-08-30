@@ -93,9 +93,9 @@ paths:
       - $ref: headers/okapi-url-required.yaml
     post:
       description: |
-        May be called to obtain a new refresh token and a new access token. Returns a signed, expiring
-        access token and refresh token. Also returns the expiration of each token in the body of the
-        response. The access token time to live is 10 minutes and the refresh token is one week.
+        Returns a new refresh token and a new access token. Also returns the expiration of each token
+        in the body of the response. Time to live is 10 minutes for the access token and one week for
+        the refresh token.
       operationId: token-refresh
       requestBody:
         content:
@@ -143,7 +143,7 @@ paths:
       operationId: token-invalidate-all
       responses:
         "204":
-          description: Invalidated token successfully
+          description: Invalidated tokens successfully
         "400":
           $ref: "#/components/responses/trait_400"
         "500":
