@@ -192,10 +192,20 @@ public abstract class Token {
           + "or by running multiple mod-authtoken instances without setting the same jwt.signing.key.";
       throw new TokenValidationException(msg, b, 401);
     }
+    return parse(sourceToken, claims);
+  }
 
+  public static Token parse(String sourceToken, JsonObject claims) throws TokenValidationException {
     String tokenType = claims.getString("type");
-    if (tokenType == null)
-      throw new TokenValidationException("Token has no type", 400);
+    if (tokenType == null) {
+      if (TRUE.equals(claims.getBoolean("dummy"))) {
+        claims.put("type", DummyToken.TYPE);
+        return new DummyToken(sourceToken, claims);
+      } else {
+        claims.put("type", LegacyAccessToken.TYPE);
+        return new LegacyAccessToken(sourceToken, claims);
+      }
+    }
 
     switch (tokenType) {
       case LegacyAccessToken.TYPE:
