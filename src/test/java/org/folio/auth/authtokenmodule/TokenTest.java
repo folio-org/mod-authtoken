@@ -82,7 +82,7 @@ public class TokenTest {
       .put("dummy", true)
       .put("tenant", "lib");
     Token parse = Token.parse(".", claims);
-    assertThat(parse instanceof DummyToken, is(true));
+    assertThat(parse, is(instanceOf(DummyToken.class)));
   }
 
   @Test
@@ -90,7 +90,7 @@ public class TokenTest {
     JsonObject claims = new JsonObject()
       .put("tenant", "lib");
     Token parse = Token.parse(".", claims);
-    assertThat(parse instanceof LegacyAccessToken, is(true));
+    assertThat(parse, is(instanceOf(LegacyAccessToken.class)));
   }
 
   @Test
