@@ -182,10 +182,8 @@ public abstract class Token {
         tokenCreator.checkJWTToken(sourceToken);
         claims = getClaims(sourceToken);
       }
-    } catch (ParseException p) {
+    } catch (ParseException|JOSEException p) {
       throw new TokenValidationException(invalidTokenMsg, p, 401);
-    } catch (JOSEException j) {
-      throw new TokenValidationException(invalidTokenMsg, j, 401);
     } catch (BadSignatureException b) {
       final String msg = "Invalid token signature. "
           + "This might have been caused by a mod-authtoken restart if jwt.signing.key is not set, "
