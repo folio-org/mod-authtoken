@@ -3,11 +3,15 @@ package org.folio.auth.authtokenmodule;
 import java.text.ParseException;
 import com.nimbusds.jose.JOSEException;
 
+import io.vertx.core.json.JsonObject;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
+import org.folio.auth.authtokenmodule.tokens.DummyToken;
+import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import io.vertx.core.Future;
@@ -70,5 +74,40 @@ public class TokenTest {
 
     assertThat(Token.isEncrypted(encryptedToken), is(true));
     assertThat(Token.isEncrypted(unencryptedToken), is(false));
+  }
+
+  @Test
+  public void noTypeDummy() throws TokenValidationException {
+    JsonObject claims = new JsonObject()
+      .put("dummy", true)
+      .put("tenant", "lib");
+    Token parse = Token.parse(".", claims);
+    assertThat(parse, is(instanceOf(DummyToken.class)));
+  }
+
+  @Test
+  public void noTypeLegacyAccess() throws TokenValidationException {
+    JsonObject claims = new JsonObject()
+      .put("tenant", "lib");
+    Token parse = Token.parse(".", claims);
+    assertThat(parse, is(instanceOf(LegacyAccessToken.class)));
+  }
+
+  @Test
+  public void badTypeString() {
+    JsonObject claims = new JsonObject()
+      .put("type", "foo")
+      .put("tenant", "lib");
+    Throwable t = Assert.assertThrows(TokenValidationException.class, () -> Token.parse(".", claims));
+    assertThat(t.getMessage(), is("Unable to parse token"));
+  }
+
+  @Test
+  public void badTypeStructure() {
+    JsonObject claims = new JsonObject()
+      .put("type", 3)
+      .put("tenant", "lib");
+    Throwable t = Assert.assertThrows(TokenValidationException.class, () -> Token.parse(".", claims));
+    assertThat(t.getMessage(), is("Unable to parse token"));
   }
 }
