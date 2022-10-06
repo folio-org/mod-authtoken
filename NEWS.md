@@ -1,3 +1,8 @@
+## 2.11.1 2022-10-06
+
+ * [MODAT-136](https://issues.folio.org/browse/MODAT-136) Fix Upgrade from 2.9.1 (Lotus) to 2.11.0 (Morning Glory) fails
+ * [MODAT-137](https://issues.folio.org/browse/MODAT-137) Upgrade to Vert.x 4.3.3 fixing https for WebClient
+
 ## 2.11.0 2022-06-16
 
 This is the first version of mod-authtoken that uses Postgresql storage.
