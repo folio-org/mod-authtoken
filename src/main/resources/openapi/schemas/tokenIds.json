@@ -1,0 +1,14 @@
+{
+  "description": "A list of token ids",
+  "type": "object",
+  "properties": {
+    "apiTokenIds": {
+      "type": "array",
+      "description": "A list of token ids"
+    }
+  },
+  "required": [
+    "tokenIds"
+  ],
+  "additionalProperties": false
+}

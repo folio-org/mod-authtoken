@@ -27,6 +27,7 @@ import java.text.ParseException;
 
 import com.nimbusds.jose.JOSEException;
 
+import org.apache.commons.lang3.NotImplementedException;
 import org.apache.logging.log4j.LogManager;
 
 import org.folio.tlib.RouterCreator;
@@ -78,6 +79,12 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     // Must come after /invalidate-all because of startsWithMatching in Route.java.
     routes.add(new Route("/token/invalidate",
         new String[] { }, RoutingContext::next));
+    routes.add(new Route("/token/api",
+        new String[] { }, RoutingContext::next));
+    routes.add(new Route("/token/access",
+        new String[] { }, RoutingContext::next));
+    routes.add(new Route("/token/revoke",
+        new String[] { }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
         new String[] {}, RoutingContext::next));
     // The "legacy" routes.
@@ -111,6 +118,18 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
            routerBuilder
               .operation("token-invalidate-all")
               .handler(this::handleTokenLogoutAll);
+           routerBuilder
+              .operation("token-api-create")
+              .handler(this::handleTokenApiCreate);
+           routerBuilder
+              .operation("token-api-list")
+              .handler(this::handleTokenApiList);
+           routerBuilder
+              .operation("token-api-revoke")
+              .handler(this::handleTokenApiRevoke);
+           routerBuilder
+              .operation("token-api-access")
+              .handler(this::handleTokenApiAccess);
           return routerBuilder.createRouter();
         });
   }
@@ -357,5 +376,21 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     } catch (Exception e) {
       endText(ctx, 500, e);
     }
+  }
+
+  private void handleTokenApiRevoke(RoutingContext ctx) {
+    throw new NotImplementedException();
+  }
+
+  private void handleTokenApiList(RoutingContext ctx) {
+    throw new NotImplementedException();
+  }
+
+  private void handleTokenApiCreate(RoutingContext ctx) {
+    throw new NotImplementedException();
+  }
+
+  private void handleTokenApiAccess(RoutingContext ctx) {
+    throw new NotImplementedException();
   }
 }

@@ -1,0 +1,15 @@
+{
+    "description": "An API token",
+    "type": "object",
+    "properties": {
+      "apiToken": {
+        "type": "string",
+        "description": "The API token"
+      }
+    },
+    "required": [
+      "apiToken"
+    ],
+    "additionalProperties": false
+  }
+  
