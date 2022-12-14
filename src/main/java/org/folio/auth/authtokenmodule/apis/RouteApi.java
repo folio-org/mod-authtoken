@@ -43,6 +43,7 @@ import org.folio.tlib.TenantInitHooks;
 public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   private static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
+  private static final String SIGN_API_TOKEN_PERMISSION = "auth.signapitoken";
   private static final String USER_ID = "user_id";
 
   private PermissionsSource permissionsSource;
@@ -80,11 +81,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     routes.add(new Route("/token/invalidate",
         new String[] { }, RoutingContext::next));
     routes.add(new Route("/token/api",
-        new String[] { }, RoutingContext::next));
-    routes.add(new Route("/token/access",
-        new String[] { }, RoutingContext::next));
-    routes.add(new Route("/token/revoke",
-        new String[] { }, RoutingContext::next));
+        new String[] { SIGN_API_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
         new String[] {}, RoutingContext::next));
     // The "legacy" routes.
@@ -119,17 +116,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
               .operation("token-invalidate-all")
               .handler(this::handleTokenLogoutAll);
            routerBuilder
-              .operation("token-api-create")
+              .operation("token-api")
               .handler(this::handleTokenApiCreate);
-           routerBuilder
-              .operation("token-api-list")
-              .handler(this::handleTokenApiList);
-           routerBuilder
-              .operation("token-api-revoke")
-              .handler(this::handleTokenApiRevoke);
-           routerBuilder
-              .operation("token-api-access")
-              .handler(this::handleTokenApiAccess);
           return routerBuilder.createRouter();
         });
   }

@@ -32,6 +32,10 @@
           "pathPattern": "/token/refresh",
           "permissionsRequired": [ "auth.signrefreshtoken" ]
         },
+          "methods": [ "POST" ],
+          "pathPattern": "/token/api",
+          "permissionsRequired": [ "auth.signapitoken" ]
+        },
         {
           "methods": [ "POST" ],
           "pathPattern": "/token/invalidate",
