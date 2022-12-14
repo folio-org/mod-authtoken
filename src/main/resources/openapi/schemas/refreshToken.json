@@ -1,10 +1,14 @@
 {
-  "description": "The refresh token being presented to get a new refresh token and access token",
+  "description": "A token being presented to get a new access token",
   "type": "object",
   "properties": {
     "refreshToken": {
       "type": "string",
       "description": "The JWE refresh token"
+    },
+    "tokenKey": {
+      "type": "string",
+      "description": "An optional identifier allowing it to be referenced in a key value store"
     }
   },
   "required": [
