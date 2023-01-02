@@ -97,6 +97,11 @@ public abstract class Token {
    * @return True if the dummy permissions source should be used.
    */
   public boolean shouldUseDummyPermissionsSource() {
+    // ApiTokens have their perms embedded in them (proposed) so they can use the dummy perms source.
+    if (claims.getString("type").equals(ApiToken.TYPE)) {
+      return true;
+    }
+    
     // Dummy tokens are not the only type of tokens that require the use of this
     // so checking the token type alone isn't enough. We also have to check the sub claim.
     if (TRUE.equals(claims.getBoolean("dummy")) ||
@@ -219,6 +224,23 @@ public abstract class Token {
     }
   }
 
+
+  /**
+   * Do the most simple validation. 
+   * @throws TokenValidationException Throws this when any validation step fails, but may throw
+   * other exceptions as well.
+   */
+  protected void validateBasic() throws TokenValidationException {
+      // Check that the token has a source.
+      if (source == null) {
+        throw new TokenValidationException("Token has no source defined", 500);
+      }
+
+      // Check that the claims have been created.
+      if (claims == null) {
+        throw new TokenValidationException("Token has no claims", 500);
+      }
+    }
 
   /**
    * Validate all the things that tokens have in common.

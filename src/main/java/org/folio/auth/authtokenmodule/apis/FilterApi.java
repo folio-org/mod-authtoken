@@ -20,10 +20,12 @@ import org.folio.auth.authtokenmodule.UserService;
 import org.folio.auth.authtokenmodule.Util;
 import org.folio.auth.authtokenmodule.impl.DummyPermissionsSource;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
+import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.OkapiToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
@@ -95,27 +97,33 @@ public class FilterApi extends Api implements RouterCreator {
     String requestId = ctx.request().headers().get(XOkapiHeaders.REQUEST_ID);
     String userId = ctx.request().headers().get(XOkapiHeaders.USER_ID);
     String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+    String okapiUrl = ctx.request().headers().get(XOkapiHeaders.URL);
     FolioLoggingContext.put(FolioLoggingContext.REQUEST_ID_LOGGING_VAR_NAME, requestId);
     FolioLoggingContext.put(FolioLoggingContext.MODULE_ID_LOGGING_VAR_NAME, "mod-authtoken");
     FolioLoggingContext.put(FolioLoggingContext.TENANT_ID_LOGGING_VAR_NAME, tenant);
     FolioLoggingContext.put(FolioLoggingContext.USER_ID_LOGGING_VAR_NAME, userId);
 
-    if (tenant == null) {
-      endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.TENANT);
-      return;
+    String candidateToken = ctx.request().headers().get(XOkapiHeaders.TOKEN);
+
+    try {
+      if (tenant == null && !ApiToken.is(candidateToken, tokenCreator)) {
+        endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.TENANT);
+        return;
+      }
+    } catch (TokenValidationException e) {
+      logger.info("Could not parse token when checking for ApiToken");
     }
 
-    String okapiUrl = ctx.request().headers().get(XOkapiHeaders.URL);
     if (okapiUrl == null) {
       endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.URL);
       return;
     }
+
     String zapCacheString = ctx.request().headers().get(MainVerticle.ZAP_CACHE_HEADER);
     boolean zapCache = "true".equals(zapCacheString);
 
     // The candidate token will either be present or null. If it is null a dummy token
     // is assigned.
-    String candidateToken = ctx.request().headers().get(XOkapiHeaders.TOKEN);
     final boolean isDummyToken = candidateToken == null;
     if (isDummyToken) {
       logger.debug("Generating dummy authtoken");
@@ -147,7 +155,7 @@ public class FilterApi extends Api implements RouterCreator {
     }
 
     final String authToken = candidateToken;
-    logger.debug("Final authToken is {}", authToken);
+    logger.info("Final authToken is {}", authToken);
 
     var context = new TokenValidationContext(ctx.request(), tokenCreator, authToken);
     Future<Token> tokenValidationResult = Token.validate(context);
@@ -157,8 +165,8 @@ public class FilterApi extends Api implements RouterCreator {
     });
 
     tokenValidationResult.onSuccess(token -> {
-      logger.debug("Validated token of type: {}", token.getClaim("type"));
-      logger.debug("payload {}", () ->
+      logger.info("Validated token of type: {}", token.getClaim("type"));
+      logger.info("payload {}", () ->
         new OkapiToken(authToken).getPayloadWithoutValidation().encodePrettily());
 
       String username = token.getClaim("sub");
@@ -305,6 +313,7 @@ public class FilterApi extends Api implements RouterCreator {
             ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
             String msg = String.format("Unable to retrieve permissions for user with id '%s': %s",
               finalUserId, res.cause().getLocalizedMessage());
+
             endText(ctx, 400, msg);
             return;
           }

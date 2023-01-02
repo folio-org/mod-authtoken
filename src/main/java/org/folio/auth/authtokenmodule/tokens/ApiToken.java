@@ -1,9 +1,12 @@
 package org.folio.auth.authtokenmodule.tokens;
 
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 import java.time.Instant;
 import java.util.UUID;
+
+import org.folio.auth.authtokenmodule.TokenCreator;
 
 import io.vertx.core.Future;
 
@@ -24,8 +27,29 @@ public class ApiToken extends Token {
     return claims.getLong("iat");
   }
 
+  public static boolean is(String token, TokenCreator creator) throws TokenValidationException {
+    if (token == null) {
+      return false;
+    }
+    Token t = Token.parse(token, creator);
+    return t.getClaims().getString("type").equals(TYPE);
+  }
+
   /**
    * Create a new ApiToken.
+   * @param perms The permissions that this token has.
+   */
+  public ApiToken(JsonArray perms) {
+    claims = new JsonObject();
+    claims.put("type", TYPE);
+    long now = Instant.now().getEpochSecond();
+    claims.put("iat", now);
+    claims.put("jti", UUID.randomUUID().toString());
+    claims.put("extra_permissions", perms);
+  }
+
+  /**
+   * Create a new ApiToken. This is based on the old spec where the ApiToken had a tenant.
    * @param tenant The current tenant.
    */
   public ApiToken(String tenant) {
@@ -57,7 +81,7 @@ public class ApiToken extends Token {
 
   protected Future<Token> validateContext(TokenValidationContext context) {
     try {
-      validateCommon(context.getHttpServerRequest());
+      validateBasic();
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     }

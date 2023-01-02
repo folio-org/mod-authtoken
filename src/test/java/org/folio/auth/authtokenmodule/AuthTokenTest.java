@@ -62,6 +62,7 @@ public class AuthTokenTest {
   private static String accessToken;
   private static String moduleToken;
   private static String dummyToken;
+  private static String apiToken;
   private static String badAccessToken;
   private static String accessToken404;
   private static String inactiveToken;
@@ -103,7 +104,10 @@ public class AuthTokenTest {
     moduleToken = new ModuleToken(tenant, "jones", userUUID, "", extraPerms1).encodeAsJWT(tokenCreator);
     var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
-    dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
+    var apiTokenPerms = new JsonArray();
+    apiTokenPerms.add("any.perm.we.want");
+    dummyToken = new DummyToken(tenant, apiTokenPerms).encodeAsJWT(tokenCreator);
+    apiToken = new ApiToken(new JsonArray()).encodeAsJWT(tokenCreator);
     refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1").encodeAsJWE(tokenCreator);
 
     // Create some bad tokens, including one with a bad signing key.
@@ -398,6 +402,16 @@ public class AuthTokenTest {
         .header("X-Okapi-Token", dummyToken)
         .header("X-Okapi-Url", "http://localhost:" + freePort)
         .header("X-Okapi-User-Id", "1234567")
+        .get("/bar")
+        .then()
+        .statusCode(202);
+  }
+
+  @Test
+  public void testApiTokenAccepted() {
+    given()
+        .header("X-Okapi-Token", apiToken)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
         .get("/bar")
         .then()
         .statusCode(202);
