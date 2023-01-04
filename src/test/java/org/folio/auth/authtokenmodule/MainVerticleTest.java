@@ -3,9 +3,9 @@ package org.folio.auth.authtokenmodule;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
-
 import com.nimbusds.jose.JOSEException;
-
+import io.vertx.core.DeploymentOptions;
+import io.vertx.core.json.JsonObject;
 import org.apache.logging.log4j.Level;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -20,6 +20,9 @@ public class MainVerticleTest {
   public void deployAndUndeploy(TestContext context) {
     Vertx vertx = Vertx.vertx();
     vertx.deployVerticle(MainVerticle.class.getName(),
+        new DeploymentOptions().setConfig(
+            new JsonObject().put("port", NetworkUtils.nextFreePort())
+        ),
         context.asyncAssertSuccess(run -> vertx.close(context.asyncAssertSuccess())));
   }
 
