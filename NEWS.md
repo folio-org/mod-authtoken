@@ -1,3 +1,8 @@
+## 2.13.0 2023-02-17
+
+ * [MODAT-142](https://issues.folio.org/browse/MODAT-142) Upgrade to vertx-lib 3.0.0, Vert.x 4.3.8
+ * [MODAT-140](https://issues.folio.org/browse/MODAT-140) Upgrade dependencies (Vertx, log4j, okapi-common, nimbus-jose-jwt)
+
 ## 2.12.0 2022-10-27
 
  * [MODAT-134](https://issues.folio.org/browse/MODAT-134) Allow users interface 15.0 thru 16.0
