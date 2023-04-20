@@ -224,7 +224,12 @@ public class ModulePermissionsSource implements PermissionsSource {
       String userid, String tenant, String okapiUrl, String requestToken, String requestId,
       JsonArray permissions) {
 
-    logger.debug("Retrieving permissions for userid {} and expanding permissions", userid);
+    PermissionData permissionData = new PermissionData();
+    permissionData.setExpandedPermissions(permissions);
+    return Future.succeededFuture(permissionData);
+
+    // todo revert back
+    /*logger.debug("Retrieving permissions for userid {} and expanding permissions", userid);
     Future<JsonArray> userPermsFuture
         = getPermissionsForUserCached(userid, tenant, okapiUrl, requestToken, requestId);
     Future<JsonArray> expandedPermsFuture
@@ -235,6 +240,6 @@ public class ModulePermissionsSource implements PermissionsSource {
       permissionData.setUserPermissions(userPermsFuture.result());
       permissionData.setExpandedPermissions(expandedPermsFuture.result());
       return Future.succeededFuture(permissionData);
-    });
+    });*/
   }
 }
