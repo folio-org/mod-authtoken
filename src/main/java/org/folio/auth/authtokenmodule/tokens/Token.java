@@ -255,6 +255,7 @@ public abstract class Token {
       }
 
       // Check that some items in the headers match what are in the token.
+      // todo revert back
       /*String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
       if (!claims.getString("tenant").equals(headerTenant)) {
         throw new TokenValidationException("Tenant mismatch: tenant in header does not equal tenant in token", 403);

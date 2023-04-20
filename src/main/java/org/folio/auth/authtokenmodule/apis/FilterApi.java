@@ -280,9 +280,10 @@ public class FilterApi extends Api implements RouterCreator {
 
       // Need to check if the user is still active.
       Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
-      if (token.shouldCheckIfUserIsActive(finalUserId)) {
+      // todo revert back
+      /**if (token.shouldCheckIfUserIsActive(finalUserId)) {
         activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
-      }
+      }*/
       Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
         if (TRUE.equals(b)) {
           return permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
