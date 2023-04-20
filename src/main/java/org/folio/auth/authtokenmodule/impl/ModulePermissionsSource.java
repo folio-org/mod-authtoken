@@ -2,6 +2,7 @@ package org.folio.auth.authtokenmodule.impl;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
@@ -223,23 +224,25 @@ public class ModulePermissionsSource implements PermissionsSource {
   public Future<PermissionData> getUserAndExpandedPermissions(
       String userid, String tenant, String okapiUrl, String requestToken, String requestId,
       JsonArray permissions) {
-
-    PermissionData permissionData = new PermissionData();
-    permissionData.setExpandedPermissions(permissions);
-    return Future.succeededFuture(permissionData);
-
-    // todo revert back
-    /*logger.debug("Retrieving permissions for userid {} and expanding permissions", userid);
+    logger.debug("Retrieving permissions for userid {} and expanding permissions", userid);
     Future<JsonArray> userPermsFuture
-        = getPermissionsForUserCached(userid, tenant, okapiUrl, requestToken, requestId);
+      = getPermissionsForUserCached(userid, tenant, okapiUrl, requestToken, requestId);
     Future<JsonArray> expandedPermsFuture
-        = expandPermissionsCached(permissions, tenant, okapiUrl, requestToken, requestId);
+      = expandPermissionsCached(permissions, tenant, okapiUrl, requestToken, requestId);
     CompositeFuture compositeFuture = CompositeFuture.all(userPermsFuture, expandedPermsFuture);
-    return compositeFuture.compose(compositeRes -> {
+    Promise<PermissionData> promise = Promise.promise();
+    compositeFuture.onSuccess(compositeRes -> {
       PermissionData permissionData = new PermissionData();
       permissionData.setUserPermissions(userPermsFuture.result());
       permissionData.setExpandedPermissions(expandedPermsFuture.result());
-      return Future.succeededFuture(permissionData);
-    });*/
+      promise.complete(permissionData);
+    }).onFailure(res -> {
+      // todo revert back
+      logger.warn("Failed to get permissions for userId, use default: {}", userid, res.getCause());
+      PermissionData permissionData = new PermissionData();
+      permissionData.setExpandedPermissions(permissions);
+      promise.complete(permissionData);
+    });
+    return promise.future();
   }
 }
