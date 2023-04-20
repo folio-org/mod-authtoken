@@ -237,7 +237,7 @@ public class ModulePermissionsSource implements PermissionsSource {
       permissionData.setExpandedPermissions(expandedPermsFuture.result());
       promise.complete(permissionData);
     }).onFailure(res -> {
-      // todo revert back
+      // todo revert back ...
       logger.warn("Failed to get permissions for userId, use default: {}", userid, res.getCause());
       PermissionData permissionData = new PermissionData();
       permissionData.setExpandedPermissions(permissions);
