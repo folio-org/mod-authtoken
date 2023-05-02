@@ -100,6 +100,9 @@ public class FilterApi extends Api implements RouterCreator {
     FolioLoggingContext.put(FolioLoggingContext.TENANT_ID_LOGGING_VAR_NAME, tenant);
     FolioLoggingContext.put(FolioLoggingContext.USER_ID_LOGGING_VAR_NAME, userId);
 
+    logger.info("DEBUG_CONSORTIA tenant {}", tenant);
+    logger.info("DEBUG_CONSORTIA module permissions {}", ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS));
+
     if (tenant == null) {
       endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.TENANT);
       return;
