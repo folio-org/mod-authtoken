@@ -15,6 +15,7 @@ import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
+import org.folio.auth.authtokenmodule.tokens.CrossTenantToken;
 import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
@@ -226,6 +227,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     return payload.getBoolean("dummy", Boolean.FALSE); // True property if present, otherwise false.
   }
 
+  private boolean isCrossTenantSigningRequest(JsonObject payload) {
+    return payload.getBoolean("cross_tenant", Boolean.FALSE); // True property if present, otherwise false.
+  }
+
   private void handleRefresh(RoutingContext ctx) {
     try {
       String content = ctx.getBodyAsString();
@@ -280,10 +285,10 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
         token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
       } else {
-        logger.debug("Signing request is for an access token");
-
         String userId = payload.getString(USER_ID);
-        token = new LegacyAccessToken(tenant, username, userId);
+        token = isCrossTenantSigningRequest(payload) ? new CrossTenantToken(tenant, username, userId)
+          : new LegacyAccessToken(tenant, username, userId);
+        logger.debug("Signing request is for an {} token", token.getClaim("type"));
 
         // Clear the user from the permissions cache.
         permissionsSource.clearCacheUser(userId, tenant);

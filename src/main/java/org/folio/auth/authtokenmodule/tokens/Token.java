@@ -218,6 +218,8 @@ public abstract class Token {
         return new DummyToken(sourceToken, claims);
       case ModuleToken.TYPE:
         return new ModuleToken(sourceToken, claims);
+      case CrossTenantToken.TYPE:
+        return new CrossTenantToken(sourceToken, claims);
       default:
         throw new TokenValidationException("Unable to parse token", 400);
     }
@@ -256,7 +258,7 @@ public abstract class Token {
 
       // Check that some items in the headers match what are in the token.
       String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
-      if (!claims.getString("tenant").equals(headerTenant)) {
+      if (!claims.getString("tenant").equals(headerTenant) && isTenantMismatchCheckEnabled()) {
         throw new TokenValidationException("Tenant mismatch: tenant in header does not equal tenant in token", 403);
       }
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
@@ -276,5 +278,9 @@ public abstract class Token {
     Long nowTime = Instant.now().getEpochSecond();
     Long expiration = claims.getLong("exp");
     return nowTime > expiration;
+  }
+
+  protected boolean isTenantMismatchCheckEnabled() {
+    return true;
   }
 }
