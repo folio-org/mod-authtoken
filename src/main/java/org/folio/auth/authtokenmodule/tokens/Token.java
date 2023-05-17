@@ -258,6 +258,7 @@ public abstract class Token {
 
       // Check that some items in the headers match what are in the token.
       String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
+      logger.info("validateCommon:: claims: {}", claims.toString());
       if (!claims.getString("tenant").equals(headerTenant) && isTenantMismatchCheckEnabled()) {
         throw new TokenValidationException("Tenant mismatch: tenant in header does not equal tenant in token", 403);
       }

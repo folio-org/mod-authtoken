@@ -286,6 +286,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
         token = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
       } else {
         String userId = payload.getString(USER_ID);
+        logger.info("handleSignLegacyToken:: incoming token payload: {}", payload.toString());
         token = isCrossTenantSigningRequest(payload) ? new CrossTenantToken(tenant, username, userId)
           : new LegacyAccessToken(tenant, username, userId);
         logger.debug("Signing request is for an {} token", token.getClaim("type"));
