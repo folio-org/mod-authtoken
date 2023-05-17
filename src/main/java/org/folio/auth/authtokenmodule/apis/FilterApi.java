@@ -179,7 +179,7 @@ public class FilterApi extends Api implements RouterCreator {
 
       String username = token.getClaim("sub");
 
-      logger.info("Username: {}, type: {}", username, token.getClaim("type"));
+      logger.info("Username: {}, type: {}, tenant: {}", username, token.getClaim("type"), tenant);
 
       // At this point, since we have validated what we can, if there is no userId
       // in the header, we can get the userId from the token.
