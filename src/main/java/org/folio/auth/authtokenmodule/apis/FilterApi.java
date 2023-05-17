@@ -179,6 +179,8 @@ public class FilterApi extends Api implements RouterCreator {
 
       String username = token.getClaim("sub");
 
+      logger.info("Username: {}, type: {}", username, token.getClaim("type"));
+
       // At this point, since we have validated what we can, if there is no userId
       // in the header, we can get the userId from the token.
       final String finalUserId = userId != null ? userId : token.getClaim("user_id");
@@ -203,6 +205,7 @@ public class FilterApi extends Api implements RouterCreator {
       // Instead of storing tokens, let's store an array of objects that each
 
       logger.debug("Handling module tokens");
+      logger.info("token {}", ctx.request().headers().get(XOkapiHeaders.TOKEN));
 
       JsonObject moduleTokens = new JsonObject();
       /* TODO get module permissions (if they exist) */
