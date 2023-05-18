@@ -44,6 +44,11 @@ public class ModuleToken extends Token {
     source = jwtSource;
   }
 
+  @Override
+  protected boolean isTenantMismatchCheckEnabled() {
+    return false;
+  }
+
   protected Future<Token> validateContext(TokenValidationContext context) {
     try {
       validateCommon(context.getHttpServerRequest());
