@@ -100,6 +100,8 @@ public class FilterApi extends Api implements RouterCreator {
     FolioLoggingContext.put(FolioLoggingContext.TENANT_ID_LOGGING_VAR_NAME, tenant);
     FolioLoggingContext.put(FolioLoggingContext.USER_ID_LOGGING_VAR_NAME, userId);
 
+    logger.info("handleAuthorize {}", tenant);
+
     if (tenant == null) {
       endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.TENANT);
       return;
@@ -136,7 +138,7 @@ public class FilterApi extends Api implements RouterCreator {
 
     final boolean isDummyToken = candidateToken == null;
     if (isDummyToken) {
-      logger.debug("Generating dummy authtoken");
+      logger.info("Generating dummy authtoken");
       try {
         candidateToken = new DummyToken(tenant,
             ctx.request().remoteAddress().toString()).encodeAsJWT(tokenCreator);
@@ -204,7 +206,7 @@ public class FilterApi extends Api implements RouterCreator {
 
       // Instead of storing tokens, let's store an array of objects that each
 
-      logger.debug("Handling module tokens");
+      logger.info("Handling module tokens");
       logger.info("token {}", ctx.request().headers().get(XOkapiHeaders.TOKEN));
 
       JsonObject moduleTokens = new JsonObject();
@@ -217,6 +219,7 @@ public class FilterApi extends Api implements RouterCreator {
           try {
             moduleToken = new ModuleToken(tenant, username, finalUserId, moduleName, permissionList)
                 .encodeAsJWT(tokenCreator);
+            logger.info("I created module token {}", moduleToken);
           } catch (Exception e) {
             String message = String.format("Error creating moduleToken: %s",
                 e.getLocalizedMessage());
@@ -376,6 +379,7 @@ public class FilterApi extends Api implements RouterCreator {
         String finalToken;
         try {
           finalToken = token.encodeAsJWT(tokenCreator);
+          logger.info("I created token {}", finalToken);
         } catch (Exception e) {
           String message = String.format("Error creating final token: %s", e.getMessage());
           logger.error(message);
