@@ -18,6 +18,7 @@ public class UserService {
   private static final Logger logger = LogManager.getLogger(PermService.class);
 
   // map from tenant id to user id and then to user active or not
+  private ConcurrentMap<String, Boolean> userTenantCache = new ConcurrentHashMap<>();
   private ConcurrentMap<String, ConcurrentMap<String, UserEntry>> cache = new ConcurrentHashMap<>();
 
   private final WebClient client;
@@ -28,7 +29,10 @@ public class UserService {
     cachePeriod = cacheInSeconds * 1000L;
 
     // purge cache periodically
-    vertx.setPeriodic(purgeCacheInSeconds * 1000L, id -> cache = new ConcurrentHashMap<>());
+    vertx.setPeriodic(purgeCacheInSeconds * 1000L, id -> {
+      cache = new ConcurrentHashMap<>();
+      userTenantCache = new ConcurrentHashMap<>();
+    });
   }
 
   /**
@@ -94,6 +98,50 @@ public class UserService {
           return Future.failedFuture(new UserServiceException(
               "Unexpected user response code " + res.statusCode() + " for user id " + userId));
         });
+  }
+
+  public Future<Boolean> isUserTenantNotEmpty(String userId, String tenant, String okapiUrl,
+                                              String requestToken, String requestId) {
+    Boolean value = userTenantCache.get(tenant);
+    if (value == null) {
+      return isUserTenantNotEmptyNoCache(userId, tenant, okapiUrl, requestToken, requestId);
+    }
+    return Future.succeededFuture(value);
+  }
+
+  private Future<Boolean> isUserTenantNotEmptyNoCache(String userId, String tenant, String okapiUrl,
+                                              String requestToken, String requestId) {
+
+    HttpRequest<Buffer> req = client.getAbs(okapiUrl + "/user-tenants");
+
+    req.headers().add(XOkapiHeaders.TOKEN, requestToken)
+      .add(XOkapiHeaders.TENANT, tenant)
+      .add(MainVerticle.CONTENT_TYPE, MainVerticle.APPLICATION_JSON)
+      .add(MainVerticle.ACCEPT, MainVerticle.APPLICATION_JSON);
+    if (requestId != null) {
+      req.headers().add(XOkapiHeaders.REQUEST_ID, requestId);
+    }
+    return req.send()
+      .compose(res -> {
+        if (res.statusCode() == 200) {
+          Integer totalRecords;
+          try {
+            totalRecords = res.bodyAsJsonObject().getInteger("totalRecords");
+          } catch (Exception e) {
+            String msg = "Invalid user-tenants response";
+            logger.warn(msg, e);
+            return Future.failedFuture(new UserServiceException(msg, e));
+          }
+          boolean isNotEmpty = totalRecords > 0;
+          userTenantCache.put(tenant, isNotEmpty);
+          return Future.succeededFuture(isNotEmpty);
+        }
+        if (res.statusCode() == 500) {
+          return Future.failedFuture(new UserServiceException("Unexpected response from /user-tenants:  " + res.bodyAsString()));
+        }
+        return Future.failedFuture(new UserServiceException(
+          "Unexpected response code from user-tenants response code " + res.statusCode() + " for user id " + userId));
+      });
   }
 
   public static class UserServiceException extends Exception {

@@ -47,6 +47,7 @@ public class FilterApi extends Api implements RouterCreator {
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
   private static final String PERMISSIONS_USERS_ITEM_GET = "users.item.get";
+  private static final String PERMISSIONS_USER_TENANTS_GET = "user-tenants.collection.get";
 
   private PermissionsSource permissionsSource;
   private UserService userService;
@@ -157,7 +158,7 @@ public class FilterApi extends Api implements RouterCreator {
     try {
       var rtPerms = new JsonArray().add(PERMISSIONS_PERMISSION_READ_BIT).add(PERMISSIONS_USER_READ_BIT);
       permissionsRequestToken = new DummyToken(tenant, rtPerms).encodeAsJWT(tokenCreator);
-      var userRTPerms = new JsonArray().add(PERMISSIONS_USERS_ITEM_GET);
+      var userRTPerms = new JsonArray().add(PERMISSIONS_USERS_ITEM_GET).add(PERMISSIONS_USER_TENANTS_GET);
       userRequestToken = new DummyToken(tenant, userRTPerms).encodeAsJWT(tokenCreator);
     } catch (Exception e) {
       endText(ctx, 500, "Error creating request token: ", e);
@@ -280,8 +281,21 @@ public class FilterApi extends Api implements RouterCreator {
 
       // Need to check if the user is still active.
       Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
+      Future<Boolean> userTenantEmpty = Future.succeededFuture();
       if (token.shouldCheckIfUserIsActive(finalUserId)) {
-        activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
+        if (!token.getClaims().getString("tenant").equals(tenant)) {
+          userTenantEmpty = userService.isUserTenantNotEmpty(userId, tenant, okapiUrl, userRequestToken, requestId)
+            .compose(allowed -> {
+              if (Boolean.FALSE.equals(allowed)) {
+                String msg = "Tenant mismatch: tenant in header does not equal tenant in token";
+                endText(ctx, 403, msg);
+                return Future.failedFuture(msg);
+              }
+              return Future.succeededFuture();
+            });
+        }
+        activeUser = userTenantEmpty.compose(isEmpty ->
+          userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId));
       }
       Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
         if (TRUE.equals(b)) {
