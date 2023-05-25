@@ -100,6 +100,8 @@ public class FilterApi extends Api implements RouterCreator {
     FolioLoggingContext.put(FolioLoggingContext.TENANT_ID_LOGGING_VAR_NAME, tenant);
     FolioLoggingContext.put(FolioLoggingContext.USER_ID_LOGGING_VAR_NAME, userId);
 
+    logger.info("userId: {}, tenant: {}", userId, tenant);
+
     if (tenant == null) {
       endText(ctx, 400, MISSING_HEADER + XOkapiHeaders.TENANT);
       return;
@@ -136,7 +138,7 @@ public class FilterApi extends Api implements RouterCreator {
 
     final boolean isDummyToken = candidateToken == null;
     if (isDummyToken) {
-      logger.debug("Generating dummy authtoken");
+      logger.info("Generating dummy authtoken");
       try {
         candidateToken = new DummyToken(tenant,
             ctx.request().remoteAddress().toString()).encodeAsJWT(tokenCreator);
@@ -165,7 +167,7 @@ public class FilterApi extends Api implements RouterCreator {
     }
 
     final String authToken = candidateToken;
-    logger.debug("Final authToken is {}", authToken);
+    logger.info("Final authToken is {}", authToken);
 
     var context = new TokenValidationContext(ctx.request(), tokenCreator, authToken);
     Future<Token> tokenValidationResult = Token.validate(context);
@@ -175,7 +177,7 @@ public class FilterApi extends Api implements RouterCreator {
     });
 
     tokenValidationResult.onSuccess(token -> {
-      logger.debug("Validated token of type: {}", token.getClaim("type"));
+      logger.info("Validated token of type: {} {}", token.getClaim("type"), token.getClaim("sub"));
 
       String username = token.getClaim("sub");
 
@@ -186,13 +188,15 @@ public class FilterApi extends Api implements RouterCreator {
       // Check and see if we have any module permissions defined.
       JsonArray extraPermissionsCandidate = token.getClaims().getJsonArray(EXTRA_PERMS);
       if (extraPermissionsCandidate == null) {
+        logger.info("EXTRA perms empty");
         extraPermissionsCandidate = new JsonArray();
       }
 
       // In some rare cases (redirect) Okapi can pass extra permissions directly too
       if (ctx.request().headers().contains(XOkapiHeaders.EXTRA_PERMISSIONS)) {
+        logger.info("EXTRA perms");
         String extraPermString = ctx.request().headers().get(XOkapiHeaders.EXTRA_PERMISSIONS);
-        logger.debug("Extra permissions from {}: {}", XOkapiHeaders.EXTRA_PERMISSIONS, extraPermString);
+        logger.info("Extra permissions from {}: {}", XOkapiHeaders.EXTRA_PERMISSIONS, extraPermString);
         for (String entry : extraPermString.split(",")) {
           extraPermissionsCandidate.add(entry);
         }
@@ -202,13 +206,16 @@ public class FilterApi extends Api implements RouterCreator {
 
       // Instead of storing tokens, let's store an array of objects that each
 
-      logger.debug("Handling module tokens");
+      logger.info("Handling module tokens");
 
       JsonObject moduleTokens = new JsonObject();
       /* TODO get module permissions (if they exist) */
       if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
         JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS));
+        String modulePermString = ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS);
+        logger.info("Extra permissions from {}: {}", XOkapiHeaders.MODULE_PERMISSIONS, modulePermString);
         for (String moduleName : modulePermissions.fieldNames()) {
+          logger.info("module perms {moduleName}", moduleName);
           JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
           String moduleToken;
           try {
@@ -236,11 +243,11 @@ public class FilterApi extends Api implements RouterCreator {
        * which the /token handler will check for when it processes the actual request
        */
       if (routeApi.tryHandleRoute(ctx, authToken, moduleTokens.encode())) {
-        logger.debug("Handled mod-authtoken route request");
+        logger.info("Handled mod-authtoken route request");
         return;
       }
 
-      logger.debug("No route found. Proceeding with filter request.");
+      logger.info("No route found. Proceeding with filter request.");
 
       // Populate the permissionsRequired array from the header
       JsonArray permissionsRequired = new JsonArray();
@@ -262,7 +269,7 @@ public class FilterApi extends Api implements RouterCreator {
 
       PermissionsSource usePermissionsSource;
       if (token.shouldUseDummyPermissionsSource()) {
-        logger.debug("Using dummy permissions source for token type: {}", token.getClaim("type"));
+        logger.info("Using dummy permissions source for token type: {}", token.getClaim("type"));
         usePermissionsSource = new DummyPermissionsSource();
       } else {
         usePermissionsSource = permissionsSource;
@@ -273,7 +280,7 @@ public class FilterApi extends Api implements RouterCreator {
       }
 
       // Retrieve the user permissions and populate the permissions header
-      logger.debug("Getting user permissions for {} (finalUserId {})", username, finalUserId);
+      logger.info("Getting user permissions for {} (finalUserId {})", username, finalUserId);
       long startTime = System.currentTimeMillis();
 
       JsonArray expandedSystemPermissions = new JsonArray();
@@ -297,6 +304,7 @@ public class FilterApi extends Api implements RouterCreator {
         // Skip expanded system permissions.
         JsonArray extraPermsMinusSystemOnes = new JsonArray();
         extraPermissions.forEach(it -> {
+          logger.info((String) it);
           if (!((String) it).startsWith(PermService.SYS_PERM_PREFIX)) {
             extraPermsMinusSystemOnes.add(it);
           }
@@ -305,7 +313,7 @@ public class FilterApi extends Api implements RouterCreator {
             permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
       });
 
-      logger.debug("Retrieving permissions for userid {} and expanding permissions", finalUserId);
+      logger.info("Retrieving permissions for userid {} and expanding permissions", finalUserId);
       retrievedPermissionsFuture.onComplete(res -> {
         if (res.failed()) {
           // Vert.x 4 warns about this.. And it's true : response already written 19 lines
