@@ -216,7 +216,7 @@ public class FilterApi extends Api implements RouterCreator {
         String modulePermString = ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS);
         logger.info("Extra permissions from {}: {}", XOkapiHeaders.MODULE_PERMISSIONS, modulePermString);
         for (String moduleName : modulePermissions.fieldNames()) {
-          logger.info("module perms {moduleName}", moduleName);
+          logger.info("module perms {}", moduleName);
           JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
           String moduleToken;
           try {
