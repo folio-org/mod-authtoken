@@ -76,7 +76,7 @@ public class RefreshToken extends Token {
     try {
       validateCommon(context.getHttpServerRequest());
     } catch (Exception e) {
-      return Future.failedFuture(e);
+      return handleCrossTenantRequest(e, context);
     }
 
     String address = context.getHttpServerRequest().remoteAddress().host();

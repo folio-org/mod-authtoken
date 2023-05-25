@@ -47,7 +47,6 @@ public class FilterApi extends Api implements RouterCreator {
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
   private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
   private static final String PERMISSIONS_USERS_ITEM_GET = "users.item.get";
-  private static final String PERMISSIONS_USER_TENANTS_GET = "user-tenants.collection.get";
 
   private PermissionsSource permissionsSource;
   private UserService userService;
@@ -64,20 +63,18 @@ public class FilterApi extends Api implements RouterCreator {
    * @param routeApi A reference to the RouteApi object, which this API depends on for route
    * handling.
    */
-  public FilterApi(Vertx vertx, TokenCreator tokenCreator, RouteApi routeApi) {
+  public FilterApi(Vertx vertx, TokenCreator tokenCreator, RouteApi routeApi, UserService userService) {
     logger = LogManager.getLogger(FilterApi.class);
     this.tokenCreator = tokenCreator;
     this.routeApi = routeApi;
+    this.userService = userService;
 
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
-    int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
-    int userCachePurgeInSeconds = Integer.parseInt(System.getProperty("user.cache.purge.seconds", "43200")); // 12 hours
     int sysPermCacheInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.seconds", "259200")); // 3 days
     int sysPermCachePurgeInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.purge.seconds", "43200")); // 12
                                                                                                                     // hours
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
-    userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
     permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds,
         sysPermCachePurgeInSeconds);
   }
@@ -158,7 +155,7 @@ public class FilterApi extends Api implements RouterCreator {
     try {
       var rtPerms = new JsonArray().add(PERMISSIONS_PERMISSION_READ_BIT).add(PERMISSIONS_USER_READ_BIT);
       permissionsRequestToken = new DummyToken(tenant, rtPerms).encodeAsJWT(tokenCreator);
-      var userRTPerms = new JsonArray().add(PERMISSIONS_USERS_ITEM_GET).add(PERMISSIONS_USER_TENANTS_GET);
+      var userRTPerms = new JsonArray().add(PERMISSIONS_USERS_ITEM_GET);
       userRequestToken = new DummyToken(tenant, userRTPerms).encodeAsJWT(tokenCreator);
     } catch (Exception e) {
       endText(ctx, 500, "Error creating request token: ", e);
@@ -168,7 +165,7 @@ public class FilterApi extends Api implements RouterCreator {
     final String authToken = candidateToken;
     logger.debug("Final authToken is {}", authToken);
 
-    var context = new TokenValidationContext(ctx.request(), tokenCreator, authToken);
+    var context = new TokenValidationContext(ctx.request(), tokenCreator, authToken, userService);
     Future<Token> tokenValidationResult = Token.validate(context);
 
     tokenValidationResult.onFailure(h -> {
@@ -281,21 +278,8 @@ public class FilterApi extends Api implements RouterCreator {
 
       // Need to check if the user is still active.
       Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
-      Future<Boolean> userTenantEmpty = Future.succeededFuture();
       if (token.shouldCheckIfUserIsActive(finalUserId)) {
-        if (!token.getClaims().getString("tenant").equals(tenant)) {
-          userTenantEmpty = userService.isUserTenantNotEmpty(userId, tenant, okapiUrl, userRequestToken, requestId)
-            .compose(allowed -> {
-              if (Boolean.FALSE.equals(allowed)) {
-                String msg = "Tenant mismatch: tenant in header does not equal tenant in token";
-                endText(ctx, 403, msg);
-                return Future.failedFuture(msg);
-              }
-              return Future.succeededFuture();
-            });
-        }
-        activeUser = userTenantEmpty.compose(isEmpty ->
-          userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId));
+        activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
       }
       Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
         if (TRUE.equals(b)) {

@@ -2,6 +2,7 @@ package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.util.Base64;
 import com.nimbusds.jose.JOSEException;
@@ -23,6 +24,8 @@ import static java.lang.Boolean.TRUE;
  */
 public abstract class Token {
   protected static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
+  protected static final String PERMISSIONS_USER_TENANTS_GET = "user-tenants.collection.get";
+  protected static final String TENANT_MISMATCH_EXCEPTION_MESSAGE = "Tenant mismatch: tenant in header does not equal tenant in token";
   protected String source;
   protected static final int TOKEN_EXPIRATION_SECONDS = 60 * 10;
 
@@ -255,6 +258,10 @@ public abstract class Token {
       }
 
       // Check that some items in the headers match what are in the token.
+      String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
+      if (!claims.getString("tenant").equals(headerTenant)) {
+        throw new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403);
+      }
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
       String claimsUserId = claims.getString("user_id");
       if (headerUserId != null && claimsUserId != null && !claimsUserId.equals(headerUserId)) {
@@ -272,5 +279,30 @@ public abstract class Token {
     Long nowTime = Instant.now().getEpochSecond();
     Long expiration = claims.getLong("exp");
     return nowTime > expiration;
+  }
+
+  protected Future<Token> handleCrossTenantRequest(Exception e, TokenValidationContext context) {
+    var request = context.getHttpServerRequest();
+    String userId = request.headers().get(XOkapiHeaders.USER_ID);
+    String finalUserId = userId != null ? userId : this.getClaim("user_id");
+
+    if (e.getMessage().equals(TENANT_MISMATCH_EXCEPTION_MESSAGE) && shouldCheckIfUserIsActive(finalUserId)) {
+      var userService = context.getUserService();
+      String requestId = request.headers().get(XOkapiHeaders.REQUEST_ID);
+      String tenant = request.headers().get(XOkapiHeaders.TENANT);
+      String okapiUrl = request.headers().get(XOkapiHeaders.URL);
+
+      String userRequestToken;
+      try {
+        var userRTPerms = new JsonArray().add(PERMISSIONS_USER_TENANTS_GET);
+        userRequestToken = new DummyToken(tenant, userRTPerms).encodeAsJWT(context.getTokenCreator());
+      } catch (Exception encodeException) {
+        return Future.failedFuture(new TokenValidationException("Error creating request token: ", encodeException, 500));
+      }
+
+      return userService.isUserTenantNotEmpty(userId, tenant, okapiUrl, userRequestToken, requestId)
+        .compose(notEmpty -> notEmpty ? Future.succeededFuture(this) :  Future.failedFuture(e));
+    }
+    return Future.failedFuture(e);
   }
 }

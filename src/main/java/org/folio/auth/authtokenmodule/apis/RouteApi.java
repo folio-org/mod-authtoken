@@ -8,6 +8,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.openapi.RouterBuilder;
 
 import org.folio.auth.authtokenmodule.PermissionsSource;
+import org.folio.auth.authtokenmodule.UserService;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
@@ -47,6 +48,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
   private PermissionsSource permissionsSource;
   private TokenCreator tokenCreator;
+  private UserService userService;
   private List<Route> routes;
   private Vertx vertx;
 
@@ -58,8 +60,9 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
    *                     shared among
    *                     all Api classes.
    */
-  public RouteApi(Vertx vertx, TokenCreator tokenCreator) {
+  public RouteApi(Vertx vertx, TokenCreator tokenCreator, UserService userService) {
     this.vertx = vertx;
+    this.userService = userService;
     this.tokenCreator = tokenCreator;
 
     logger = LogManager.getLogger(RouteApi.class);
@@ -235,7 +238,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
 
-      var context = new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE, refreshTokenStore);
+      var context = new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE, refreshTokenStore, userService);
       Future<Token> tokenValidationResult = Token.validate(context);
 
       tokenValidationResult.onFailure(e -> handleTokenValidationFailure(e, ctx));

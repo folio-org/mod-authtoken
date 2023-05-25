@@ -27,6 +27,7 @@ public class MainVerticle extends AbstractVerticle {
     return new TokenCreator(keySetting);
   }
 
+  private UserService userService;
   private TokenCreator tokenCreator;
 
   @Override
@@ -37,6 +38,8 @@ public class MainVerticle extends AbstractVerticle {
     final String defaultPort = context.config().getString("port", "8081");
     final String portStr = System.getProperty("http.port", System.getProperty("port", defaultPort));
     final int port = Integer.parseInt(portStr);
+    int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
+    int userCachePurgeInSeconds = Integer.parseInt(System.getProperty("user.cache.purge.seconds", "43200")); // 12 hours
 
     setLogLevel(System.getProperty("log.level", null));
 
@@ -47,12 +50,14 @@ public class MainVerticle extends AbstractVerticle {
       throw new MissingAlgorithmException("Unable to initialize TokenCreator: " + e.getMessage(), e);
     }
 
+    userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
+
     // Define the routes that this module must handle.
-    var routeApi = new RouteApi(vertx, tokenCreator);
+    var routeApi = new RouteApi(vertx, tokenCreator, userService);
 
     // Define the filter api which fires for every request to this module, passing in the route
     // API object, because the filter API depends on it.
-    var filterApi = new FilterApi(vertx, tokenCreator, routeApi);
+    var filterApi = new FilterApi(vertx, tokenCreator, routeApi, userService);
 
     // NOTE The order of adding these RouterCreator objects is important for the proper functioning
     // of this module.

@@ -76,7 +76,7 @@ public class DummyToken extends Token {
     try {
       validateCommon(context.getHttpServerRequest());
     } catch (TokenValidationException e) {
-      return Future.failedFuture(e);
+      return handleCrossTenantRequest(e, context);
     }
 
     return Future.succeededFuture(this);
