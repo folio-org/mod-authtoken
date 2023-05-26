@@ -123,9 +123,12 @@ public class AuthTokenTest {
         .put("sub", "joe");
 
     RestAssured.port = port;
-    DeploymentOptions mockOptions = new DeploymentOptions()
+    DeploymentOptions permsOptions = new DeploymentOptions()
         .setConfig(new JsonObject().put("port", mockPort));
-    vertx.deployVerticle(PermsMock.class.getName(), mockOptions)
+    DeploymentOptions userOptions = new DeploymentOptions()
+      .setConfig(new JsonObject().put("port", freePort));
+    vertx.deployVerticle(PermsMock.class.getName(), permsOptions)
+    .compose(x -> vertx.deployVerticle(UsersMock.class.getName(), userOptions))
     .compose(x -> vertx.deployVerticle(MainVerticle.class.getName(), opt))
     .onComplete(context.asyncAssertSuccess(y -> {
         var tenantAttributes = new JsonObject().put("module_to", "mod-authtoken-1.0.0");
@@ -1109,21 +1112,6 @@ public class AuthTokenTest {
 
     @Test
     public void testWildCardPermissions() throws JOSEException, ParseException {
-      logger.info("Test with wildcard permission - bad X-Okapi-Url");
-      given()
-          .header("Authtoken-Refresh-Cache", "true")
-          .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Request-Id", "1234")
-          .header("X-Okapi-Token", accessToken)
-          .header("X-Okapi-Url", "http://localhost:" + freePort)
-          .header("X-Okapi-Permissions-Desired", "extra.*bar")
-          .get("/bar")
-          .then()
-          // locale dependent message: in English "connection refused", in German
-          // "Verbindungsaufbau abgelehnt"
-          .statusCode(400).body(containsString("" + freePort))
-          .header("X-Okapi-Module-Tokens", not(emptyString()));
-
       logger.info("Test with wildcard 400 /perms/users/id/permissions");
       PermsMock.handlePermsUsersPermissionsStatusCode = 400;
       given()

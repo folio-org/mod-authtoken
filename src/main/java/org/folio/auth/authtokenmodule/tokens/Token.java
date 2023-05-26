@@ -301,7 +301,7 @@ public abstract class Token {
       }
 
       return userService.isUserTenantNotEmpty(userId, tenant, okapiUrl, userRequestToken, requestId)
-        .compose(notEmpty -> notEmpty ? Future.succeededFuture(this) :  Future.failedFuture(e));
+        .compose(notEmpty -> Boolean.TRUE.equals(notEmpty) ? Future.succeededFuture(this) :  Future.failedFuture(e));
     }
     return Future.failedFuture(e);
   }
