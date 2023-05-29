@@ -382,6 +382,17 @@ public class AuthTokenTest {
         .statusCode(403)
         .body(containsString("Invalid token"));
 
+    logger.info("The test cross-tenant request is permitted when /user-tenants isn't empty");
+    given()
+      .header("X-Okapi-Tenant", "test-tenant-1")
+      .header("X-Okapi-Token", barToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("X-Okapi-Permissions-Desired", "bar.first")
+      .header("X-Okapi-Permissions-Required", "bar.second")
+      .get("/bar")
+      .then()
+      .statusCode(202);
+
     // Make a request to bar, with the modulePermissions
     logger.info("Test with bar token and module permissions");
     given()

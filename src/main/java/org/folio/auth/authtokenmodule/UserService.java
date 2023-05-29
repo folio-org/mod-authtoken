@@ -100,16 +100,16 @@ public class UserService {
         });
   }
 
-  public Future<Boolean> isUserTenantNotEmpty(String userId, String tenant, String okapiUrl,
+  public Future<Boolean> isUserTenantNotEmpty(String tenant, String okapiUrl,
                                               String requestToken, String requestId) {
     Boolean value = userTenantCache.get(tenant);
     if (value == null) {
-      return isUserTenantNotEmptyNoCache(userId, tenant, okapiUrl, requestToken, requestId);
+      return isUserTenantNotEmptyNoCache(tenant, okapiUrl, requestToken, requestId);
     }
     return Future.succeededFuture(value);
   }
 
-  private Future<Boolean> isUserTenantNotEmptyNoCache(String userId, String tenant, String okapiUrl,
+  private Future<Boolean> isUserTenantNotEmptyNoCache(String tenant, String okapiUrl,
                                               String requestToken, String requestId) {
 
     HttpRequest<Buffer> req = client.getAbs(okapiUrl + "/user-tenants");
@@ -136,11 +136,8 @@ public class UserService {
           userTenantCache.put(tenant, isNotEmpty);
           return Future.succeededFuture(isNotEmpty);
         }
-        if (res.statusCode() == 500) {
-          return Future.failedFuture(new UserServiceException("Unexpected response from /user-tenants:  " + res.bodyAsString()));
-        }
-        return Future.failedFuture(new UserServiceException(
-          "Unexpected response code from user-tenants response code " + res.statusCode() + " for user id " + userId));
+        return Future.failedFuture(
+          new UserServiceException("Unexpected response code from /user-tenants response code " + res.statusCode()));
       });
   }
 

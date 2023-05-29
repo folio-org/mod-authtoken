@@ -297,8 +297,6 @@ public abstract class Token {
   protected Future<Boolean> isCrossTenantRequest(TokenValidationContext context) {
     var userService = context.getUserService();
     var request = context.getHttpServerRequest();
-    String userId = request.headers().get(XOkapiHeaders.USER_ID);
-    String finalUserId = StringUtils.defaultIfBlank(userId, this.getClaim("user_id"));
     String requestId = request.headers().get(XOkapiHeaders.REQUEST_ID);
     String tenant = request.headers().get(XOkapiHeaders.TENANT);
     String okapiUrl = request.headers().get(XOkapiHeaders.URL);
@@ -310,6 +308,6 @@ public abstract class Token {
     } catch (Exception encodeException) {
       return Future.failedFuture(new TokenValidationException("Error creating request token: ", encodeException, 500));
     }
-    return userService.isUserTenantNotEmpty(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
+    return userService.isUserTenantNotEmpty(tenant, okapiUrl, userRequestToken, requestId);
   }
 }

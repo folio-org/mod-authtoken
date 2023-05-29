@@ -215,4 +215,98 @@ public class UserServiceTest {
     });
   }
 
+  @Test
+  public void testUserTenantInvalidResponseCode(TestContext context) {
+    Async async = context.async();
+    UserService userService = new UserService(vertx, 3, 10);
+    userService.isUserTenantNotEmpty("00", mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
+      if (ar.succeeded()) {
+        context.fail("User tenants 00 should fail with invalid response code");
+      }
+      context.assertTrue(ar.cause().getLocalizedMessage().contains("response code"));
+      async.complete();
+    });
+  }
+
+  @Test
+  public void testUserTenantInvalidResponseJson(TestContext context) {
+    Async async = context.async();
+    UserService userService = new UserService(vertx, 3, 10);
+    userService.isUserTenantNotEmpty("000", mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
+      if (ar.succeeded()) {
+        context.fail("User tenants  000 should fail with invalid user response");
+      }
+      context.assertTrue(ar.cause().getLocalizedMessage().contains("Invalid user-tenants response"));
+      async.complete();
+    });
+  }
+
+  @Test
+  public void testUserTenantNotEmpty(TestContext context) {
+    Async async = context.async();
+    UserService userService = new UserService(vertx, 3, 10);
+    userService.isUserTenantNotEmpty("test-tenant-1", mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
+      if (ar.failed() || !ar.result()) {
+        context.fail("User tenant should not be empty");
+      }
+      context.assertTrue(ar.result());
+      async.complete();
+    });
+  }
+
+  @Test
+  public void testUserTenantEmpty(TestContext context) {
+    Async async = context.async();
+    UserService userService = new UserService(vertx, 3, 10);
+    userService.isUserTenantNotEmpty(TENANT, mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
+      if (ar.failed() || ar.result()) {
+        context.fail("User tenant should be empty");
+      }
+      context.assertFalse(ar.result());
+      async.complete();
+    });
+  }
+
+  @Test
+  public void testUserTenantCacheHit(TestContext context) {
+    Async async = context.async();
+    UserService userService = new UserService(vertx, 3, 10);
+    userService.isUserTenantNotEmpty("test-tenant-1", mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
+      if (ar.failed() || !ar.result()) {
+        context.fail("User tenant should not be empty");
+      }
+      context.assertTrue(ar.result());
+    });
+    vertx.setTimer(1000, id -> {
+      userService.isUserTenantNotEmpty("test-tenant-1", "http://localhost:" + freePort, "", "").onComplete(ar -> {
+        if (ar.failed() || !ar.result()) {
+          context.fail("User tenant should not be empty");
+        }
+        context.assertTrue(ar.result());
+        async.complete();
+      });
+    });
+  }
+
+  @Test
+  public void testUserTenantCacheExpired(TestContext context) {
+    Async async = context.async();
+    UserService userService = new UserService(vertx, 1, 10);
+    userService.isUserTenantNotEmpty("test-tenant-1", mockUrl, TOKEN, REQ_ID).onComplete(ar -> {
+      if (ar.failed() || !ar.result()) {
+        context.fail("User tenant should not be empty");
+      }
+      context.assertTrue(ar.result());
+    });
+    vertx.setTimer(2000, id -> {
+      userService.isUserTenantNotEmpty("test-tenant-1", "http://localhost:" + freePort, "", "").onComplete(ar -> {
+        if (ar.failed()) {
+          context.fail("User tenant cache should not expire");
+        }
+        context.assertTrue(ar.result());
+        async.complete();
+      });
+    });
+  }
+
 }
