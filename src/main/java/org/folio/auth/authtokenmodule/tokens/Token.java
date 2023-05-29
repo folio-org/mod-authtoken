@@ -239,7 +239,6 @@ public abstract class Token {
 
     var request = context.getHttpServerRequest();
     try {
-      boolean isNeedToComplete = true;
       // Check that the token has a source.
       if (source == null) {
         throw new TokenValidationException("Token has no source defined", 500);
@@ -264,23 +263,20 @@ public abstract class Token {
       }
 
       // Check that some items in the headers match what are in the token.
-      String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
-      if (!claims.getString("tenant").equals(headerTenant)) {
-        isNeedToComplete = false;
-        isCrossTenantRequest(context)
-          .compose(aResult -> Boolean.TRUE.equals(aResult) ? Future.succeededFuture(this)
-              : Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403)))
-          .onComplete(promise);
-      }
-
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
       String claimsUserId = claims.getString("user_id");
       if (headerUserId != null && claimsUserId != null && !claimsUserId.equals(headerUserId)) {
         throw new TokenValidationException("User id in header does not equal user id in token", 403);
       }
 
-      if (isNeedToComplete) {
-        promise.tryComplete(this);
+      String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
+      if (!claims.getString("tenant").equals(headerTenant)) {
+        isCrossTenantRequest(context)
+          .compose(aResult -> Boolean.TRUE.equals(aResult) ? Future.succeededFuture(this)
+            : Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403)))
+          .onComplete(promise);
+      } else {
+        promise.complete(this);
       }
     } catch (TokenValidationException e) {
       promise.fail(e);
