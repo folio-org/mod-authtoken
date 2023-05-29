@@ -46,18 +46,8 @@ public class AccessToken extends Token {
   }
 
   protected Future<Token> validateContext(TokenValidationContext context) {
-    try {
-      validateCommon(context.getHttpServerRequest());
-    } catch (TokenValidationException e) {
-      return handleCrossTenantRequest(e, context);
-    }
-
-    if (tokenIsExpired()) {
-      var e = new TokenValidationException("Access token has expired", 401);
-      return Future.failedFuture(e);
-    }
-
-    return Future.succeededFuture(this);
+    return validateCommon(context).compose(token -> tokenIsExpired() ?
+      Future.failedFuture(new TokenValidationException("Access token has expired", 401)) :
+      Future.succeededFuture(token));
   }
-
 }

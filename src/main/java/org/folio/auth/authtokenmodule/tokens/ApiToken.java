@@ -56,15 +56,8 @@ public class ApiToken extends Token {
   }
 
   protected Future<Token> validateContext(TokenValidationContext context) {
-    try {
-      validateCommon(context.getHttpServerRequest());
-    } catch (TokenValidationException e) {
-      return handleCrossTenantRequest(e, context);
-    }
-
+    return validateCommon(context);
     // TODO Validate the API token by checking that it exists in storage,
     // hasn't been revoked, etc.
-
-    return Future.succeededFuture(this);
   }
 }

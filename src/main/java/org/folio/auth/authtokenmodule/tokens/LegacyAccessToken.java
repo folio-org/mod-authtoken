@@ -44,12 +44,6 @@ public class LegacyAccessToken extends Token {
   }
 
   protected Future<Token> validateContext(TokenValidationContext context) {
-    try {
-      validateCommon(context.getHttpServerRequest());
-    } catch (TokenValidationException e) {
-      return handleCrossTenantRequest(e, context);
-    }
-
-    return Future.succeededFuture(this);
+    return validateCommon(context);
   }
 }
