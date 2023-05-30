@@ -112,7 +112,7 @@ public class UserService {
   private Future<Boolean> isUserTenantNotEmptyNoCache(String tenant, String okapiUrl,
                                               String requestToken, String requestId) {
 
-    HttpRequest<Buffer> req = client.getAbs(okapiUrl + "/user-tenants");
+    HttpRequest<Buffer> req = client.getAbs(okapiUrl + "/user-tenants?limit=1");
 
     req.headers().add(XOkapiHeaders.TOKEN, requestToken)
       .add(XOkapiHeaders.TENANT, tenant)
