@@ -230,7 +230,6 @@ public abstract class Token {
   /**
    * Validate all the things that tokens have in common.
    * @param context The context for the token validation.
-   * @throws TokenValidationException Throws this when any validation step fails, but may throw
    * other exceptions as well.
    */
   protected Future<Token> validateCommon(TokenValidationContext context) {
@@ -305,7 +304,6 @@ public abstract class Token {
    so tenant mismatch validation prevents such requests.
    @param context The token validation context.
    @return A Future<Boolean> indicating if the request is a cross-tenant request.
-   @throws TokenValidationException If there is an error creating the request token.
    */
   protected Future<Boolean> isCrossTenantRequest(TokenValidationContext context) {
     var userService = context.getUserService();
