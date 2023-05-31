@@ -57,8 +57,9 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
    *
    * @param vertx        A reference to the current Vertx object.
    * @param tokenCreator A reference to the TokenCreator object. This object is
-   *                     shared among
-   *                     all Api classes.
+   *                     shared among all Api classes.
+   * @param userService  A reference to the user service which is responsible
+   *                     for the validation of the user state
    */
   public RouteApi(Vertx vertx, TokenCreator tokenCreator, UserService userService) {
     this.vertx = vertx;

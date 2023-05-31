@@ -229,7 +229,7 @@ public abstract class Token {
 
   /**
    * Validate all the things that tokens have in common.
-   * @param request The http request context where the token is being provided.
+   * @param context The context for the token validation.
    * @throws TokenValidationException Throws this when any validation step fails, but may throw
    * other exceptions as well.
    */
@@ -293,6 +293,20 @@ public abstract class Token {
     return nowTime > expiration;
   }
 
+  /**
+   Validates if the request is a cross-tenant request.
+   This method checks if the request is a cross-tenant request by validating the
+   user's tenant against the provided context. It performs the following steps:
+   Calls the user service's isUserTenantNotEmpty method to check if the tenant has any user tenant records.
+   Note that this method assumes the existence of a user_tenant table in the mod-users module.
+   It is expected that a dummy user tenant record is created in the user_tenant table after adding the
+   tenant to the consortia, which serves as an indication to allow cross-tenant requests for this tenant.
+   In a common non-consortia setup, the /user_tenant endpoint call will return empty collection
+   so tenant mismatch validation prevents such requests.
+   @param context The token validation context.
+   @return A Future<Boolean> indicating if the request is a cross-tenant request.
+   @throws TokenValidationException If there is an error creating the request token.
+   */
   protected Future<Boolean> isCrossTenantRequest(TokenValidationContext context) {
     var userService = context.getUserService();
     var request = context.getHttpServerRequest();

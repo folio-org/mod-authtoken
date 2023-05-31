@@ -58,9 +58,13 @@ public class FilterApi extends Api implements RouterCreator {
 
   /**
    * Constructs the API.
-   * @param vertx A reference to the current Vertx object.
-   * @param tokenCreator A reference to the token creator which is shared among API objects.
-   * @param routeApi A reference to the RouteApi object, which this API depends on for route
+   * @param vertx        A reference to the current Vertx object.
+   * @param tokenCreator A reference to the token creator which is shared
+   *                     among API objects.
+   * @param routeApi     A reference to the RouteApi object, which this API
+   *                     depends on for route
+   * @param userService  A reference to the user service which is responsible
+   *                     for the validation of the user state
    * handling.
    */
   public FilterApi(Vertx vertx, TokenCreator tokenCreator, RouteApi routeApi, UserService userService) {
