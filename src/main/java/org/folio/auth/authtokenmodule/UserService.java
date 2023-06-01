@@ -19,7 +19,7 @@ public class UserService {
 
   // map from tenant id to user id and then to user active or not
   private ConcurrentMap<String, Boolean> userTenantCache = new ConcurrentHashMap<>();
-  private ConcurrentMap<String, ConcurrentMap<String, UserEntry>> cache = new ConcurrentHashMap<>();
+  private ConcurrentMap<String, ConcurrentMap<String, UserEntry>> activeUserCache = new ConcurrentHashMap<>();
 
   private final WebClient client;
   private final long cachePeriod;
@@ -30,7 +30,7 @@ public class UserService {
 
     // purge cache periodically
     vertx.setPeriodic(purgeCacheInSeconds * 1000L, id -> {
-      cache = new ConcurrentHashMap<>();
+      activeUserCache = new ConcurrentHashMap<>();
       userTenantCache = new ConcurrentHashMap<>();
     });
   }
@@ -49,7 +49,7 @@ public class UserService {
   public Future<Boolean> isActiveUser(String userId, String tenant, String okapiUrl,
       String requestToken, String requestId) {
 
-    Map<String, UserEntry> map = cache.get(tenant);
+    Map<String, UserEntry> map = activeUserCache.get(tenant);
     if (map == null) {
       return isActiveUserNoCache(userId, tenant, okapiUrl, requestToken, requestId);
     }
@@ -87,7 +87,7 @@ public class UserService {
               return Future.failedFuture(new UserServiceException(msg, e));
             }
             ConcurrentMap<String, UserEntry> newMap = new ConcurrentHashMap<>();
-            ConcurrentMap<String, UserEntry> oldMap = cache.putIfAbsent(tenant, newMap);
+            ConcurrentMap<String, UserEntry> oldMap = activeUserCache.putIfAbsent(tenant, newMap);
             ConcurrentMap<String, UserEntry> map = oldMap == null ? newMap : oldMap;
             map.put(userId, new UserEntry(active));
             return Future.succeededFuture(active);
