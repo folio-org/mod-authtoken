@@ -60,4 +60,9 @@ public class ApiToken extends Token {
     // TODO Validate the API token by checking that it exists in storage,
     // hasn't been revoked, etc.
   }
+
+  @Override
+  protected Future<Token> validateTenantMismatch(TokenValidationContext context) {
+    return Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403));
+  }
 }

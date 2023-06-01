@@ -269,10 +269,7 @@ public abstract class Token {
 
       String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
       if (!claims.getString("tenant").equals(headerTenant)) {
-        isCrossTenantRequest(context)
-          .compose(aResult -> Boolean.TRUE.equals(aResult) ? Future.succeededFuture(this)
-            : Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403)))
-          .onComplete(promise);
+        validateTenantMismatch(context).onComplete(promise);
       } else {
         promise.complete(this);
       }
@@ -290,6 +287,11 @@ public abstract class Token {
     Long nowTime = Instant.now().getEpochSecond();
     Long expiration = claims.getLong("exp");
     return nowTime > expiration;
+  }
+
+  protected Future<Token> validateTenantMismatch(TokenValidationContext context) {
+    return isCrossTenantRequest(context).compose(aResult -> Boolean.TRUE.equals(aResult) ? Future.succeededFuture(this)
+      : Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403)));
   }
 
   /**

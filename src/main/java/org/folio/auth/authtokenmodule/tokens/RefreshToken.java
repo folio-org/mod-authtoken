@@ -84,4 +84,9 @@ public class RefreshToken extends Token {
       .compose(refreshTokenStore -> refreshTokenStore.checkTokenNotRevoked(this))
       .map(this);
   }
+
+  @Override
+  protected Future<Token> validateTenantMismatch(TokenValidationContext context) {
+    return Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403));
+  }
 }
