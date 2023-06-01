@@ -6,12 +6,14 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import org.folio.okapi.common.XOkapiHeaders;
 
 public class UsersMock extends AbstractVerticle {
 
   public void start(Promise<Void> promise) {
     Router router = Router.router(vertx);
     router.route("/users/:id").handler(this::handleUser);
+    router.route("/user-tenants").handler(this::handleUserTenants);
 
     HttpServer server = vertx.createHttpServer();
     int port = context.config().getInteger("port");
@@ -51,6 +53,30 @@ public class UsersMock extends AbstractVerticle {
     // active for all other user ids
     context.response().setStatusCode(200).putHeader("Content-Type", "application/json")
         .end(new JsonObject().put("active", true).encode());
+  }
+
+  private void handleUserTenants(RoutingContext context) {
+    String userId = context.request().getHeader(XOkapiHeaders.TENANT);
+    // invalid response code for tenant 00
+    if (userId.contentEquals("00")) {
+      context.response().setStatusCode(400).putHeader("Content-Type", "application/json").end();
+      return;
+    }
+    // invalid response JSON for tenant 000
+    if (userId.contentEquals("000")) {
+      context.response().setStatusCode(200).putHeader("Content-Type", "application/json")
+        .end("invalid json");
+      return;
+    }
+    // ok response code with valid json
+    if (userId.contentEquals("test-tenant-1")) {
+      context.response().setStatusCode(200).putHeader("Content-Type", "application/json")
+        .end(new JsonObject().put("totalRecords", 1).encode());
+      return;
+    }
+    // total records less than 1 for all other requests
+    context.response().setStatusCode(200).putHeader("Content-Type", "application/json")
+      .end(new JsonObject().put("totalRecords", 0).encode());
   }
 
 }

@@ -1,6 +1,7 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import org.folio.auth.authtokenmodule.TokenCreator;
+import org.folio.auth.authtokenmodule.UserService;
 import org.folio.auth.authtokenmodule.storage.TokenStore;
 
 import io.vertx.core.http.HttpServerRequest;
@@ -15,6 +16,7 @@ public class TokenValidationContext {
   private String tokenToValidate;
   private TokenCreator tokenCreator;
   private TokenStore tokenStore;
+  private UserService userService;
 
   /**
    * Gets the http request associated with the validation context.
@@ -49,21 +51,29 @@ public class TokenValidationContext {
     return tokenStore;
   }
 
-  public TokenValidationContext(HttpServerRequest httpServerRequest,
-      TokenCreator tokenCreator,
-      String tokenToValidate) {
-    this.httpServerRequest = httpServerRequest;
-    this.tokenCreator = tokenCreator;
-    this.tokenToValidate = tokenToValidate;
+  public UserService getUserService() {
+    return userService;
   }
 
   public TokenValidationContext(HttpServerRequest httpServerRequest,
       TokenCreator tokenCreator,
       String tokenToValidate,
-      TokenStore tokenStore) {
+      UserService userService) {
+    this.httpServerRequest = httpServerRequest;
+    this.tokenCreator = tokenCreator;
+    this.tokenToValidate = tokenToValidate;
+    this.userService = userService;
+  }
+
+  public TokenValidationContext(HttpServerRequest httpServerRequest,
+      TokenCreator tokenCreator,
+      String tokenToValidate,
+      TokenStore tokenStore,
+      UserService userService) {
     this.httpServerRequest = httpServerRequest;
     this.tokenCreator = tokenCreator;
     this.tokenToValidate = tokenToValidate;
     this.tokenStore = tokenStore;
+    this.userService = userService;
   }
 }

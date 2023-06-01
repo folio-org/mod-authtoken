@@ -73,24 +73,20 @@ public class RefreshToken extends Token {
   }
 
   protected Future<Token> validateContext(TokenValidationContext context) {
-    try {
-      validateCommon(context.getHttpServerRequest());
-    } catch (Exception e) {
-      return Future.failedFuture(e);
-    }
+    return validateCommon(context)
+      .map(context.getHttpServerRequest().remoteAddress().host())
+      .compose(address -> address.equals(claims.getString("address")) ? Future.succeededFuture()
+        : Future.failedFuture(new TokenValidationException("Issuing address does not match for refresh token", 401)))
+      .compose(aRes -> tokenIsExpired() ?
+        Future.failedFuture(new TokenValidationException("Attempt to refresh with expired refresh token", 401))
+        : Future.succeededFuture())
+      .map((RefreshTokenStore) context.getTokenStore())
+      .compose(refreshTokenStore -> refreshTokenStore.checkTokenNotRevoked(this))
+      .map(this);
+  }
 
-    String address = context.getHttpServerRequest().remoteAddress().host();
-    if (!address.equals(claims.getString("address"))) {
-      var e = new TokenValidationException("Issuing address does not match for refresh token", 401);
-      return Future.failedFuture(e);
-    }
-
-    if (tokenIsExpired()) {
-      var e = new TokenValidationException("Attempt to refresh with expired refresh token", 401);
-      return Future.failedFuture(e);
-    }
-
-    var refreshTokenStore = (RefreshTokenStore)context.getTokenStore();
-    return refreshTokenStore.checkTokenNotRevoked(this).map(this);
+  @Override
+  protected Future<Token> validateTenantMismatch(TokenValidationContext context) {
+    return Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403));
   }
 }

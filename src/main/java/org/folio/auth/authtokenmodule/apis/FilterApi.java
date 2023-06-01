@@ -58,25 +58,27 @@ public class FilterApi extends Api implements RouterCreator {
 
   /**
    * Constructs the API.
-   * @param vertx A reference to the current Vertx object.
-   * @param tokenCreator A reference to the token creator which is shared among API objects.
-   * @param routeApi A reference to the RouteApi object, which this API depends on for route
+   * @param vertx        A reference to the current Vertx object.
+   * @param tokenCreator A reference to the token creator which is shared
+   *                     among API objects.
+   * @param routeApi     A reference to the RouteApi object, which this API
+   *                     depends on for route
+   * @param userService  A reference to the user service which is responsible
+   *                     for the validation of the user state
    * handling.
    */
-  public FilterApi(Vertx vertx, TokenCreator tokenCreator, RouteApi routeApi) {
+  public FilterApi(Vertx vertx, TokenCreator tokenCreator, RouteApi routeApi, UserService userService) {
     logger = LogManager.getLogger(FilterApi.class);
     this.tokenCreator = tokenCreator;
     this.routeApi = routeApi;
+    this.userService = userService;
 
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
-    int userCacheInSeconds = Integer.parseInt(System.getProperty("user.cache.seconds", "60")); // 1 minute
-    int userCachePurgeInSeconds = Integer.parseInt(System.getProperty("user.cache.purge.seconds", "43200")); // 12 hours
     int sysPermCacheInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.seconds", "259200")); // 3 days
     int sysPermCachePurgeInSeconds = Integer.parseInt(System.getProperty("sys.perm.cache.purge.seconds", "43200")); // 12
                                                                                                                     // hours
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
-    userService = new UserService(vertx, userCacheInSeconds, userCachePurgeInSeconds);
     permService = new PermService(vertx, (ModulePermissionsSource) permissionsSource, sysPermCacheInSeconds,
         sysPermCachePurgeInSeconds);
   }
@@ -167,7 +169,7 @@ public class FilterApi extends Api implements RouterCreator {
     final String authToken = candidateToken;
     logger.debug("Final authToken is {}", authToken);
 
-    var context = new TokenValidationContext(ctx.request(), tokenCreator, authToken);
+    var context = new TokenValidationContext(ctx.request(), tokenCreator, authToken, userService);
     Future<Token> tokenValidationResult = Token.validate(context);
 
     tokenValidationResult.onFailure(h -> {

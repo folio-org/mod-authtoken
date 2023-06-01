@@ -56,15 +56,13 @@ public class ApiToken extends Token {
   }
 
   protected Future<Token> validateContext(TokenValidationContext context) {
-    try {
-      validateCommon(context.getHttpServerRequest());
-    } catch (TokenValidationException e) {
-      return Future.failedFuture(e);
-    }
-
+    return validateCommon(context);
     // TODO Validate the API token by checking that it exists in storage,
     // hasn't been revoked, etc.
+  }
 
-    return Future.succeededFuture(this);
+  @Override
+  protected Future<Token> validateTenantMismatch(TokenValidationContext context) {
+    return Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403));
   }
 }

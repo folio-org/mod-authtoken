@@ -1,7 +1,8 @@
 package org.folio.auth.authtokenmodule.tokens;
 
 import io.vertx.core.Future;
-import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.Promise;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.util.Base64;
 import com.nimbusds.jose.JOSEException;
@@ -23,6 +24,8 @@ import static java.lang.Boolean.TRUE;
  */
 public abstract class Token {
   protected static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
+  protected static final String PERMISSIONS_USER_TENANTS_GET = "user-tenants.collection.get";
+  protected static final String TENANT_MISMATCH_EXCEPTION_MESSAGE = "Tenant mismatch: tenant in header does not equal tenant in token";
   protected String source;
   protected static final int TOKEN_EXPIRATION_SECONDS = 60 * 10;
 
@@ -226,11 +229,13 @@ public abstract class Token {
 
   /**
    * Validate all the things that tokens have in common.
-   * @param request The http request context where the token is being provided.
-   * @throws TokenValidationException Throws this when any validation step fails, but may throw
+   * @param context The context for the token validation.
    * other exceptions as well.
    */
-  protected void validateCommon(HttpServerRequest request) throws TokenValidationException {
+  protected Future<Token> validateCommon(TokenValidationContext context) {
+    Promise<Token> promise = Promise.promise();
+
+    var request = context.getHttpServerRequest();
     try {
       // Check that the token has a source.
       if (source == null) {
@@ -251,30 +256,71 @@ public abstract class Token {
       }
 
       if (request == null) {
-        return;
+        promise.complete(this);
+        return promise.future();
       }
 
       // Check that some items in the headers match what are in the token.
-      String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
-      if (!claims.getString("tenant").equals(headerTenant)) {
-        throw new TokenValidationException("Tenant mismatch: tenant in header does not equal tenant in token", 403);
-      }
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
       String claimsUserId = claims.getString("user_id");
       if (headerUserId != null && claimsUserId != null && !claimsUserId.equals(headerUserId)) {
         throw new TokenValidationException("User id in header does not equal user id in token", 403);
       }
+
+      String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
+      if (!claims.getString("tenant").equals(headerTenant)) {
+        validateTenantMismatch(context).onComplete(promise);
+      } else {
+        promise.complete(this);
+      }
     } catch (TokenValidationException e) {
-      throw e;
+      promise.fail(e);
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
-      throw new TokenValidationException("Unexpected token validation exception", e, 500);
+      promise.fail(new TokenValidationException("Unexpected token validation exception", e, 500));
     }
+
+    return promise.future();
   }
 
   protected boolean tokenIsExpired() {
     Long nowTime = Instant.now().getEpochSecond();
     Long expiration = claims.getLong("exp");
     return nowTime > expiration;
+  }
+
+  protected Future<Token> validateTenantMismatch(TokenValidationContext context) {
+    return isCrossTenantRequest(context).compose(aResult -> Boolean.TRUE.equals(aResult) ? Future.succeededFuture(this)
+      : Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403)));
+  }
+
+  /**
+   Validates if the request is a cross-tenant request.
+   This method checks if the request is a cross-tenant request by validating the
+   user's tenant against the provided context. It performs the following steps:
+   Calls the user service's isUserTenantNotEmpty method to check if the tenant has any user tenant records.
+   Note that this method assumes the existence of a user_tenant table in the mod-users module.
+   It is expected that a dummy user tenant record is created in the user_tenant table after adding the
+   tenant to the consortia, which serves as an indication to allow cross-tenant requests for this tenant.
+   In a common non-consortia setup, the /user_tenant endpoint call will return empty collection
+   so tenant mismatch validation prevents such requests.
+   @param context The token validation context.
+   @return A Future<Boolean> indicating if the request is a cross-tenant request.
+   */
+  protected Future<Boolean> isCrossTenantRequest(TokenValidationContext context) {
+    var userService = context.getUserService();
+    var request = context.getHttpServerRequest();
+    String requestId = request.headers().get(XOkapiHeaders.REQUEST_ID);
+    String tenant = request.headers().get(XOkapiHeaders.TENANT);
+    String okapiUrl = request.headers().get(XOkapiHeaders.URL);
+
+    String userRequestToken;
+    try {
+      var userRTPerms = new JsonArray().add(PERMISSIONS_USER_TENANTS_GET);
+      userRequestToken = new DummyToken(tenant, userRTPerms).encodeAsJWT(context.getTokenCreator());
+    } catch (Exception encodeException) {
+      return Future.failedFuture(new TokenValidationException("Error creating request token: ", encodeException, 500));
+    }
+    return userService.isUserTenantNotEmpty(tenant, okapiUrl, userRequestToken, requestId);
   }
 }
