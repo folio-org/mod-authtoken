@@ -181,3 +181,4 @@ components:
       $ref: schemas/signRefreshToken.json
     token:
       $ref: schemas/token.json
+

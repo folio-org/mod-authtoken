@@ -3,6 +3,9 @@ package org.folio.auth.authtokenmodule;
 import java.text.ParseException;
 import com.nimbusds.jose.JOSEException;
 
+import io.vertx.core.MultiMap;
+import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
@@ -11,10 +14,12 @@ import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import io.vertx.core.Future;
+import org.mockito.Mockito;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.instanceOf;
@@ -25,6 +30,8 @@ public class TokenTest {
   private static String passPhrase = "CorrectBatteryHorseStaple";
   private static String tenant = "test-abc";
   private static String username = "test-username";
+  private final UserService userService =
+    new UserService(Vertx.vertx().getOrCreateContext().owner(), 60, 43200);
 
   @Before
   public void setSigningKey() {
@@ -32,13 +39,19 @@ public class TokenTest {
   }
 
   @Test
-  public void accessTokenIsValidTest() throws JOSEException, ParseException, TokenValidationException {
+  public void accessTokenIsValidTest() throws JOSEException, ParseException {
     var at = new AccessToken(tenant, username, userUUID);
     String key = System.getProperty("jwt.signing.key");
     var tokenCreator = new TokenCreator(key);
     var encoded = at.encodeAsJWT(tokenCreator);
 
-    var context = new TokenValidationContext(null, tokenCreator, encoded);
+    MultiMap headers = Mockito.mock(MultiMap.class);
+    Mockito.when(headers.get(XOkapiHeaders.USER_ID)).thenReturn(userUUID);
+    Mockito.when(headers.get(XOkapiHeaders.TENANT)).thenReturn(tenant);
+    HttpServerRequest request = Mockito.mock(HttpServerRequest.class);
+    Mockito.when(request.headers()).thenReturn(headers);
+
+    var context = new TokenValidationContext(request, tokenCreator, encoded, userService);
     Future<Token> result = Token.validate(context);
 
     // Access token validation will never have async operations within their validation.
@@ -47,14 +60,20 @@ public class TokenTest {
   }
 
   @Test
-  public void accessTokenIsInvalidTest() throws JOSEException, ParseException, TokenValidationException {
+  public void accessTokenIsInvalidTest() throws JOSEException, ParseException {
     String tokenMissingTenantClaim =
       "{\"iat\":1637696002,\"sub\":\"test-username\",\"user_id\":\"007d31d2-1441-4291-9bb8-d6e2c20e399a\",\"type\":\"access\"}";
     String key = System.getProperty("jwt.signing.key");
     var tokenCreator = new TokenCreator(key);
     String source = tokenCreator.createJWTToken(tokenMissingTenantClaim);
 
-    var context = new TokenValidationContext(null, tokenCreator, source);
+    MultiMap headers = Mockito.mock(MultiMap.class);
+    Mockito.when(headers.get(XOkapiHeaders.USER_ID)).thenReturn(userUUID);
+    Mockito.when(headers.get(XOkapiHeaders.TENANT)).thenReturn(tenant);
+    HttpServerRequest request = Mockito.mock(HttpServerRequest.class);
+    Mockito.when(request.headers()).thenReturn(headers);
+
+    var context = new TokenValidationContext(request, tokenCreator, source, userService);
     Future<Token> result = Token.validate(context);
 
     // Access tokens will never have async operations within their validation.
