@@ -63,6 +63,7 @@ public class TokenValidationContext {
 
   /**
    * Return flag is cross tenant requests allowed, it uses system property 'allow.cross.tenant.requests'.
+   *
    * @return true if system property 'allow.cross.tenant.requests' equals to 'true' or false if
    * it is not set or equals to 'false'
    */
@@ -71,9 +72,9 @@ public class TokenValidationContext {
   }
 
   public TokenValidationContext(HttpServerRequest httpServerRequest,
-                                TokenCreator tokenCreator,
-                                String tokenToValidate,
-                                UserService userService) {
+      TokenCreator tokenCreator,
+      String tokenToValidate,
+      UserService userService) {
     this.httpServerRequest = httpServerRequest;
     this.tokenCreator = tokenCreator;
     this.tokenToValidate = tokenToValidate;
