@@ -290,6 +290,9 @@ public abstract class Token {
   }
 
   protected Future<Token> validateTenantMismatch(TokenValidationContext context) {
+    if (!context.isAllowCrossTenantRequests()) {
+      return Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403));
+    }
     return isCrossTenantRequest(context).compose(aResult -> Boolean.TRUE.equals(aResult) ? Future.succeededFuture(this)
       : Future.failedFuture(new TokenValidationException(TENANT_MISMATCH_EXCEPTION_MESSAGE, 403)));
   }
