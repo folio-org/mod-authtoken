@@ -342,7 +342,32 @@ public class AuthTokenTest {
         .statusCode(403)
         .body(containsString("Invalid token"));
 
-    logger.info("The test cross-tenant request is permitted when /user-tenants isn't empty");
+    System.setProperty("allow.cross.tenant.requests", "");
+    logger.info("The test cross-tenant request is denied when system property 'allow.cross.tenant.requests' is not set");
+    given()
+      .header("X-Okapi-Tenant", "test-tenant-1")
+      .header("X-Okapi-Token", barToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("X-Okapi-Permissions-Desired", "bar.first")
+      .header("X-Okapi-Permissions-Required", "bar.second")
+      .get("/bar")
+      .then()
+      .statusCode(403);
+
+    System.setProperty("allow.cross.tenant.requests", "false");
+    logger.info("The test cross-tenant request is denied when system property 'allow.cross.tenant.requests' is 'false'");
+    given()
+      .header("X-Okapi-Tenant", "test-tenant-1")
+      .header("X-Okapi-Token", barToken)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("X-Okapi-Permissions-Desired", "bar.first")
+      .header("X-Okapi-Permissions-Required", "bar.second")
+      .get("/bar")
+      .then()
+      .statusCode(403);
+
+    System.setProperty("allow.cross.tenant.requests", "true");
+    logger.info("The test cross-tenant request is permitted when system property 'allow.cross.tenant.requests' is 'true' and /user-tenants isn't empty");
     given()
       .header("X-Okapi-Tenant", "test-tenant-1")
       .header("X-Okapi-Token", barToken)

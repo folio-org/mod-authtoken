@@ -43,6 +43,7 @@ mod-authtoken supports a number of command line options as system properties, se
 * `log.level` - Module log level.
 * `port` - Port the module will listen on. Defaults to 8081.
 * `cache.permissions` - Boolean controlling the permissions cache. Defaults to `true`.
+* `allow.cross.tenant.requests` - Boolean to allow (in consortia setups) or deny cross tenant requests. Defaults to `false`.
 
 # Custom Headers
 
