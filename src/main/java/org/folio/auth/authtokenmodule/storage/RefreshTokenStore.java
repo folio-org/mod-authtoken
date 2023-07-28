@@ -169,6 +169,15 @@ public class RefreshTokenStore extends TokenStore {
     });
   }
 
+  /**
+   * Revoke all tokens for the user associated with the given user id.
+   * @param userId The id of the user.
+   * @return A failed future if the revoke operation did not succeed. Otherwise a succeeded future.
+   */
+  public Future<Void> revokeAllTokensForUser(UUID userId) {
+    return pool.withConnection(conn -> revokeAllTokensForUser(conn, userId));
+  }
+
   private boolean tokenHasExpired(RefreshToken rt) {
     return Instant.now().getEpochSecond() >= rt.getExpiresAt();
   }
@@ -220,5 +229,21 @@ public class RefreshTokenStore extends TokenStore {
 
   public Future<Void> removeAll() {
     return removeAll(REFRESH_TOKEN_SUFFIX);
+  }
+
+  /**
+   * Revokes a single refresh token.
+   * @param refreshToken The refresh token to revoke.
+   * @return A failed future if the revoke operation failed. Otherwise a succeeded future
+   * is returned.
+   */
+  public Future<Void> revokeToken(RefreshToken refreshToken) {
+    UUID tokenId = refreshToken.getId();
+    log.info("Revoking API token {}", tokenId);
+
+    String sql = "UPDATE " + tableName(REFRESH_TOKEN_SUFFIX) +
+        "SET is_revoked=TRUE WHERE id=$1";
+
+    return pool.preparedQuery(sql).execute(Tuple.of(tokenId)).mapEmpty();
   }
 }

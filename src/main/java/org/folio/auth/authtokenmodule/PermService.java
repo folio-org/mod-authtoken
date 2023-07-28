@@ -54,7 +54,7 @@ public class PermService {
    * @param permissions
    * @return original permissions plus sub permissions
    */
-  public static JsonArray expandSystemPermissionsUsingCache(JsonArray permissions) {
+  static JsonArray expandSystemPermissionsUsingCache(JsonArray permissions) {
     JsonArray expandedPerms = new JsonArray();
     for (int i = 0, n = permissions.size(); i < n; i++) {
       String perm = permissions.getString(i);

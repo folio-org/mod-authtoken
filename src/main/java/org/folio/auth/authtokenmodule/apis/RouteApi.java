@@ -2,6 +2,7 @@ package org.folio.auth.authtokenmodule.apis;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonArray;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.core.json.JsonObject;
@@ -42,8 +43,6 @@ import org.folio.tlib.TenantInitHooks;
 public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
   private static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
-  private static final String REFRESH_TOKEN = "refreshToken";
-  private static final String ACCESS_TOKEN = "accessToken";
   private static final String USER_ID = "user_id";
 
   private PermissionsSource permissionsSource;
@@ -71,20 +70,24 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
 
     // Set up the routes. Here next will call operation handler defined in
-    // createRouter.
-    // The filter API is responsible for calling these routes, but we define them
-    // here.
+    // createRouter. The filter API is responsible for calling these routes, but we
+    // define them here.
     routes = new ArrayList<>();
     routes.add(new Route("/token/sign",
         new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
     routes.add(new Route("/token/refresh",
         new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
+    routes.add(new Route("/token/invalidate-all",
+        new String[] { }, RoutingContext::next));
+    // Must come after /invalidate-all because of startsWithMatching in Route.java.
+    routes.add(new Route("/token/invalidate",
+        new String[] { }, RoutingContext::next));
     routes.add(new Route("/_/tenant",
         new String[] {}, RoutingContext::next));
     // The "legacy" routes.
     routes.add(new Route("/refreshtoken",
         new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
-    // This must be last because of the startsWith matching.
+    // This must be last because of the startsWith matching in Route.java.
     routes.add(new Route("/token",
         new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
   }
@@ -106,6 +109,12 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
           routerBuilder
               .operation("token-sign")
               .handler(this::handleSignToken);
+           routerBuilder
+              .operation("token-invalidate")
+              .handler(this::handleTokenLogout);
+           routerBuilder
+              .operation("token-invalidate-all")
+              .handler(this::handleTokenLogoutAll);
           return routerBuilder.createRouter();
         });
   }
@@ -133,10 +142,12 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
    * @param ctx          The current http context.
    * @param authToken    The auth token in scope for this request.
    * @param moduleTokens An encoded JSON object of module tokens.
+   * @param expandedPermissions expanded permissions from token or header.
    */
-  public boolean tryHandleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
+  public boolean tryHandleRoute(RoutingContext ctx, String authToken, String moduleTokens,
+    JsonArray expandedPermissions) {
     for (Route route : routes) {
-      if (route.handleRoute(ctx, authToken, moduleTokens)) {
+      if (route.handleRoute(ctx, authToken, moduleTokens, expandedPermissions)) {
         return true;
       }
     }
@@ -199,32 +210,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     }
   }
 
-  private void returnTokens(
-      RoutingContext ctx,
-      String tenant,
-      String username,
-      String userId,
-      JsonObject responseObject) {
-
-    String address = ctx.request().remoteAddress().host();
-    var rt = new RefreshToken(tenant, username, userId, address);
-    var at = new AccessToken(tenant, username, userId);
-
-    try {
-      responseObject.put(ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));
-      responseObject.put(REFRESH_TOKEN, rt.encodeAsJWE(tokenCreator));
-    } catch (JOSEException e) {
-      endText(ctx, 500, "Unable to encode token", e);
-    } catch (ParseException e) {
-      endText(ctx, 500, "Parse exception", e);
-    }
-
-    // Save the RT to track one-time use.
-    new RefreshTokenStore(vertx, tenant).saveToken(rt)
-        .onSuccess(x -> endJson(ctx, 201, responseObject.encode()))
-        .onFailure(e -> handleTokenValidationFailure(e, ctx));
-  }
-
   // Use to determine the type of signing request.
   private boolean isDummyTokenSigningRequest(JsonObject payload) {
     return payload.getBoolean("dummy", Boolean.FALSE); // True property if present, otherwise false.
@@ -232,9 +217,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
   private void handleRefresh(RoutingContext ctx) {
     try {
-      String content = ctx.getBodyAsString();
-      JsonObject requestJson = new JsonObject(content);
-      String encryptedJWE = requestJson.getString(REFRESH_TOKEN);
+      JsonObject requestJson = ctx.body().asJsonObject();
+      String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
 
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
@@ -253,7 +237,71 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
         returnTokens(ctx, tenant, username, userId, responseObject);
       });
     } catch (Exception e) {
-      endText(ctx, 500, String.format("Unanticipated exception when handling refresh: %s", e.getMessage()));
+      endText(ctx, 500, "Cannot handle refresh: " + e.getMessage());
+    }
+  }
+
+  private void returnTokens(
+      RoutingContext ctx,
+      String tenant,
+      String username,
+      String userId,
+      JsonObject responseObject) {
+
+    String address = ctx.request().remoteAddress().host();
+    var rt = new RefreshToken(tenant, username, userId, address);
+    var at = new AccessToken(tenant, username, userId);
+
+    try {
+      responseObject.put(Token.ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));
+      responseObject.put(Token.REFRESH_TOKEN, rt.encodeAsJWE(tokenCreator));
+      responseObject.put(Token.ACCESS_TOKEN_EXPIRATION, at.getExpiresAtInIso8601Format());
+      responseObject.put(Token.REFRESH_TOKEN_EXPIRATION, rt.getExpiresAtInIso8601Format());
+    } catch (JOSEException e) {
+      endText(ctx, 500, "Unable to encode token", e);
+    } catch (ParseException e) {
+      endText(ctx, 500, "Parse exception", e);
+    }
+
+    // Save the RT to track one-time use.
+    new RefreshTokenStore(vertx, tenant).saveToken(rt)
+        .onSuccess(x -> endJson(ctx, 201, responseObject.encode()))
+        .onFailure(e -> handleTokenValidationFailure(e, ctx));
+  }
+
+  private void handleTokenLogout(RoutingContext ctx) {
+    try {
+      logger.debug("Called handleTokenLogout");
+      JsonObject requestJson = ctx.body().asJsonObject();
+      String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+
+      RefreshToken rt = (RefreshToken)Token.parse(encryptedJWE, tokenCreator);
+
+      var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
+      refreshTokenStore.revokeToken(rt)
+          .onSuccess(x -> endNoContent(ctx, 204))
+          .onFailure(e -> handleTokenValidationFailure(e, ctx));
+    } catch (Exception e) {
+      endText(ctx, 500, "Cannot handle token logout:" + e.getMessage());
+    }
+  }
+
+  private void handleTokenLogoutAll(RoutingContext ctx) {
+    try {
+      logger.debug("Called handleTokenLogoutAll");
+
+      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+      String accessTokenString = ctx.request().headers().get(XOkapiHeaders.TOKEN);
+
+      AccessToken at = (AccessToken)Token.parse(accessTokenString, tokenCreator);
+
+      var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
+      refreshTokenStore.revokeAllTokensForUser(at.getUserId())
+          .onSuccess(x -> endNoContent(ctx, 204))
+          .onFailure(e -> handleTokenValidationFailure(e, ctx));
+    } catch (Exception e) {
+      endText(ctx, 500, "Cannot handle token logout all: " + e.getMessage());
     }
   }
 
@@ -264,10 +312,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       // X-Okapi-Tenant and X-Okapi-Url are already checked in FilterApi.
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      final String content = ctx.getBodyAsString();
-      JsonObject json;
+      JsonObject json = ctx.body().asJsonObject();
       JsonObject payload;
-      json = new JsonObject(content);
       payload = json.getJsonObject("payload");
 
       // Both types of signing requests (dummy and access) have only this property in
@@ -306,12 +352,11 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
       String address = ctx.request().remoteAddress().host();
-      String content = ctx.getBodyAsString();
-      JsonObject requestJson = new JsonObject(content);
+      JsonObject requestJson = ctx.body().asJsonObject();
       String userId = requestJson.getString(USER_ID);
       String sub = requestJson.getString("sub");
       String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
-      JsonObject responseJson = new JsonObject().put(REFRESH_TOKEN, refreshToken);
+      JsonObject responseJson = new JsonObject().put(Token.REFRESH_TOKEN, refreshToken);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
       endText(ctx, 500, e);

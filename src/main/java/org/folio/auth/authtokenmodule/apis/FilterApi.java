@@ -9,8 +9,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.folio.auth.authtokenmodule.MainVerticle;
@@ -26,6 +24,7 @@ import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
+import org.folio.okapi.common.OkapiToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.okapi.common.logging.FolioLoggingContext;
 
@@ -94,6 +93,7 @@ public class FilterApi extends Api implements RouterCreator {
   }
 
   private void handleAuthorize(RoutingContext ctx) {
+    logger.debug("handleAuthorize path={}", () -> ctx.request().path());
     String requestId = ctx.request().headers().get(XOkapiHeaders.REQUEST_ID);
     String userId = ctx.request().headers().get(XOkapiHeaders.USER_ID);
     String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
@@ -115,27 +115,9 @@ public class FilterApi extends Api implements RouterCreator {
     String zapCacheString = ctx.request().headers().get(MainVerticle.ZAP_CACHE_HEADER);
     boolean zapCache = "true".equals(zapCacheString);
 
-    String authHeader = ctx.request().headers().get("Authorization");
-    String okapiTokenHeader = ctx.request().headers().get(XOkapiHeaders.TOKEN);
-    String candidateToken;
-    if (okapiTokenHeader != null && authHeader != null) {
-      String authToken = extractToken(authHeader);
-      if (okapiTokenHeader.equals(authToken)) { // authToken may be null
-        candidateToken = authToken;
-      } else {
-        endText(ctx, 400, "Conflicting token information in Authorization and "
-            + XOkapiHeaders.TOKEN + " headers. Please remove Authorization header "
-            + " and use " + XOkapiHeaders.TOKEN + " in the future");
-        return;
-      }
-    } else if (okapiTokenHeader != null) {
-      candidateToken = okapiTokenHeader;
-    } else if (authHeader != null) {
-      candidateToken = extractToken(authHeader);
-    } else {
-      candidateToken = null;
-    }
-
+    // The candidate token will either be present or null. If it is null a dummy token
+    // is assigned.
+    String candidateToken = ctx.request().headers().get(XOkapiHeaders.TOKEN);
     final boolean isDummyToken = candidateToken == null;
     if (isDummyToken) {
       logger.debug("Generating dummy authtoken");
@@ -178,6 +160,8 @@ public class FilterApi extends Api implements RouterCreator {
 
     tokenValidationResult.onSuccess(token -> {
       logger.debug("Validated token of type: {}", token.getClaim("type"));
+      logger.debug("payload {}", () ->
+        new OkapiToken(authToken).getPayloadWithoutValidation().encodePrettily());
 
       String username = token.getClaim("sub");
 
@@ -201,205 +185,201 @@ public class FilterApi extends Api implements RouterCreator {
       }
 
       final JsonArray extraPermissions = extraPermissionsCandidate;
+      permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
+        requestId).onSuccess(expandedPermissions -> {
+        // Instead of storing tokens, let's store an array of objects that each
 
-      // Instead of storing tokens, let's store an array of objects that each
+        logger.debug("Handling module tokens");
 
-      logger.debug("Handling module tokens");
-
-      JsonObject moduleTokens = new JsonObject();
-      /* TODO get module permissions (if they exist) */
-      if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
-        JsonObject modulePermissions = new JsonObject(ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS));
-        for (String moduleName : modulePermissions.fieldNames()) {
-          JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
-          String moduleToken;
-          try {
-            moduleToken = new ModuleToken(tenant, username, finalUserId, moduleName, permissionList)
+        JsonObject moduleTokens = new JsonObject();
+        /* TODO get module permissions (if they exist) */
+        if (ctx.request().headers().contains(XOkapiHeaders.MODULE_PERMISSIONS)) {
+          String modPermsHeader = ctx.request().headers().get(XOkapiHeaders.MODULE_PERMISSIONS);
+          logger.debug("Module permissions from X-Okapi-Module-Permissions header: {}", modPermsHeader);
+          JsonObject modulePermissions = new JsonObject(modPermsHeader);
+          for (String moduleName : modulePermissions.fieldNames()) {
+            JsonArray permissionList = modulePermissions.getJsonArray(moduleName);
+            String moduleToken;
+            try {
+              moduleToken = new ModuleToken(tenant, username, finalUserId, moduleName, permissionList)
                 .encodeAsJWT(tokenCreator);
-          } catch (Exception e) {
-            String message = String.format("Error creating moduleToken: %s",
+            } catch (Exception e) {
+              String message = String.format("Error creating moduleToken: %s",
                 e.getLocalizedMessage());
-            logger.error(message);
-            endText(ctx, 500, "Error generating module permissions token");
-            return;
+              logger.error(message);
+              endText(ctx, 500, "Error generating module permissions token");
+              return;
+            }
+            moduleTokens.put(moduleName, moduleToken);
           }
-          moduleTokens.put(moduleName, moduleToken);
         }
-      }
-      // Add the original token back into the module tokens
-      moduleTokens.put("_", authToken);
+        // Add the original token back into the module tokens
+        moduleTokens.put("_", authToken);
 
-      /*
-       * When the initial request comes in, as a filter, we require that the auth.signtoken
-       * permission exists in the module tokens. This means that even if a request has
-       * the permission in its permissions list, it cannot request a token unless
-       * it has been granted at the module level. If it passes the filter successfully,
-       * a new permission, auth.signtoken.execute is attached to the outgoing request
-       * which the /token handler will check for when it processes the actual request
-       */
-      if (routeApi.tryHandleRoute(ctx, authToken, moduleTokens.encode())) {
-        logger.debug("Handled mod-authtoken route request");
-        return;
-      }
-
-      logger.debug("No route found. Proceeding with filter request.");
-
-      // Populate the permissionsRequired array from the header
-      JsonArray permissionsRequired = new JsonArray();
-      JsonArray permissionsDesired = new JsonArray();
-
-      if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_REQUIRED)) {
-        String permissionsString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_REQUIRED);
-        for (String entry : permissionsString.split(",")) {
-          permissionsRequired.add(entry);
-        }
-      }
-
-      if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_DESIRED)) {
-        String permString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_DESIRED);
-        for (String entry : permString.split(",")) {
-          permissionsDesired.add(entry);
-        }
-      }
-
-      PermissionsSource usePermissionsSource;
-      if (token.shouldUseDummyPermissionsSource()) {
-        logger.debug("Using dummy permissions source for token type: {}", token.getClaim("type"));
-        usePermissionsSource = new DummyPermissionsSource();
-      } else {
-        usePermissionsSource = permissionsSource;
-      }
-
-      if (zapCache) {
-        usePermissionsSource.clearCache();
-      }
-
-      // Retrieve the user permissions and populate the permissions header
-      logger.debug("Getting user permissions for {} (finalUserId {})", username, finalUserId);
-      long startTime = System.currentTimeMillis();
-
-      JsonArray expandedSystemPermissions = new JsonArray();
-
-      // Need to check if the user is still active.
-      Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
-      if (token.shouldCheckIfUserIsActive(finalUserId)) {
-        activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
-      }
-      Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
-        if (TRUE.equals(b)) {
-          return permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
-              requestId);
-        } else {
-          String msg = String.format("Invalid token: user with id %s is not active", finalUserId);
-          endText(ctx, 401, msg);
-          return Future.failedFuture(msg);
-        }
-      }).compose(expandedPermissions -> {
-        expandedSystemPermissions.addAll(expandedPermissions);
-        // Skip expanded system permissions.
-        JsonArray extraPermsMinusSystemOnes = new JsonArray();
-        extraPermissions.forEach(it -> {
-          if (!((String) it).startsWith(PermService.SYS_PERM_PREFIX)) {
-            extraPermsMinusSystemOnes.add(it);
-          }
-        });
-        return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
-            permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
-      });
-
-      logger.debug("Retrieving permissions for userid {} and expanding permissions", finalUserId);
-      retrievedPermissionsFuture.onComplete(res -> {
-        if (res.failed()) {
-          // Vert.x 4 warns about this.. And it's true : response already written 19 lines
-          // above
-          if (ctx.response().ended()) {
-            return;
-          }
-          long stopTime = System.currentTimeMillis();
-          logger.error("Unable to retrieve permissions for {}: {} request took {} ms",
-              username, res.cause().getMessage(), stopTime - startTime);
-          if (res.cause() instanceof UserService.UserServiceException) {
-            endText(ctx, 401, "Invalid token: " + res.cause().getLocalizedMessage());
-            return;
-          }
-          // mod-authtoken should return the module tokens header even in case of errors.
-          // If not, pre+post filters will NOT get modulePermissions from Okapi
-          ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
-          String msg = String.format("Unable to retrieve permissions for user with id '%s': %s",
-              finalUserId, res.cause().getLocalizedMessage());
-          endText(ctx, 400, msg);
+        /*
+         * When the initial request comes in, as a filter, we require that the auth.signtoken
+         * permission exists in the module tokens. This means that even if a request has
+         * the permission in its permissions list, it cannot request a token unless
+         * it has been granted at the module level. If it passes the filter successfully,
+         * a new permission, auth.signtoken.execute is attached to the outgoing request
+         * which the /token/.. handlers will check for when it processes the actual request
+         */
+        if (routeApi.tryHandleRoute(ctx, authToken, moduleTokens.encode(), expandedPermissions)) {
+          logger.debug("Handled mod-authtoken route request");
           return;
         }
 
-        JsonArray permissions = new JsonArray();
-        mergePerms(permissions, res.result().getUserPermissions());
-        mergePerms(permissions, res.result().getExpandedPermissions());
-        mergePerms(permissions, expandedSystemPermissions);
+        logger.debug("No route found. Proceeding with filter request.");
 
-        // Check that for all required permissions, we have them
-        for (Object o : permissionsRequired) {
-          if (!permissions.contains(o)
-              && !extraPermissions.contains(o)) {
-            String msg;
-            if (isDummyToken) {
-              msg = "Token missing, access requires permission: " + o;
-            } else {
-              msg = "Access for user '" +  username + "' (" + finalUserId + ") requires permission: " + o;
+        // Populate the permissionsRequired array from the header
+        JsonArray permissionsRequired = new JsonArray();
+        JsonArray permissionsDesired = new JsonArray();
+
+        if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_REQUIRED)) {
+          String permissionsString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_REQUIRED);
+          for (String entry : permissionsString.split(",")) {
+            permissionsRequired.add(entry);
+          }
+        }
+
+        if (ctx.request().headers().contains(XOkapiHeaders.PERMISSIONS_DESIRED)) {
+          String permString = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS_DESIRED);
+          for (String entry : permString.split(",")) {
+            permissionsDesired.add(entry);
+          }
+        }
+
+        PermissionsSource usePermissionsSource;
+        if (token.shouldUseDummyPermissionsSource()) {
+          logger.debug("Using dummy permissions source for token type: {}", token.getClaim("type"));
+          usePermissionsSource = new DummyPermissionsSource();
+        } else {
+          usePermissionsSource = permissionsSource;
+        }
+
+        if (zapCache) {
+          usePermissionsSource.clearCache();
+        }
+
+        // Retrieve the user permissions and populate the permissions header
+        logger.debug("Getting user permissions for {} (finalUserId {})", username, finalUserId);
+        long startTime = System.currentTimeMillis();
+
+        // Need to check if the user is still active.
+        Future<Boolean> activeUser = Future.succeededFuture(Boolean.TRUE);
+        if (token.shouldCheckIfUserIsActive(finalUserId)) {
+          activeUser = userService.isActiveUser(finalUserId, tenant, okapiUrl, userRequestToken, requestId);
+        }
+        Future<PermissionData> retrievedPermissionsFuture = activeUser.compose(b -> {
+          if (TRUE.equals(b)) {
+            JsonArray extraPermsMinusSystemOnes = new JsonArray();
+            extraPermissions.forEach(it -> {
+              if (!((String) it).startsWith(PermService.SYS_PERM_PREFIX)) {
+                extraPermsMinusSystemOnes.add(it);
+              }
+            });
+            return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
+              permissionsRequestToken, requestId, extraPermsMinusSystemOnes);
+          } else {
+            String msg = String.format("Invalid token: user with id %s is not active", finalUserId);
+            endText(ctx, 401, msg);
+            return Future.failedFuture(msg);
+          }
+        });
+
+        logger.debug("Retrieving permissions for userid {} and expanding permissions", finalUserId);
+        retrievedPermissionsFuture.onComplete(res -> {
+          if (res.failed()) {
+            // Vert.x 4 warns about this.. And it's true : response already written 19 lines
+            // above
+            if (ctx.response().ended()) {
+              return;
             }
-
-            logger.error(() -> "Permission missing in "
-                + permissions.encode() + " (user permissions) and "
-                + extraPermissions.encode() + " (module permissions). "
-                + msg);
+            long stopTime = System.currentTimeMillis();
+            logger.error("Unable to retrieve permissions for {}: {} request took {} ms",
+              username, res.cause().getMessage(), stopTime - startTime);
+            if (res.cause() instanceof UserService.UserServiceException) {
+              endText(ctx, 401, "Invalid token: " + res.cause().getLocalizedMessage());
+              return;
+            }
             // mod-authtoken should return the module tokens header even in case of errors.
             // If not, pre+post filters will NOT get modulePermissions from Okapi
             ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
-            endText(ctx, 403, msg);
+            String msg = String.format("Unable to retrieve permissions for user with id '%s': %s",
+              finalUserId, res.cause().getLocalizedMessage());
+            endText(ctx, 400, msg);
             return;
           }
-        }
 
-        // Remove all permissions not listed in permissionsRequired or
-        // permissionsDesired
-        List<Object> deleteList = new ArrayList<>();
-        for (Object o : permissions) {
-          if (!permissionsRequired.contains(o) && !Util.arrayContainsGlob(permissionsDesired, (String) o)) {
-            deleteList.add(o);
+          JsonArray permissions = new JsonArray();
+          mergePerms(permissions, res.result().getUserPermissions());
+          mergePerms(permissions, res.result().getExpandedPermissions());
+          mergePerms(permissions, expandedPermissions);
+
+          // Check that for all required permissions, we have them
+          for (Object o : permissionsRequired) {
+            if (!permissions.contains(o)
+              && !extraPermissions.contains(o)) {
+              String msg;
+              if (isDummyToken) {
+                msg = "Token missing, access requires permission: " + o;
+              } else {
+                msg = "Access for user '" + username + "' (" + finalUserId + ") requires permission: " + o;
+              }
+
+              logger.error(() -> "Permission missing in "
+                + permissions.encode() + " (user permissions) and "
+                + extraPermissions.encode() + " (module permissions). "
+                + msg);
+              // mod-authtoken should return the module tokens header even in case of errors.
+              // If not, pre+post filters will NOT get modulePermissions from Okapi
+              ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
+              endText(ctx, 403, msg);
+              return;
+            }
           }
-        }
 
-        for (Object o : deleteList) {
-          permissions.remove(o);
-        }
+          // Remove all permissions not listed in permissionsRequired or
+          // permissionsDesired
+          List<Object> deleteList = new ArrayList<>();
+          for (Object o : permissions) {
+            if (!permissionsRequired.contains(o) && !Util.arrayContainsGlob(permissionsDesired, (String) o)) {
+              deleteList.add(o);
+            }
+          }
 
-        String finalToken;
-        try {
-          finalToken = token.encodeAsJWT(tokenCreator);
-        } catch (Exception e) {
-          String message = String.format("Error creating final token: %s", e.getMessage());
-          logger.error(message);
-          // mod-authtoken should return the module tokens header even in case of errors.
-          // If not, pre+post filters will NOT get modulePermissions from Okapi.
-          ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
-          endText(ctx, 500, "Error creating access token");
-          return;
-        }
+          for (Object o : deleteList) {
+            permissions.remove(o);
+          }
 
-        // Return header containing relevant permissions
-        ctx.response()
+          String finalToken;
+          try {
+            finalToken = token.encodeAsJWT(tokenCreator);
+          } catch (Exception e) {
+            String message = String.format("Error creating final token: %s", e.getMessage());
+            logger.error(message);
+            // mod-authtoken should return the module tokens header even in case of errors.
+            // If not, pre+post filters will NOT get modulePermissions from Okapi.
+            ctx.response().putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode());
+            endText(ctx, 500, "Error creating access token");
+            return;
+          }
+
+          // Return header containing relevant permissions
+          ctx.response()
             .setChunked(true)
             .setStatusCode(202)
             .putHeader(MainVerticle.CONTENT_TYPE, "text/plain")
             .putHeader(XOkapiHeaders.PERMISSIONS, permissions.encode())
             .putHeader(XOkapiHeaders.MODULE_TOKENS, moduleTokens.encode())
-            .putHeader("Authorization", "Bearer " + finalToken)
             .putHeader(XOkapiHeaders.TOKEN, finalToken);
 
-        if (finalUserId != null) {
-          ctx.response().putHeader(XOkapiHeaders.USER_ID, finalUserId);
-        }
+          if (finalUserId != null) {
+            ctx.response().putHeader(XOkapiHeaders.USER_ID, finalUserId);
+          }
 
-        ctx.response().end();
+          ctx.response().end();
+        });
       });
     });
   }
@@ -412,15 +392,4 @@ public class FilterApi extends Api implements RouterCreator {
       }
     }
   }
-
-  public String extractToken(String authorizationHeader) {
-    // Grab anything after 'Bearer' and whitespace
-    Pattern pattern = Pattern.compile("Bearer\\s+(.+)");
-    Matcher matcher = pattern.matcher(authorizationHeader);
-    if (matcher.find()) {
-      return matcher.group(1);
-    }
-    return null;
-  }
-
 }

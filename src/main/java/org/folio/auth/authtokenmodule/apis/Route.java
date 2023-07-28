@@ -3,13 +3,10 @@ package org.folio.auth.authtokenmodule.apis;
 import com.nimbusds.jose.util.Base64;
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.folio.auth.authtokenmodule.PermService;
-import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.okapi.common.XOkapiHeaders;
 
 import java.util.ArrayList;
@@ -51,19 +48,15 @@ public class Route {
    * @param ctx The current http context.
    * @param authToken The token in scope.
    * @param moduleTokens A string representation of the module tokens in scope.
+   * @param expandedPermissions expanded permissions from token or header.
    * @return True if the route should be handled, otherwise false if a pass-through.
    */
-  public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens) {
-    logger.debug("Handling route for endpoint {}", endpoint);
-
-    JsonObject claims = Token.getClaims(authToken);
-    JsonArray extraPermissions = claims.getJsonArray("extra_permissions");
-    if (extraPermissions == null) {
-      extraPermissions = new JsonArray();
-    }
+  public boolean handleRoute(RoutingContext ctx, String authToken, String moduleTokens,
+    JsonArray expandedPermissions) {
     if (!ctx.request().path().startsWith(endpoint)) {
       return false;
     }
+    logger.debug("Handling route for endpoint {}", endpoint);
     JsonArray requestPerms = null;
     String permissionsHeader = ctx.request().headers().get(XOkapiHeaders.PERMISSIONS);
     // Vert.x 3.5.4 accepted null for JsonArray constructor; Vert.x 3.9.1 does not
@@ -76,16 +69,20 @@ public class Route {
         logger.warn(String.format("Headers are: %s", ctx.request().headers().toString()));
       }
     }
+
+    // The first time this is called there won't be a magic permission yet so we don't yet call
+    // the actual route but instead apply the magic perm.
     if (requestPerms != null && requestPerms.contains(getMagicPermission(endpoint))) {
-      logger.debug("Calling handler for {} with POST body of {}", endpoint, ctx.getBodyAsString());
+      // If we've reached this code this is the second request and the magic perm exists.
+      logger.debug("Magic perm found. Calling handler for {}", endpoint);
       handler.handle(ctx);
       return true;
     }
-    // Check for permissions
-    extraPermissions = PermService.expandSystemPermissionsUsingCache(extraPermissions);
+    // If we've reached this point, this is still the first time the method has been called so we
+    // make sure the permissions exist.
     boolean allFound = true;
     for (String perm : requiredPermissions) {
-      if (!extraPermissions.contains(perm)) {
+      if (!expandedPermissions.contains(perm)) {
         allFound = false;
         break;
       }
@@ -98,8 +95,9 @@ public class Route {
         .end(String.format("Missing required module-level permissions for endpoint '%s': %s",
           endpoint, String.join(", ", requiredPermissions)));
     } else {
-      logger.debug("Responding with magic permission for Route");
+      logger.debug("Responding with magic permission for route: {}", endpoint);
 
+      // Finally respond with the magic perm header. This is the first request still.
       String magicPermission = getMagicPermission(endpoint);
       ctx.response()
         .setChunked(true)

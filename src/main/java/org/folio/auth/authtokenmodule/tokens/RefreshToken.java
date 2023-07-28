@@ -18,6 +18,11 @@ public class RefreshToken extends Token {
    */
   public static final String TYPE = "refresh";
 
+  /**
+   * Time after which token is expired. 604800 seconds = 7 days.
+   */
+  private static final long EXPIRATION_SECONDS = 604800;
+
   public UUID getId() {
     return UUID.fromString(claims.getString("jti"));
   }
@@ -30,6 +35,10 @@ public class RefreshToken extends Token {
     return claims.getLong("exp");
   }
 
+  public String getExpiresAtInIso8601Format() {
+    return Instant.ofEpochSecond(claims.getLong("exp")).toString();
+  }
+
   /**
    * Should only be used by tests.
    * @param to The epoch seconds time stamp to set the exp claim to.
@@ -37,8 +46,6 @@ public class RefreshToken extends Token {
   public void setExpiresAt(long to) {
     claims.put("exp", to);
   }
-
-  int expirationSeconds = TOKEN_EXPIRATION_SECONDS;
 
   /**
    * Create a new refresh token.
@@ -51,7 +58,7 @@ public class RefreshToken extends Token {
     long now = Instant.now().getEpochSecond();
     claims = new JsonObject()
     .put("type", TYPE)
-    .put("exp", now + expirationSeconds)
+    .put("exp", now + EXPIRATION_SECONDS)
     .put("iat", now)
     .put("sub", username)
     .put("user_id", userId)
