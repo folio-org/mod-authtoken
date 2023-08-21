@@ -6,6 +6,7 @@ import io.restassured.response.Response;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.util.Base64;
 
+import io.restassured.response.ValidatableResponse;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.json.JsonArray;
@@ -134,7 +135,6 @@ public class AuthTokenTest {
     .onComplete(context.asyncAssertSuccess(y -> {
         var tenantAttributes = new JsonObject().put("module_to", "mod-authtoken-1.0.0");
         initializeTenantForTokenStore(tenant, tenantAttributes);
-        //initializeTenantForTokenStore(memberTenant, tenantAttributes);
     }));
   }
 
@@ -915,20 +915,7 @@ public class AuthTokenTest {
     public void testRefreshToken() throws JOSEException, ParseException {
       logger.info("POST signing request for a refresh token");
 
-      var response = given()
-          .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", accessToken)
-          .header("X-Okapi-Url", "http://localhost:" + freePort)
-          .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
-          .body(new JsonObject().put("payload", payloadSigningRequest).encode())
-          .post("/token/sign")
-          .then()
-          .statusCode(201)
-          .contentType("application/json")
-          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
-          .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION));
-
+      var response = getSignTokenResponse();
       String rt = response.extract().path("refreshToken");
       String at = response.extract().path("accessToken");
 
@@ -1019,20 +1006,7 @@ public class AuthTokenTest {
     public void testRefreshTokenWhenCrossTenantRequestsDeniedBecauseOfSystemPropertyNotSet() {
       logger.info("POST signing request for a refresh token");
 
-      var response = given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("Content-type", "application/json")
-        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
-        .body(new JsonObject().put("payload", payloadSigningRequest).encode())
-        .post("/token/sign")
-        .then()
-        .statusCode(201)
-        .contentType("application/json")
-        .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
-        .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION));
-
+      var response = getSignTokenResponse();
       String rt = response.extract().path("refreshToken");
       String at = response.extract().path("accessToken");
 
@@ -1056,20 +1030,7 @@ public class AuthTokenTest {
     public void testRefreshTokenWhenCrossTenantRequestsDeniedBecauseOfTenantNotInConsortia() {
       logger.info("POST signing request for a refresh token");
 
-      var response = given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("Content-type", "application/json")
-        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
-        .body(new JsonObject().put("payload", payloadSigningRequest).encode())
-        .post("/token/sign")
-        .then()
-        .statusCode(201)
-        .contentType("application/json")
-        .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
-        .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION));
-
+      var response = getSignTokenResponse();
       String rt = response.extract().path("refreshToken");
       String at = response.extract().path("accessToken");
 
@@ -1094,20 +1055,7 @@ public class AuthTokenTest {
     public void testRefreshTokenWhenCrossTenantRequestsAllowed() {
       logger.info("POST signing request for a refresh token");
 
-      var response = given()
-        .header("X-Okapi-Tenant", tenant)
-        .header("X-Okapi-Token", accessToken)
-        .header("X-Okapi-Url", "http://localhost:" + freePort)
-        .header("Content-type", "application/json")
-        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
-        .body(new JsonObject().put("payload", payloadSigningRequest).encode())
-        .post("/token/sign")
-        .then()
-        .statusCode(201)
-        .contentType("application/json")
-        .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
-        .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION));
-
+      var response = getSignTokenResponse();
       String rt = response.extract().path("refreshToken");
       String at = response.extract().path("accessToken");
 
@@ -1124,6 +1072,22 @@ public class AuthTokenTest {
         .post("/token/refresh")
         .then()
         .statusCode(201);
+    }
+
+    private ValidatableResponse getSignTokenResponse() {
+      return given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Token", accessToken)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("Content-type", "application/json")
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+        .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+        .post("/token/sign")
+        .then()
+        .statusCode(201)
+        .contentType("application/json")
+        .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+        .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION));
     }
 
     @Test
