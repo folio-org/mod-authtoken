@@ -8,6 +8,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.openapi.RouterBuilder;
 
+import org.apache.commons.lang3.StringUtils;
 import org.folio.auth.authtokenmodule.PermissionsSource;
 import org.folio.auth.authtokenmodule.UserService;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
@@ -15,11 +16,12 @@ import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
-import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
+import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.okapi.common.XOkapiHeaders;
 
 import java.util.ArrayList;
@@ -219,12 +221,12 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       JsonObject requestJson = ctx.body().asJsonObject();
       String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
-
-      String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+      Token parsedToken = Token.validateTokenContent(encryptedJWE, tokenCreator);
+      String tenant = StringUtils.defaultIfBlank(parsedToken.getTenant(), ctx.request().headers().get(XOkapiHeaders.TENANT));
       var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
 
       var context = new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE, refreshTokenStore, userService);
-      Future<Token> tokenValidationResult = Token.validate(context);
+      Future<Token> tokenValidationResult = Token.validateTokenType(parsedToken, context);
 
       tokenValidationResult.onFailure(e -> handleTokenValidationFailure(e, ctx));
 
@@ -236,6 +238,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
         returnTokens(ctx, tenant, username, userId, responseObject);
       });
+    } catch (TokenValidationException e) {
+      handleTokenValidationFailure(e, ctx);
     } catch (Exception e) {
       endText(ctx, 500, "Cannot handle refresh: " + e.getMessage());
     }

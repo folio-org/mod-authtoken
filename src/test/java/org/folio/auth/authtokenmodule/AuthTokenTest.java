@@ -57,6 +57,7 @@ public class AuthTokenTest {
 
   private static final Logger logger = LogManager.getLogger("AuthTokenTest");
   private static final String tenant = "roskilde";
+  private static final String memberTenant = "test-tenant-1";
   private static TokenCreator tokenCreator;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String accessToken;
@@ -133,6 +134,7 @@ public class AuthTokenTest {
     .onComplete(context.asyncAssertSuccess(y -> {
         var tenantAttributes = new JsonObject().put("module_to", "mod-authtoken-1.0.0");
         initializeTenantForTokenStore(tenant, tenantAttributes);
+        //initializeTenantForTokenStore(memberTenant, tenantAttributes);
     }));
   }
 
@@ -1011,6 +1013,117 @@ public class AuthTokenTest {
           .get("/bar")
           .then()
           .statusCode(202);
+    }
+
+    @Test
+    public void testRefreshTokenWhenCrossTenantRequestsDeniedBecauseOfSystemPropertyNotSet() {
+      logger.info("POST signing request for a refresh token");
+
+      var response = given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Token", accessToken)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("Content-type", "application/json")
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+        .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+        .post("/token/sign")
+        .then()
+        .statusCode(201)
+        .contentType("application/json")
+        .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+        .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION));
+
+      String rt = response.extract().path("refreshToken");
+      String at = response.extract().path("accessToken");
+
+      System.setProperty("allow.cross.tenant.requests", "false");
+      logger.info("POST refresh token to get a new refresh and access token with allow.cross.tenant.requests=false");
+
+      given()
+        .header("X-Okapi-Tenant", memberTenant)
+        .header("X-Okapi-Token", at)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("Content-type", "application/json")
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+        .body(new JsonObject().put("refreshToken", rt).encode())
+        .post("/token/refresh")
+        .then()
+        .statusCode(403)
+        .body(containsString("Invalid token"));;
+    }
+
+    @Test
+    public void testRefreshTokenWhenCrossTenantRequestsDeniedBecauseOfTenantNotInConsortia() {
+      logger.info("POST signing request for a refresh token");
+
+      var response = given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Token", accessToken)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("Content-type", "application/json")
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+        .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+        .post("/token/sign")
+        .then()
+        .statusCode(201)
+        .contentType("application/json")
+        .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+        .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION));
+
+      String rt = response.extract().path("refreshToken");
+      String at = response.extract().path("accessToken");
+
+      System.setProperty("allow.cross.tenant.requests", "true");
+      String notConsortiumTenant = "notConsortiumTenant";
+      logger.info("POST refresh token to get a new refresh and access token with allow.cross.tenant.requests=true, but not for consortium tenant(/user-tenant returns empty response)");
+
+      given()
+        .header("X-Okapi-Tenant", notConsortiumTenant)
+        .header("X-Okapi-Token", at)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("Content-type", "application/json")
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+        .body(new JsonObject().put("refreshToken", rt).encode())
+        .post("/token/refresh")
+        .then()
+        .statusCode(403)
+        .body(containsString("Invalid token"));
+    }
+
+    @Test
+    public void testRefreshTokenWhenCrossTenantRequestsAllowed() {
+      logger.info("POST signing request for a refresh token");
+
+      var response = given()
+        .header("X-Okapi-Tenant", tenant)
+        .header("X-Okapi-Token", accessToken)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("Content-type", "application/json")
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/sign") + "\"]")
+        .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+        .post("/token/sign")
+        .then()
+        .statusCode(201)
+        .contentType("application/json")
+        .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+        .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION));
+
+      String rt = response.extract().path("refreshToken");
+      String at = response.extract().path("accessToken");
+
+      System.setProperty("allow.cross.tenant.requests", "true");
+      logger.info("POST refresh token to get a new refresh and access token with allow.cross.tenant.requests=true and member consortium tenant");
+
+      given()
+        .header("X-Okapi-Tenant", memberTenant)
+        .header("X-Okapi-Token", at)
+        .header("X-Okapi-Url", "http://localhost:" + freePort)
+        .header("Content-type", "application/json")
+        .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+        .body(new JsonObject().put("refreshToken", rt).encode())
+        .post("/token/refresh")
+        .then()
+        .statusCode(201);
     }
 
     @Test
