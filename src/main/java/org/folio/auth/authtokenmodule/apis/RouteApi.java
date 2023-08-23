@@ -226,7 +226,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
 
       var context = new TokenValidationContext(ctx.request(), tokenCreator, encryptedJWE, refreshTokenStore, userService);
-      Future<Token> tokenValidationResult = Token.validateTokenType(parsedToken, context);
+      Future<Token> tokenValidationResult = Token.validate(parsedToken, context);
 
       tokenValidationResult.onFailure(e -> handleTokenValidationFailure(e, ctx));
 
