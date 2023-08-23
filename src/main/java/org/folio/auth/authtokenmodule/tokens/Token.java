@@ -85,6 +85,8 @@ public abstract class Token {
       token = parse(context.getTokenToValidate(), context.getTokenCreator());
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);
+    } catch (Exception e) {
+      return Future.failedFuture(new TokenValidationException("Unexpected token parse exception", e, 500));
     }
 
     // Call the validateContext implementation of the underlying token type (AccessToken,
