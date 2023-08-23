@@ -82,7 +82,7 @@ public abstract class Token {
   public static Future<Token> validate(TokenValidationContext context) {
     Token token;
     try {
-      token = validateTokenContent(context.getTokenToValidate(), context.getTokenCreator());
+      token = parse(context.getTokenToValidate(), context.getTokenCreator());
     } catch (TokenValidationException e) {
       return Future.failedFuture(e);
     }
@@ -90,23 +90,6 @@ public abstract class Token {
     // Call the validateContext implementation of the underlying token type (AccessToken,
     // RefreshToken, etc.). See those classes for the validation logic specific to each type.
     return validateTokenType(token, context);
-  }
-
-  /**
-   * Validates if token payload is correct and parsed successfully.
-   * @param tokenToValidate the token content payload to validate
-   * @param tokenCreator the token creator
-   * @return token if token content parsed successfully
-   * @throws TokenValidationException if token content could not be parsed
-   */
-  public static Token validateTokenContent(String tokenToValidate, TokenCreator tokenCreator) throws TokenValidationException {
-    try {
-      return parse(tokenToValidate, tokenCreator);
-    } catch (TokenValidationException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new TokenValidationException("Unexpected token parse exception", e, 500);
-    }
   }
 
   /**

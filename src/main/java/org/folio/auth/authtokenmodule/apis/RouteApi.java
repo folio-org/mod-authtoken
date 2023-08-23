@@ -221,7 +221,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       JsonObject requestJson = ctx.body().asJsonObject();
       String encryptedJWE = requestJson.getString(Token.REFRESH_TOKEN);
-      Token parsedToken = Token.validateTokenContent(encryptedJWE, tokenCreator);
+      Token parsedToken = Token.parse(encryptedJWE, tokenCreator);
       String tenant = StringUtils.defaultIfBlank(parsedToken.getTenant(), ctx.request().headers().get(XOkapiHeaders.TENANT));
       var refreshTokenStore = new RefreshTokenStore(vertx, tenant);
 
