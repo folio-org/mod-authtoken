@@ -56,20 +56,20 @@ public class UsersMock extends AbstractVerticle {
   }
 
   private void handleUserTenants(RoutingContext context) {
-    String userId = context.request().getHeader(XOkapiHeaders.TENANT);
+    String tenantId = context.request().getHeader(XOkapiHeaders.TENANT);
     // invalid response code for tenant 00
-    if (userId.contentEquals("00")) {
+    if (tenantId.contentEquals("00")) {
       context.response().setStatusCode(400).putHeader("Content-Type", "application/json").end();
       return;
     }
     // invalid response JSON for tenant 000
-    if (userId.contentEquals("000")) {
+    if (tenantId.contentEquals("000")) {
       context.response().setStatusCode(200).putHeader("Content-Type", "application/json")
         .end("invalid json");
       return;
     }
     // ok response code with valid json
-    if (userId.contentEquals("test-tenant-1")) {
+    if (tenantId.contentEquals("test-tenant-1")) {
       context.response().setStatusCode(200).putHeader("Content-Type", "application/json")
         .end(new JsonObject().put("totalRecords", 1).encode());
       return;

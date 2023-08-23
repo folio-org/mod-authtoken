@@ -91,6 +91,17 @@ public abstract class Token {
 
     // Call the validateContext implementation of the underlying token type (AccessToken,
     // RefreshToken, etc.). See those classes for the validation logic specific to each type.
+    return validate(token, context);
+  }
+
+  /**
+   * Validates already parsed token, each underlying token type token can have the specific rules to check if token valid.
+   * See those classes for the validation logic specific to each type.
+   * @param token the token to validate
+   * @param context the context used for token validation
+   * @return future with token is validation was successful or failed future otherwise
+   */
+  public static Future<Token> validate(Token token, TokenValidationContext context) {
     return token.validateContext(context);
   }
 
