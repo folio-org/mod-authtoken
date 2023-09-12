@@ -5,12 +5,18 @@ import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.ttl.TokenTTL;
 import org.folio.auth.authtokenmodule.tokens.ttl.TokenTTLConfigurationException;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 public class TokenTTLConfigTest {
+
+  @Before
+  public void setUp() {
+    TokenTTL.resetInstance(); // Reset the Singleton instance before each test
+  }
 
   @Test
   public void tokenTtlTenantConfigTest() {
@@ -20,7 +26,7 @@ public class TokenTTLConfigTest {
 
     System.setProperty(TokenTTL.TOKEN_TTL_CONFIG, config);
 
-    var ttl = new TokenTTL();
+    var ttl = TokenTTL.getInstance();
     assertThat(ttl.getAccessTokenTll("testTenant1"), is(1000L));
     assertThat(ttl.getRefreshTokenTtl("testTenant1"), is(100000L));
 
@@ -39,7 +45,7 @@ public class TokenTTLConfigTest {
 
     System.setProperty(TokenTTL.TOKEN_TTL_CONFIG, config);
 
-    var ttl = new TokenTTL();
+    var ttl = TokenTTL.getInstance();
 
     assertThat(ttl.getAccessTokenTll("anyTenant"), is(3000L));
     assertThat(ttl.getRefreshTokenTtl("anyTenant"), is(300000L));
@@ -51,7 +57,7 @@ public class TokenTTLConfigTest {
   public void tokenTtlNoConfigTest() {
     System.clearProperty(TokenTTL.TOKEN_TTL_CONFIG);
 
-    var ttl = new TokenTTL();
+    var ttl = TokenTTL.getInstance();
 
     assertThat(ttl.getAccessTokenTll("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
     assertThat(ttl.getRefreshTokenTtl("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
@@ -85,12 +91,6 @@ public class TokenTTLConfigTest {
   }
 
   @Test
-  public void tokenTtlMisconfigurationContainsWhitespace() {
-    String config = "tenantId:abc,accessToken:3000, refreshToken:300000";
-    testThrows(config, TokenTTL.MISCONFIGURED_CONTAINS_WHITESPACE);
-  }
-
-  @Test
   public void tokenTtlMisconfigurationMissingSeparator() {
     String config1 = "tenantId,abc,accessToken";
     testThrows(config1, TokenTTL.MISCONFIGURED_MISSING_SEPARATOR);
@@ -102,7 +102,7 @@ public class TokenTTLConfigTest {
   private void testThrows(String config, String message) {
     System.setProperty(TokenTTL.TOKEN_TTL_CONFIG, config);
 
-    Throwable t = Assert.assertThrows(TokenTTLConfigurationException.class, TokenTTL::new);
+    Throwable t = Assert.assertThrows(TokenTTLConfigurationException.class, TokenTTL::getInstance);
     assertThat(t.getMessage(), is(message));
 
     System.clearProperty(TokenTTL.TOKEN_TTL_CONFIG);

@@ -17,11 +17,22 @@ public class TokenTTL {
 
   public static final String MISCONFIGURED_RT = "No valid refreshToken TTL provided in token TTL configuration";
 
-  public static final String MISCONFIGURED_CONTAINS_WHITESPACE = "Token TTL configuration contains whitespace";
-
   public static final String MISCONFIGURED_MISSING_SEPARATOR = "Token TTL configuration is missing at least one separator";
 
-  public TokenTTL() {
+  private static TokenTTL instance;
+
+  public static TokenTTL getInstance() {
+    if (instance == null) {
+      instance = new TokenTTL();
+    }
+    return instance;
+  }
+
+  public static void resetInstance() {
+    instance = null;
+  }
+
+  private TokenTTL() {
     tenantTokenConfiguration = new HashMap<>();
 
     String tokenTtlConfiguration = getTtlConfig();
@@ -55,13 +66,10 @@ public class TokenTTL {
   private final HashMap<String, TokenTTLConfiguration> tenantTokenConfiguration;
 
   private void parseTtlConfig(String tokenTtlConfig) {
-    if (tokenTtlConfig.contains(" "))
-      throw new TokenTTLConfigurationException(MISCONFIGURED_CONTAINS_WHITESPACE);
-
     if (!tokenTtlConfig.contains(":") || !tokenTtlConfig.contains(","))
       throw new TokenTTLConfigurationException(MISCONFIGURED_MISSING_SEPARATOR);
 
-    String[] config = tokenTtlConfig.split(";");
+    String[] config = tokenTtlConfig.replace(" ", "").split(";");
     for (String c : config) {
       String[] pairs = c.split(",");
 
