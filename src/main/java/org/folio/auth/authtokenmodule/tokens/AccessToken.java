@@ -17,7 +17,7 @@ public class AccessToken extends Token {
    */
   public static final String TYPE = "access";
 
-  private static final long EXPIRATION_SECONDS = 600;
+  public static final long DEFAULT_EXPIRATION_SECONDS = 600;
 
   public String getExpiresAtInIso8601Format() {
     return Instant.ofEpochSecond(claims.getLong("exp")).toString();
@@ -41,7 +41,7 @@ public class AccessToken extends Token {
     claims.put("tenant", tenant);
     claims.put("sub", username);
     claims.put("user_id", userId);
-    claims.put("exp", now + EXPIRATION_SECONDS);
+    claims.put("exp", now + DEFAULT_EXPIRATION_SECONDS);
   }
 
   /**
