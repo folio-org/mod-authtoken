@@ -3,6 +3,7 @@ package org.folio.auth.authtokenmodule.tokens.ttl;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class TokenTTL {
@@ -13,11 +14,13 @@ public class TokenTTL {
 
   public static final String MISCONFIGURED_NO_DEFAULT = "No default configuration provided for token TTL configuration";
 
-  public static final String MISCONFIGURED_AT = "No valid accessToken TTL provided in token TTL configuration";
-
-  public static final String MISCONFIGURED_RT = "No valid refreshToken TTL provided in token TTL configuration";
+  public static final String MISCONFIGURED_INCORRECT_VALUE = "Token TTL configuration has an incorrect value";
 
   public static final String MISCONFIGURED_MISSING_SEPARATOR = "Token TTL configuration is missing at least one separator";
+
+  public static final String MISCONFIGURED_INVALID_ENTRY = "Token TTL configuration has an invalid entry";
+
+  public static final String MISCONFIGURED_UNKNOWN_KEY = "Token TTL configuration has an unknown key";
 
   private static TokenTTL instance;
 
@@ -69,37 +72,34 @@ public class TokenTTL {
     if (!tokenTtlConfig.contains(":") || !tokenTtlConfig.contains(","))
       throw new TokenTTLConfigurationException(MISCONFIGURED_MISSING_SEPARATOR);
 
-    String[] config = tokenTtlConfig.replace(" ", "").split(";");
-    for (String c : config) {
-      String[] pairs = c.split(",");
-
+    var configEntries = tokenTtlConfig.replace(" ", "").split(";");
+    for (String configEntry : configEntries) {
       String tenantId = null;
       long accessTokenTtl = 0;
       long refreshTokenTtl = 0;
 
-      for (String p : pairs) {
-        String[] keyValue = p.split(":");
-
-        if (keyValue[0].equals("tenantId")) {
-          tenantId = keyValue[1];
+      String[] keyValuePairs = configEntry.split(",");
+      for (String keyValuePair : keyValuePairs) {
+        String[] keyValue = keyValuePair.split(":");
+        if (keyValue.length != 2) {
+          throw new TokenTTLConfigurationException(MISCONFIGURED_INVALID_ENTRY);
         }
 
-        if (keyValue[0].equals("refreshToken")) {
-          refreshTokenTtl = Long.parseLong(keyValue[1]);
-        }
+        String key = keyValue[0];
+        String value = keyValue[1];
 
-        if (keyValue[0].equals("accessToken")) {
-          accessTokenTtl = Long.parseLong(keyValue[1]);
+        switch (key) {
+          case "tenantId" -> tenantId = value;
+          case "refreshToken" -> refreshTokenTtl = Long.parseLong(value);
+          case "accessToken" -> accessTokenTtl = Long.parseLong(value);
+          default -> throw new TokenTTLConfigurationException(MISCONFIGURED_UNKNOWN_KEY);
         }
       }
 
-      if (accessTokenTtl <= 0)
-        throw new TokenTTLConfigurationException(MISCONFIGURED_AT);
+      if (accessTokenTtl <= 0 || refreshTokenTtl <= 0)
+        throw new TokenTTLConfigurationException(MISCONFIGURED_INCORRECT_VALUE);
 
-      if (refreshTokenTtl <= 0)
-        throw new TokenTTLConfigurationException(MISCONFIGURED_RT);
-
-      if (pairs.length == 3 && tenantId == null)
+      if (keyValuePairs.length == 3 && tenantId == null)
         throw new TokenTTLConfigurationException(MISCONFIGURED_TENANT);
 
       if (tenantId != null) {

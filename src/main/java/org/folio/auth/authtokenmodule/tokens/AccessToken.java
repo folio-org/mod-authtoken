@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
+import org.folio.auth.authtokenmodule.tokens.ttl.TokenTTL;
 
 /**
  * Access tokens are obtained either when a user authenticates or when a valid
@@ -41,7 +42,7 @@ public class AccessToken extends Token {
     claims.put("tenant", tenant);
     claims.put("sub", username);
     claims.put("user_id", userId);
-    claims.put("exp", now + DEFAULT_EXPIRATION_SECONDS);
+    claims.put("exp", now + TokenTTL.getInstance().getAccessTokenTll(tenant));
   }
 
   /**

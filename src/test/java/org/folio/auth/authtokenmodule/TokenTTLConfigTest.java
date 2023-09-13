@@ -65,23 +65,30 @@ public class TokenTTLConfigTest {
 
   @Test
   public void tokenTtlMisconfigurationTenant() {
-    String config = "tenantIdBroken:abc,accessToken:3000,refreshToken:300000;" +
+    String config = "tenantIdUnknown:abc,accessToken:3000,refreshToken:300000;" +
       "accessToken:3000,refreshToken:300000";
-    testThrows(config, TokenTTL.MISCONFIGURED_TENANT);
+    testThrows(config, TokenTTL.MISCONFIGURED_UNKNOWN_KEY);
   }
 
   @Test
   public void tokenTtlMisconfigurationAccessToken() {
-    String config = "tenantIdBroken:abc,accessTokenMisspelled:3000,refreshToken:300000;" +
+    String config = "tenantId:abc,accessTokenUnknown:3000,refreshToken:300000;" +
       "accessToken:3000,refreshToken:300000";
-    testThrows(config, TokenTTL.MISCONFIGURED_AT);
+    testThrows(config, TokenTTL.MISCONFIGURED_UNKNOWN_KEY);
+  }
+
+  @Test
+  public void tokenTtlMisconfigurationIncorrectValue() {
+    String config = "tenantId:abc,accessToken:3000,refreshTokenMisspelled:300000;" +
+      "accessToken:3000,refreshToken:300000";
+    testThrows(config, TokenTTL.MISCONFIGURED_UNKNOWN_KEY);
   }
 
   @Test
   public void tokenTtlMisconfigurationRefreshToken() {
-    String config = "tenantId:abc,accessToken:3000,refreshTokenMisspelled:300000;" +
+    String config = "tenantId:abc,accessToken:0,refreshTokenMisspelled:300000;" +
       "accessToken:3000,refreshToken:300000";
-    testThrows(config, TokenTTL.MISCONFIGURED_RT);
+    testThrows(config, TokenTTL.MISCONFIGURED_INCORRECT_VALUE);
   }
 
   @Test

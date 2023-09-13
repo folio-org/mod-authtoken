@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
+import org.folio.auth.authtokenmodule.tokens.ttl.TokenTTL;
 
 /**
  * Refresh tokens are provided to obtain a new access token.
@@ -58,7 +59,7 @@ public class RefreshToken extends Token {
     long now = Instant.now().getEpochSecond();
     claims = new JsonObject()
     .put("type", TYPE)
-    .put("exp", now + DEFALUT_EXPIRATION_SECONDS)
+    .put("exp", now + TokenTTL.getInstance().getRefreshTokenTtl(tenant))
     .put("iat", now)
     .put("sub", username)
     .put("user_id", userId)
