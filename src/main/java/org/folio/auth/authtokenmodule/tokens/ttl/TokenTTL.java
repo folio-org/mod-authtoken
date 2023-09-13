@@ -3,11 +3,11 @@ package org.folio.auth.authtokenmodule.tokens.ttl;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 
-import java.util.Arrays;
 import java.util.HashMap;
 
 public class TokenTTL {
   public static final String TOKEN_TTL_CONFIG = "token.ttl.config";
+
   public static final String TOKEN_TTL_CONFIG_ENV = "TOKEN_TTL_CONFIG";
 
   public static final String MISCONFIGURED_TENANT = "Tenant expected in token TTL configuration";
@@ -24,17 +24,6 @@ public class TokenTTL {
 
   private static TokenTTL instance;
 
-  public static TokenTTL getInstance() {
-    if (instance == null) {
-      instance = new TokenTTL();
-    }
-    return instance;
-  }
-
-  public static void resetInstance() {
-    instance = null;
-  }
-
   private TokenTTL() {
     tenantTokenConfiguration = new HashMap<>();
 
@@ -46,6 +35,17 @@ public class TokenTTL {
     } else {
       parseTtlConfig(tokenTtlConfiguration);
     }
+  }
+
+  public static TokenTTL getInstance() {
+    if (instance == null) {
+      instance = new TokenTTL();
+    }
+    return instance;
+  }
+
+  public static void resetInstance() {
+    instance = null;
   }
 
   public long getAccessTokenTll(String tenant) {
