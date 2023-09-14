@@ -86,7 +86,7 @@ public class TokenTTLConfigTest {
 
   @Test
   public void tokenTtlMisconfigurationRefreshToken() {
-    String config = "tenantId:abc,accessToken:0,refreshTokenMisspelled:300000;" +
+    String config = "tenantId:abc,accessToken:0,refreshToken:300000;" +
       "accessToken:3000,refreshToken:300000";
     testThrows(config, TokenTTL.MISCONFIGURED_INCORRECT_VALUE);
   }
