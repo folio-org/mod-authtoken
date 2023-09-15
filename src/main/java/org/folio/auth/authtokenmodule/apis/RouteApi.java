@@ -53,7 +53,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private UserService userService;
   private List<Route> routes;
   private Vertx vertx;
-  private TokenTTL tokenTtl;
+  private TokenTTL tokenTTL;
 
   /**
    * Constructs the API.
@@ -69,7 +69,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     this.userService = userService;
     this.tokenCreator = tokenCreator;
 
-    tokenTtl = new TokenTTL();
+    tokenTTL = new TokenTTL();
     logger = LogManager.getLogger(RouteApi.class);
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
@@ -257,8 +257,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       JsonObject responseObject) {
 
     String address = ctx.request().remoteAddress().host();
-    var rt = new RefreshToken(tenant, username, userId, address, tokenTtl.getRefreshTokenTtl(tenant));
-    var at = new AccessToken(tenant, username, userId, tokenTtl.getAccessTokenTll(tenant));
+    var rt = new RefreshToken(tenant, username, userId, address, tokenTTL.getRefreshTokenTTL(tenant));
+    var at = new AccessToken(tenant, username, userId, tokenTTL.getAccessTokenTTL(tenant));
 
     try {
       responseObject.put(Token.ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));

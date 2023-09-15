@@ -23,46 +23,45 @@ public class TokenTTL {
   public TokenTTL() {
     tenantTokenConfiguration = new HashMap<>();
 
-    String tokenTtlConfiguration = getTtlConfig();
+    String tokenTTLConfiguration = getTTLConfig();
 
-    if (tokenTtlConfiguration == null) {
-      defaultTtlConfiguration = new TokenTTLConfiguration(AccessToken.DEFAULT_EXPIRATION_SECONDS,
+    if (tokenTTLConfiguration == null) {
+      defaultTTLConfiguration = new TokenTTLConfiguration(AccessToken.DEFAULT_EXPIRATION_SECONDS,
         RefreshToken.DEFALUT_EXPIRATION_SECONDS);
     } else {
-      parseTtlConfig(tokenTtlConfiguration);
+      parseTTLConfig(tokenTTLConfiguration);
     }
   }
 
-
-  public long getAccessTokenTll(String tenant) {
+  public long getAccessTokenTTL(String tenant) {
     var tenantConfiguration = tenantTokenConfiguration.get(tenant);
     if (tenantConfiguration != null) {
-      return tenantConfiguration.accessTokenTtlSeconds();
+      return tenantConfiguration.accessTokenTTLSeconds();
     }
-    return defaultTtlConfiguration.accessTokenTtlSeconds();
+    return defaultTTLConfiguration.accessTokenTTLSeconds();
   }
 
-  public long getRefreshTokenTtl(String tenant) {
+  public long getRefreshTokenTTL(String tenant) {
     var tenantConfiguration = tenantTokenConfiguration.get(tenant);
     if (tenantConfiguration != null) {
-      return tenantConfiguration.refreshTokenTtlSeconds();
+      return tenantConfiguration.refreshTokenTTLSeconds();
     }
-    return defaultTtlConfiguration.refreshTokenTtlSeconds();
+    return defaultTTLConfiguration.refreshTokenTTLSeconds();
   }
 
-  private TokenTTLConfiguration defaultTtlConfiguration;
+  private TokenTTLConfiguration defaultTTLConfiguration;
 
   private final HashMap<String, TokenTTLConfiguration> tenantTokenConfiguration;
 
-  private void parseTtlConfig(String tokenTtlConfig) {
-    if (!tokenTtlConfig.contains(":") || !tokenTtlConfig.contains(","))
+  private void parseTTLConfig(String tokenTTLConfig) {
+    if (!tokenTTLConfig.contains(":") || !tokenTTLConfig.contains(","))
       throw new TokenTTLConfigurationException(MISCONFIGURED_MISSING_SEPARATOR);
 
-    var configEntries = tokenTtlConfig.replace(" ", "").split(";");
+    var configEntries = tokenTTLConfig.replace(" ", "").split(";");
     for (String configEntry : configEntries) {
       String tenantId = null;
-      long accessTokenTtl = 0;
-      long refreshTokenTtl = 0;
+      long accessTokenTTL = 0;
+      long refreshTokenTTL = 0;
 
       String[] keyValuePairs = configEntry.split(",");
       for (String keyValuePair : keyValuePairs) {
@@ -76,31 +75,31 @@ public class TokenTTL {
 
         switch (key) {
           case "tenantId" -> tenantId = value;
-          case "refreshToken" -> refreshTokenTtl = Long.parseLong(value);
-          case "accessToken" -> accessTokenTtl = Long.parseLong(value);
+          case "refreshToken" -> refreshTokenTTL = Long.parseLong(value);
+          case "accessToken" -> accessTokenTTL = Long.parseLong(value);
           default -> throw new TokenTTLConfigurationException(MISCONFIGURED_UNKNOWN_KEY);
         }
       }
 
-      if (accessTokenTtl <= 0 || refreshTokenTtl <= 0)
+      if (accessTokenTTL <= 0 || refreshTokenTTL <= 0)
         throw new TokenTTLConfigurationException(MISCONFIGURED_INCORRECT_VALUE);
 
       if (keyValuePairs.length == 3 && tenantId == null)
         throw new TokenTTLConfigurationException(MISCONFIGURED_TENANT);
 
       if (tenantId != null) {
-        tenantTokenConfiguration.put(tenantId, new TokenTTLConfiguration(accessTokenTtl, refreshTokenTtl));
+        tenantTokenConfiguration.put(tenantId, new TokenTTLConfiguration(accessTokenTTL, refreshTokenTTL));
       } else {
-        defaultTtlConfiguration = new TokenTTLConfiguration(accessTokenTtl, refreshTokenTtl);
+        defaultTTLConfiguration = new TokenTTLConfiguration(accessTokenTTL, refreshTokenTTL);
       }
     }
 
-    if (defaultTtlConfiguration == null)
-      defaultTtlConfiguration = new TokenTTLConfiguration(AccessToken.DEFAULT_EXPIRATION_SECONDS,
+    if (defaultTTLConfiguration == null)
+      defaultTTLConfiguration = new TokenTTLConfiguration(AccessToken.DEFAULT_EXPIRATION_SECONDS,
                                                           RefreshToken.DEFALUT_EXPIRATION_SECONDS);
   }
 
-  private String getTtlConfig() {
+  private String getTTLConfig() {
     var prop = System.getProperty(TOKEN_TTL_CONFIG);
     if (prop != null) {
       return prop;

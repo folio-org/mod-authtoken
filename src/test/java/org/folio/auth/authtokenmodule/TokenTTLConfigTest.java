@@ -13,7 +13,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 public class TokenTTLConfigTest {
 
   @Test
-  public void tokenTtlTenantConfigTest() {
+  public void tokenTTLTenantConfigTest() {
     String config = "tenantId:testTenant1,accessToken:1000,refreshToken:100000;" +
       "tenantId:testTenant2,accessToken:2000,refreshToken:200000;" +
       "accessToken:3000,refreshToken:300000";
@@ -21,84 +21,70 @@ public class TokenTTLConfigTest {
     System.setProperty(TokenTTL.TOKEN_TTL_CONFIG, config);
 
     var ttl = new TokenTTL();
-    assertThat(ttl.getAccessTokenTll("testTenant1"), is(1000L));
-    assertThat(ttl.getRefreshTokenTtl("testTenant1"), is(100000L));
+    assertThat(ttl.getAccessTokenTTL("testTenant1"), is(1000L));
+    assertThat(ttl.getRefreshTokenTTL("testTenant1"), is(100000L));
 
-    assertThat(ttl.getAccessTokenTll("testTenant2"), is(2000L));
-    assertThat(ttl.getRefreshTokenTtl("testTenant2"), is(200000L));
+    assertThat(ttl.getAccessTokenTTL("testTenant2"), is(2000L));
+    assertThat(ttl.getRefreshTokenTTL("testTenant2"), is(200000L));
 
-    assertThat(ttl.getAccessTokenTll("anyTenant"), is(3000L));
-    assertThat(ttl.getRefreshTokenTtl("anyTenant"), is(300000L));
+    assertThat(ttl.getAccessTokenTTL("anyTenant"), is(3000L));
+    assertThat(ttl.getRefreshTokenTTL("anyTenant"), is(300000L));
 
     System.clearProperty(TokenTTL.TOKEN_TTL_CONFIG);
   }
 
   @Test
-  public void tokenTtlOnlyDefaultConfigTest() {
+  public void tokenTTLOnlyDefaultConfigTest() {
     String config = "accessToken:3000,refreshToken:300000";
 
     System.setProperty(TokenTTL.TOKEN_TTL_CONFIG, config);
 
     var ttl = new TokenTTL();
 
-    assertThat(ttl.getAccessTokenTll("anyTenant"), is(3000L));
-    assertThat(ttl.getRefreshTokenTtl("anyTenant"), is(300000L));
+    assertThat(ttl.getAccessTokenTTL("anyTenant"), is(3000L));
+    assertThat(ttl.getRefreshTokenTTL("anyTenant"), is(300000L));
 
     System.clearProperty(TokenTTL.TOKEN_TTL_CONFIG);
   }
 
   @Test
-  public void tokenTtlNoConfigTest() {
+  public void tokenTTLNoConfigTest() {
     System.clearProperty(TokenTTL.TOKEN_TTL_CONFIG);
 
     var ttl = new TokenTTL();
 
-    assertThat(ttl.getAccessTokenTll("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
-    assertThat(ttl.getRefreshTokenTtl("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
+    assertThat(ttl.getAccessTokenTTL("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
+    assertThat(ttl.getRefreshTokenTTL("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
   }
 
   @Test
-  public void tokenTtlMisconfigurationNoDefault() {
+  public void tokenTTLMisconfigurationNoDefault() {
     String config = "tenantId:abc,accessToken:3000,refreshToken:300000";
     System.setProperty(TokenTTL.TOKEN_TTL_CONFIG, config);
     var ttl = new TokenTTL();
-    assertThat(ttl.getAccessTokenTll("abc"), is(3000L));
-    assertThat(ttl.getRefreshTokenTtl("abc"), is(300000L));
-    assertThat(ttl.getAccessTokenTll("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
-    assertThat(ttl.getRefreshTokenTtl("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
+    assertThat(ttl.getAccessTokenTTL("abc"), is(3000L));
+    assertThat(ttl.getRefreshTokenTTL("abc"), is(300000L));
+    assertThat(ttl.getAccessTokenTTL("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
+    assertThat(ttl.getRefreshTokenTTL("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
     System.clearProperty(TokenTTL.TOKEN_TTL_CONFIG);
   }
 
   @Test
-  public void tokenTtlMisconfigurationTenant() {
+  public void tokenTTLMisconfigurationUnknownKey() {
     String config = "tenantIdUnknown:abc,accessToken:3000,refreshToken:300000;" +
       "accessToken:3000,refreshToken:300000";
     testThrows(config, TokenTTL.MISCONFIGURED_UNKNOWN_KEY);
   }
 
   @Test
-  public void tokenTtlMisconfigurationAccessToken() {
-    String config = "tenantId:abc,accessTokenUnknown:3000,refreshToken:300000;" +
-      "accessToken:3000,refreshToken:300000";
-    testThrows(config, TokenTTL.MISCONFIGURED_UNKNOWN_KEY);
-  }
-
-  @Test
-  public void tokenTtlMisconfigurationIncorrectValue() {
-    String config = "tenantId:abc,accessToken:3000,refreshTokenMisspelled:300000;" +
-      "accessToken:3000,refreshToken:300000";
-    testThrows(config, TokenTTL.MISCONFIGURED_UNKNOWN_KEY);
-  }
-
-  @Test
-  public void tokenTtlMisconfigurationRefreshToken() {
+  public void tokenTTLMisconfigurationRefreshToken() {
     String config = "tenantId:abc,accessToken:0,refreshToken:300000;" +
       "accessToken:3000,refreshToken:300000";
     testThrows(config, TokenTTL.MISCONFIGURED_INCORRECT_VALUE);
   }
 
   @Test
-  public void tokenTtlMisconfigurationMissingSeparator() {
+  public void tokenTTLMisconfigurationMissingSeparator() {
     String config1 = "tenantId,abc,accessToken";
     testThrows(config1, TokenTTL.MISCONFIGURED_MISSING_SEPARATOR);
 
