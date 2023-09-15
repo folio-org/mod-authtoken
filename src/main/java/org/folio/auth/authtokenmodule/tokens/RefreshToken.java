@@ -41,25 +41,19 @@ public class RefreshToken extends Token {
   }
 
   /**
-   * Should only be used by tests.
-   * @param to The epoch seconds time stamp to set the exp claim to.
-   */
-  public void setExpiresAt(long to) {
-    claims.put("exp", to);
-  }
-
-  /**
    * Create a new refresh token.
    * @param tenant The current tenant.
    * @param username The username associated with the token.
    * @param userId The user id associated with the token.
    * @param address The http address of issuer of the token.
+   * @param expirationSeconds The seconds after which this token will be considered expired.
+   *
    */
-  public RefreshToken(String tenant, String username, String userId, String address) {
+  public RefreshToken(String tenant, String username, String userId, String address, long expirationSeconds) {
     long now = Instant.now().getEpochSecond();
     claims = new JsonObject()
     .put("type", TYPE)
-    .put("exp", now + TokenTTL.getInstance().getRefreshTokenTtl(tenant))
+    .put("exp", now + expirationSeconds)
     .put("iat", now)
     .put("sub", username)
     .put("user_id", userId)

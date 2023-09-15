@@ -33,8 +33,9 @@ public class AccessToken extends Token {
    * @param tenant The current tenant.
    * @param username The username associated with the token.
    * @param userId The user id associated with the token.
+   * @param expirationSeconds The seconds after which this token will be considered expired.
    */
-  public AccessToken(String tenant, String username, String userId) {
+  public AccessToken(String tenant, String username, String userId, long expirationSeconds) {
     var now = Instant.now().getEpochSecond();
     claims = new JsonObject();
     claims.put("type", TYPE);
@@ -42,7 +43,7 @@ public class AccessToken extends Token {
     claims.put("tenant", tenant);
     claims.put("sub", username);
     claims.put("user_id", userId);
-    claims.put("exp", now + TokenTTL.getInstance().getAccessTokenTll(tenant));
+    claims.put("exp", now + expirationSeconds);
   }
 
   /**

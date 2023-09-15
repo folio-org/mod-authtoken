@@ -12,8 +12,6 @@ public class TokenTTL {
 
   public static final String MISCONFIGURED_TENANT = "Tenant expected in token TTL configuration";
 
-  public static final String MISCONFIGURED_NO_DEFAULT = "No default configuration provided for token TTL configuration";
-
   public static final String MISCONFIGURED_INCORRECT_VALUE = "Token TTL configuration has an incorrect value";
 
   public static final String MISCONFIGURED_MISSING_SEPARATOR = "Token TTL configuration is missing at least one separator";
@@ -22,9 +20,7 @@ public class TokenTTL {
 
   public static final String MISCONFIGURED_UNKNOWN_KEY = "Token TTL configuration has an unknown key";
 
-  private static TokenTTL instance;
-
-  private TokenTTL() {
+  public TokenTTL() {
     tenantTokenConfiguration = new HashMap<>();
 
     String tokenTtlConfiguration = getTtlConfig();
@@ -37,16 +33,6 @@ public class TokenTTL {
     }
   }
 
-  public static TokenTTL getInstance() {
-    if (instance == null) {
-      instance = new TokenTTL();
-    }
-    return instance;
-  }
-
-  public static void resetInstance() {
-    instance = null;
-  }
 
   public long getAccessTokenTll(String tenant) {
     var tenantConfiguration = tenantTokenConfiguration.get(tenant);
@@ -110,7 +96,8 @@ public class TokenTTL {
     }
 
     if (defaultTtlConfiguration == null)
-      throw new TokenTTLConfigurationException(MISCONFIGURED_NO_DEFAULT);
+      defaultTtlConfiguration = new TokenTTLConfiguration(AccessToken.DEFAULT_EXPIRATION_SECONDS,
+                                                          RefreshToken.DEFALUT_EXPIRATION_SECONDS);
   }
 
   private String getTtlConfig() {
