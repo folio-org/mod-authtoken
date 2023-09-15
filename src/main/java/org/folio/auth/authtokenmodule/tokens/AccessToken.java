@@ -5,7 +5,6 @@ import java.util.UUID;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
-import org.folio.auth.authtokenmodule.tokens.ttl.TokenTTL;
 
 /**
  * Access tokens are obtained either when a user authenticates or when a valid

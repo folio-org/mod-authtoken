@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.util.UUID;
 
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
-import org.folio.auth.authtokenmodule.tokens.ttl.TokenTTL;
 
 /**
  * Refresh tokens are provided to obtain a new access token.

@@ -22,7 +22,7 @@ import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
-import org.folio.auth.authtokenmodule.tokens.ttl.TokenTTL;
+import org.folio.auth.authtokenmodule.tokens.expiration.TokenExpiration;
 import org.folio.okapi.common.XOkapiHeaders;
 
 import java.util.ArrayList;
@@ -53,7 +53,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private UserService userService;
   private List<Route> routes;
   private Vertx vertx;
-  private TokenTTL tokenTTL;
+  private TokenExpiration tokenExpiration;
 
   /**
    * Constructs the API.
@@ -69,7 +69,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     this.userService = userService;
     this.tokenCreator = tokenCreator;
 
-    tokenTTL = new TokenTTL();
+    tokenExpiration = new TokenExpiration();
     logger = LogManager.getLogger(RouteApi.class);
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
@@ -257,8 +257,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       JsonObject responseObject) {
 
     String address = ctx.request().remoteAddress().host();
-    var rt = new RefreshToken(tenant, username, userId, address, tokenTTL.getRefreshTokenTTL(tenant));
-    var at = new AccessToken(tenant, username, userId, tokenTTL.getAccessTokenTTL(tenant));
+    var rt = new RefreshToken(tenant, username, userId, address, tokenExpiration.getRefreshTokenExpiration(tenant));
+    var at = new AccessToken(tenant, username, userId, tokenExpiration.getAccessTokenExpiration(tenant));
 
     try {
       responseObject.put(Token.ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));

@@ -1,5 +1,5 @@
-package org.folio.auth.authtokenmodule.tokens.ttl;
+package org.folio.auth.authtokenmodule.tokens.expiration;
 
-public record TokenTTLConfiguration(long accessTokenTTLSeconds, long refreshTokenTTLSeconds) {
+public record TokenExpirationConfiguration(long accessTokenExpirationSeconds, long refreshTokenExpirationSeconds) {
 
 }

@@ -20,15 +20,15 @@ public class TokenExpirationConfigTest {
 
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG, config);
 
-    var ttl = new TokenExpiration();
-    assertThat(ttl.getAccessTokenExpiration("testTenant1"), is(1000L));
-    assertThat(ttl.getRefreshTokenExpiration("testTenant1"), is(100000L));
+    var expiration = new TokenExpiration();
+    assertThat(expiration.getAccessTokenExpiration("testTenant1"), is(1000L));
+    assertThat(expiration.getRefreshTokenExpiration("testTenant1"), is(100000L));
 
-    assertThat(ttl.getAccessTokenExpiration("testTenant2"), is(2000L));
-    assertThat(ttl.getRefreshTokenExpiration("testTenant2"), is(200000L));
+    assertThat(expiration.getAccessTokenExpiration("testTenant2"), is(2000L));
+    assertThat(expiration.getRefreshTokenExpiration("testTenant2"), is(200000L));
 
-    assertThat(ttl.getAccessTokenExpiration("anyTenant"), is(3000L));
-    assertThat(ttl.getRefreshTokenExpiration("anyTenant"), is(300000L));
+    assertThat(expiration.getAccessTokenExpiration("anyTenant"), is(3000L));
+    assertThat(expiration.getRefreshTokenExpiration("anyTenant"), is(300000L));
 
     System.clearProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG);
   }
@@ -39,10 +39,10 @@ public class TokenExpirationConfigTest {
 
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG, config);
 
-    var ttl = new TokenExpiration();
+    var expiration = new TokenExpiration();
 
-    assertThat(ttl.getAccessTokenExpiration("anyTenant"), is(3000L));
-    assertThat(ttl.getRefreshTokenExpiration("anyTenant"), is(300000L));
+    assertThat(expiration.getAccessTokenExpiration("anyTenant"), is(3000L));
+    assertThat(expiration.getRefreshTokenExpiration("anyTenant"), is(300000L));
 
     System.clearProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG);
   }
@@ -51,21 +51,21 @@ public class TokenExpirationConfigTest {
   public void tokenExpirationNoConfigTest() {
     System.clearProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG);
 
-    var ttl = new TokenExpiration();
+    var expiration = new TokenExpiration();
 
-    assertThat(ttl.getAccessTokenExpiration("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
-    assertThat(ttl.getRefreshTokenExpiration("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
+    assertThat(expiration.getAccessTokenExpiration("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
+    assertThat(expiration.getRefreshTokenExpiration("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
   }
 
   @Test
   public void tokenExpirationMisconfigurationNoDefault() {
     String config = "tenantId:abc,accessToken:3000,refreshToken:300000";
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG, config);
-    var ttl = new TokenExpiration();
-    assertThat(ttl.getAccessTokenExpiration("abc"), is(3000L));
-    assertThat(ttl.getRefreshTokenExpiration("abc"), is(300000L));
-    assertThat(ttl.getAccessTokenExpiration("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
-    assertThat(ttl.getRefreshTokenExpiration("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
+    var expiration = new TokenExpiration();
+    assertThat(expiration.getAccessTokenExpiration("abc"), is(3000L));
+    assertThat(expiration.getRefreshTokenExpiration("abc"), is(300000L));
+    assertThat(expiration.getAccessTokenExpiration("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
+    assertThat(expiration.getRefreshTokenExpiration("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
     System.clearProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG);
   }
 

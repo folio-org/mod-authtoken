@@ -1,7 +1,7 @@
-package org.folio.auth.authtokenmodule.tokens.ttl;
+package org.folio.auth.authtokenmodule.tokens.expiration;
 
-public class TokenTTLConfigurationException extends RuntimeException {
-  public TokenTTLConfigurationException(String message) {
+public class TokenExpirationConfigurationException extends RuntimeException {
+  public TokenExpirationConfigurationException(String message) {
     super(message);
   }
 }
