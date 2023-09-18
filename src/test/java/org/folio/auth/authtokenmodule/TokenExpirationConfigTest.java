@@ -17,7 +17,6 @@ public class TokenExpirationConfigTest {
     String config = "tenantId:testTenant1,accessToken:1000,refreshToken:100000;" +
       "tenantId:testTenant2,accessToken:2000,refreshToken:200000;" +
       "accessToken:3000,refreshToken:300000";
-
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG, config);
 
     var expiration = new TokenExpiration();
@@ -36,11 +35,9 @@ public class TokenExpirationConfigTest {
   @Test
   public void tokenExpirationOnlyDefaultConfigTest() {
     String config = "accessToken:3000,refreshToken:300000";
-
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG, config);
 
     var expiration = new TokenExpiration();
-
     assertThat(expiration.getAccessTokenExpiration("anyTenant"), is(3000L));
     assertThat(expiration.getRefreshTokenExpiration("anyTenant"), is(300000L));
 
@@ -52,7 +49,6 @@ public class TokenExpirationConfigTest {
     System.clearProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG);
 
     var expiration = new TokenExpiration();
-
     assertThat(expiration.getAccessTokenExpiration("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
     assertThat(expiration.getRefreshTokenExpiration("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
   }
@@ -61,11 +57,13 @@ public class TokenExpirationConfigTest {
   public void tokenExpirationMisconfigurationNoDefault() {
     String config = "tenantId:abc,accessToken:3000,refreshToken:300000";
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG, config);
+
     var expiration = new TokenExpiration();
     assertThat(expiration.getAccessTokenExpiration("abc"), is(3000L));
     assertThat(expiration.getRefreshTokenExpiration("abc"), is(300000L));
     assertThat(expiration.getAccessTokenExpiration("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
     assertThat(expiration.getRefreshTokenExpiration("anyTenant"), is(RefreshToken.DEFALUT_EXPIRATION_SECONDS));
+
     System.clearProperty(TokenExpiration.TOKEN_EXPIRATION_CONFIG);
   }
 

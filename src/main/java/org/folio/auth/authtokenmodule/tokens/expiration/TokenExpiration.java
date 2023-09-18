@@ -27,7 +27,7 @@ public class TokenExpiration {
 
     if (tokenExpirationConfiguration == null) {
       defaultExpirationConfiguration = new TokenExpirationConfiguration(AccessToken.DEFAULT_EXPIRATION_SECONDS,
-        RefreshToken.DEFALUT_EXPIRATION_SECONDS);
+                                                                        RefreshToken.DEFALUT_EXPIRATION_SECONDS);
     } else {
       parseExpirationConfig(tokenExpirationConfiguration);
     }
@@ -96,7 +96,7 @@ public class TokenExpiration {
 
     if (defaultExpirationConfiguration == null)
       defaultExpirationConfiguration = new TokenExpirationConfiguration(AccessToken.DEFAULT_EXPIRATION_SECONDS,
-                                                          RefreshToken.DEFALUT_EXPIRATION_SECONDS);
+                                                                        RefreshToken.DEFALUT_EXPIRATION_SECONDS);
   }
 
   private String getExpirationConfig() {

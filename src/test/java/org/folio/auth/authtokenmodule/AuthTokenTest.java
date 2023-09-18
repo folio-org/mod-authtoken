@@ -16,9 +16,7 @@ import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
-import java.sql.Ref;
 import java.text.ParseException;
-import java.time.Instant;
 import java.util.ArrayList;
 
 import org.apache.logging.log4j.LogManager;
@@ -1474,8 +1472,7 @@ public class AuthTokenTest {
   @Test
   public void testStoreRefreshTokenExpired(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
-    var expiredToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port,
-      -10L);
+    var expiredToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, -10L);
     ts.checkTokenNotRevoked(expiredToken).onComplete(context.asyncAssertFailure(e -> {
       assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
       assertThat(e.getMessage(), containsString("expired"));
