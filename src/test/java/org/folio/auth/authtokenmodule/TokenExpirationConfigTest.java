@@ -141,7 +141,13 @@ class TokenExpirationConfigTest {
   }
 
   @ParameterizedTest
-  @ValueSource(strings = { "tenantId:abc:accessToken", "abc", "accessToken", "refreshToken" })
+  @ValueSource(strings = { ",accessToken", " ,refreshToken", ", tenantId:abc", "tenantId:abc,,accessToken:1"})
+  void tokenExpirationMisconfigurationEmptyString(String config) {
+    testThrows(config, TokenExpiration.MISCONFIGURED_EMPTY_KEY_VALUE_PAIR);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = { "tenantId:abc:accessToken", "abc", "accessToken", "refreshToken", ":", "" })
   void tokenExpirationMisconfigurationInvalidEntryTest(String config) {
     testThrows(config, TokenExpiration.MISCONFIGURED_INVALID_ENTRY + config);
   }

@@ -14,6 +14,8 @@ public class TokenExpiration {
 
   public static final String MISCONFIGURED_UNKNOWN_KEY = "Token expiration configuration has an unknown key of ";
 
+  public static final String MISCONFIGURED_EMPTY_KEY_VALUE_PAIR = "Token expiration configuration has an empty key value pair";
+
   private final HashMap<String, TokenExpirationConfiguration> tokenConfiguration;
 
   public TokenExpiration() {
@@ -59,6 +61,10 @@ public class TokenExpiration {
 
       String[] keyValuePairs = configEntry.split(",");
       for (String keyValuePair : keyValuePairs) {
+        if (keyValuePair.isEmpty()) {
+          throw new TokenExpirationConfigurationException(MISCONFIGURED_EMPTY_KEY_VALUE_PAIR);
+        }
+
         String[] keyValue = keyValuePair.split(":");
         if (keyValue.length != 2) {
           throw new TokenExpirationConfigurationException(MISCONFIGURED_INVALID_ENTRY + keyValuePair);
