@@ -44,10 +44,10 @@ mod-authtoken supports a number of command line options as system properties, se
 * `port` - Port the module will listen on. Defaults to 8081.
 * `cache.permissions` - Boolean controlling the permissions cache. Defaults to `true`.
 * `allow.cross.tenant.requests` - Boolean to allow (in consortia setups) or deny cross tenant requests. Defaults to `false`.
-* `token.expiration.config` - Override defaults for token expiration in the form of `tenantId:<tenant id>,accessToken:<seconds>,refreshToken:<seconds>;accessToken:seconds>,refreshToken:<seconds>`. To override defaults for a specific tenant provide a triplet. To override defaults provide a pair. Separate entries in the string with a `;` character. Neither tenant entries nor a default are required. If a default is not provided, a default of 10 minutes is set by the module for the access token, and a default of one week is set by the module for the refresh token.
+* `token.expiration.seconds` - Override defaults for token expiration in the form of `tenantId:<tenant id>,accessToken:<seconds>,refreshToken:<seconds>;accessToken:<seconds>,refreshToken:<seconds>`. To override defaults for a specific tenant provide a triplet. To override defaults provide a pair. Separate entries in the string with a `;` character. Neither tenant entries nor a default are required. If a default or a key is not provided, a default of 10 minutes is set by the module for the access token, and a default of one week is set by the module for the refresh token.
 
 # Environment variables
-`TOKEN_EXPIRATION_CONFIG` - Identical to `token.expiration.config` as specified above. Provided as a convenience.
+`TOKEN_EXPIRATION_SECONDS` - Identical to `token.expiration.seconds` as specified above. Provided as a convenience. System property takes precedence.
 
 # Custom Headers
 

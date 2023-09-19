@@ -87,7 +87,7 @@ public class TokenTest {
     String key = System.getProperty("jwt.signing.key");
     var tokenCreator = new TokenCreator(key);
     long defaultAtExpires = AccessToken.DEFAULT_EXPIRATION_SECONDS;
-    long defaultRtExpires = RefreshToken.DEFALUT_EXPIRATION_SECONDS;
+    long defaultRtExpires = RefreshToken.DEFAULT_EXPIRATION_SECONDS;
     String unencryptedToken =
       new AccessToken("test-tenant", "username-1", "userid-1", defaultAtExpires).encodeAsJWT(tokenCreator);
     String encryptedToken =

@@ -107,7 +107,7 @@ public class AuthTokenTest {
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
     dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
     refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1",
-                                    RefreshToken.DEFALUT_EXPIRATION_SECONDS).encodeAsJWE(tokenCreator);
+                                    RefreshToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWE(tokenCreator);
 
     // Create some bad tokens, including one with a bad signing key.
     accessToken404 = new AccessToken(tenant, "jones", "404", 100L).encodeAsJWT(tokenCreator);

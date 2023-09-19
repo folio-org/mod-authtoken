@@ -21,7 +21,7 @@ public class RefreshToken extends Token {
   /**
    * Time after which token is expired. 604800 seconds = 7 days.
    */
-  public static final long DEFALUT_EXPIRATION_SECONDS = 604800;
+  public static final long DEFAULT_EXPIRATION_SECONDS = 604800;
 
   public UUID getId() {
     return UUID.fromString(claims.getString("jti"));

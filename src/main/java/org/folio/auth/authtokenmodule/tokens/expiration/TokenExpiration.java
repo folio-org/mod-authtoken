@@ -6,57 +6,51 @@ import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import java.util.HashMap;
 
 public class TokenExpiration {
-  public static final String TOKEN_EXPIRATION_CONFIG = "token.expiration.config";
+  public static final String TOKEN_EXPIRATION_SECONDS = "token.expiration.seconds";
 
-  public static final String TOKEN_EXPIRATION_CONFIG_ENV = "TOKEN_EXPIRATION_CONFIG";
+  public static final String TOKEN_EXPIRATION_SECONDS_ENV = "TOKEN_EXPIRATION_SECONDS";
 
-  public static final String MISCONFIGURED_TENANT = "Tenant expected in token Expiration configuration";
+  public static final String MISCONFIGURED_INVALID_ENTRY = "Expected a key value pair with a single colon but found ";
 
-  public static final String MISCONFIGURED_INCORRECT_VALUE = "Token expiration configuration has an incorrect value";
+  public static final String MISCONFIGURED_UNKNOWN_KEY = "Token expiration configuration has an unknown key of ";
 
-  public static final String MISCONFIGURED_MISSING_SEPARATOR = "Token expiration configuration is missing at least one separator";
-
-  public static final String MISCONFIGURED_INVALID_ENTRY = "Token expiration configuration has an invalid entry";
-
-  public static final String MISCONFIGURED_UNKNOWN_KEY = "Token expiration configuration has an unknown key";
+  private final HashMap<String, TokenExpirationConfiguration> tokenConfiguration;
 
   public TokenExpiration() {
-    tenantTokenConfiguration = new HashMap<>();
+    tokenConfiguration = new HashMap<>();
 
-    String tokenExpirationConfiguration = getExpirationConfig();
-
-    if (tokenExpirationConfiguration == null) {
-      defaultExpirationConfiguration = new TokenExpirationConfiguration(AccessToken.DEFAULT_EXPIRATION_SECONDS,
-                                                                        RefreshToken.DEFALUT_EXPIRATION_SECONDS);
-    } else {
-      parseExpirationConfig(tokenExpirationConfiguration);
+    var configuration = getExpirationConfigFromEnvOrSystemProperty();
+    if (configuration != null) {
+      parseExpirationConfig(configuration);
     }
+
+    tryAddDefaultConfiguration();
   }
 
   public long getAccessTokenExpiration(String tenant) {
-    var tenantConfiguration = tenantTokenConfiguration.get(tenant);
-    if (tenantConfiguration != null) {
-      return tenantConfiguration.accessTokenExpirationSeconds();
-    }
-    return defaultExpirationConfiguration.accessTokenExpirationSeconds();
+    var tenantConfiguration = tokenConfiguration.get(tenant);
+    return (tenantConfiguration == null) ? getDefaultConfiguration().accessTokenExpirationSeconds() :
+        tenantConfiguration.accessTokenExpirationSeconds();
   }
 
   public long getRefreshTokenExpiration(String tenant) {
-    var tenantConfiguration = tenantTokenConfiguration.get(tenant);
-    if (tenantConfiguration != null) {
-      return tenantConfiguration.refreshTokenExpirationSeconds();
-    }
-    return defaultExpirationConfiguration.refreshTokenExpirationSeconds();
+    var tenantConfiguration = tokenConfiguration.get(tenant);
+    return (tenantConfiguration == null) ? getDefaultConfiguration().refreshTokenExpirationSeconds() :
+      tenantConfiguration.refreshTokenExpirationSeconds();
   }
 
-  private TokenExpirationConfiguration defaultExpirationConfiguration;
+  private TokenExpirationConfiguration getDefaultConfiguration() {
+    return tokenConfiguration.get(null);
+  }
 
-  private final HashMap<String, TokenExpirationConfiguration> tenantTokenConfiguration;
+  private void tryAddDefaultConfiguration() {
+    tokenConfiguration.putIfAbsent(null,
+        new TokenExpirationConfiguration(
+            AccessToken.DEFAULT_EXPIRATION_SECONDS,
+            RefreshToken.DEFAULT_EXPIRATION_SECONDS));
+  }
 
   private void parseExpirationConfig(String tokenExpirationConfig) {
-    if (!tokenExpirationConfig.contains(":") || !tokenExpirationConfig.contains(","))
-      throw new TokenExpirationConfigurationException(MISCONFIGURED_MISSING_SEPARATOR);
-
     var configEntries = tokenExpirationConfig.replace(" ", "").split(";");
     for (String configEntry : configEntries) {
       String tenantId = null;
@@ -67,7 +61,7 @@ public class TokenExpiration {
       for (String keyValuePair : keyValuePairs) {
         String[] keyValue = keyValuePair.split(":");
         if (keyValue.length != 2) {
-          throw new TokenExpirationConfigurationException(MISCONFIGURED_INVALID_ENTRY);
+          throw new TokenExpirationConfigurationException(MISCONFIGURED_INVALID_ENTRY + keyValuePair);
         }
 
         String key = keyValue[0];
@@ -77,33 +71,28 @@ public class TokenExpiration {
           case "tenantId" -> tenantId = value;
           case "refreshToken" -> refreshTokenExpiration = Long.parseLong(value);
           case "accessToken" -> accessTokenExpiration = Long.parseLong(value);
-          default -> throw new TokenExpirationConfigurationException(MISCONFIGURED_UNKNOWN_KEY);
+          default -> throw new TokenExpirationConfigurationException(MISCONFIGURED_UNKNOWN_KEY + key);
         }
       }
 
-      if (accessTokenExpiration <= 0 || refreshTokenExpiration <= 0)
-        throw new TokenExpirationConfigurationException(MISCONFIGURED_INCORRECT_VALUE);
-
-      if (keyValuePairs.length == 3 && tenantId == null)
-        throw new TokenExpirationConfigurationException(MISCONFIGURED_TENANT);
-
-      if (tenantId != null) {
-        tenantTokenConfiguration.put(tenantId, new TokenExpirationConfiguration(accessTokenExpiration, refreshTokenExpiration));
-      } else {
-        defaultExpirationConfiguration = new TokenExpirationConfiguration(accessTokenExpiration, refreshTokenExpiration);
+      if (accessTokenExpiration <= 0) {
+        accessTokenExpiration = AccessToken.DEFAULT_EXPIRATION_SECONDS;
       }
-    }
 
-    if (defaultExpirationConfiguration == null)
-      defaultExpirationConfiguration = new TokenExpirationConfiguration(AccessToken.DEFAULT_EXPIRATION_SECONDS,
-                                                                        RefreshToken.DEFALUT_EXPIRATION_SECONDS);
+      if (refreshTokenExpiration <=0) {
+        refreshTokenExpiration = RefreshToken.DEFAULT_EXPIRATION_SECONDS;
+      }
+
+      tokenConfiguration.put(tenantId,
+          new TokenExpirationConfiguration(accessTokenExpiration, refreshTokenExpiration));
+    }
   }
 
-  private String getExpirationConfig() {
-    var prop = System.getProperty(TOKEN_EXPIRATION_CONFIG);
+  private String getExpirationConfigFromEnvOrSystemProperty() {
+    var prop = System.getProperty(TOKEN_EXPIRATION_SECONDS);
     if (prop != null) {
       return prop;
     }
-    return System.getenv(TOKEN_EXPIRATION_CONFIG_ENV);
+    return System.getenv(TOKEN_EXPIRATION_SECONDS_ENV);
   }
 }

@@ -363,8 +363,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       JsonObject requestJson = ctx.body().asJsonObject();
       String userId = requestJson.getString(USER_ID);
       String sub = requestJson.getString("sub");
-      long defaultExpires = RefreshToken.DEFALUT_EXPIRATION_SECONDS;
-      String refreshToken = new RefreshToken(tenant, sub, userId, address, defaultExpires).encodeAsJWE(tokenCreator);
+      long expires = tokenExpiration.getRefreshTokenExpiration(tenant);
+      String refreshToken = new RefreshToken(tenant, sub, userId, address, expires).encodeAsJWE(tokenCreator);
       JsonObject responseJson = new JsonObject().put(Token.REFRESH_TOKEN, refreshToken);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
