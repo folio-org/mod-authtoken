@@ -15,7 +15,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-public class TokenExpirationConfigTest {
+class TokenExpirationConfigTest {
 
   @BeforeEach
   @AfterEach
@@ -28,7 +28,7 @@ public class TokenExpirationConfigTest {
     "tenantId:abc,accessToken:1000,refreshToken:100000;tenantId:123,accessToken:2000,refreshToken:200000;accessToken:3000,refreshToken:300000",
     "refreshToken:300000,accessToken:3000;refreshToken:200000,accessToken:2000,tenantId:123;refreshToken:100000,accessToken:1000,tenantId:abc",
     "refreshToken:300000, accessToken:3000; refreshToken: 200000, accessToken: 2000, tenantId: 123; refreshToken: 100000, accessToken:1000, tenantId: abc;"})
-  public void tokenExpirationTenantConfigTest(String config) {
+  void tokenExpirationTenantConfigTest(String config) {
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_SECONDS, config);
 
     var expiration = new TokenExpiration();
@@ -43,7 +43,7 @@ public class TokenExpirationConfigTest {
   }
 
   @Test
-  public void tokenExpirationTenantConfigTestNoAccessOrRefreshSet() {
+  void tokenExpirationTenantConfigTestNoAccessOrRefreshSet() {
     String config = "tenantId:abc,refreshToken:100000;tenantId:123,accessToken:1000";
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_SECONDS, config);
 
@@ -59,7 +59,7 @@ public class TokenExpirationConfigTest {
   }
 
   @Test
-  public void tokenExpirationTenantConfigTestIncorrectValuesToDefault() {
+  void tokenExpirationTenantConfigTestIncorrectValuesToDefault() {
     String config = "tenantId:abc,accessToken:0,refreshToken:0;" +
       "tenantId:123,accessToken:0,refreshToken:-1;" +
       "accessToken:-1,refreshToken:0";
@@ -77,7 +77,7 @@ public class TokenExpirationConfigTest {
   }
 
   @Test
-  public void tokenExpirationOnlyDefaultConfigTest() {
+  void tokenExpirationOnlyDefaultConfigTest() {
     String config = "accessToken:3000,refreshToken:300000";
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_SECONDS, config);
 
@@ -87,14 +87,14 @@ public class TokenExpirationConfigTest {
   }
 
   @Test
-  public void tokenExpirationNoConfigTest() {
+  void tokenExpirationNoConfigTest() {
     var expiration = new TokenExpiration();
     assertThat(expiration.getAccessTokenExpiration("anyTenant"), is(AccessToken.DEFAULT_EXPIRATION_SECONDS));
     assertThat(expiration.getRefreshTokenExpiration("anyTenant"), is(RefreshToken.DEFAULT_EXPIRATION_SECONDS));
   }
 
   @Test
-  public void tokenExpirationNoRefreshTest() {
+  void tokenExpirationNoRefreshTest() {
     String config = "accessToken:1000;tenantId:abc,accessToken:2000";
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_SECONDS, config);
 
@@ -118,7 +118,7 @@ public class TokenExpirationConfigTest {
   }
 
   @Test
-  public void tokenExpirationNoDefaultTest() {
+  void tokenExpirationNoDefaultTest() {
     String config = "tenantId:123,accessToken:2000,refreshToken:200000;tenantId:abc,accessToken:3000,refreshToken:300000";
     System.setProperty(TokenExpiration.TOKEN_EXPIRATION_SECONDS, config);
 
@@ -136,19 +136,19 @@ public class TokenExpirationConfigTest {
     "unknownKey:abc,accessToken:1,refreshToken:1;accessToken:1,refreshToken:1",
     "tenantId:abc,accessToken:1,unknownKey:1;accessToken:1",
     "tenantId:abc,accessToken:1,refreshToken:1;unknownKey:1" })
-  public void tokenExpirationMisconfigurationUnknownKeyTest(String config) {
+  void tokenExpirationMisconfigurationUnknownKeyTest(String config) {
     testThrows(config, TokenExpiration.MISCONFIGURED_UNKNOWN_KEY + "unknownKey");
   }
 
   @ParameterizedTest
   @ValueSource(strings = { ",accessToken", " ,refreshToken", ", tenantId:abc", "tenantId:abc,,accessToken:1"})
-  public void tokenExpirationMisconfigurationEmptyString(String config) {
+  void tokenExpirationMisconfigurationEmptyString(String config) {
     testThrows(config, TokenExpiration.MISCONFIGURED_EMPTY_KEY_VALUE_PAIR);
   }
 
   @ParameterizedTest
-  @ValueSource(strings = { "tenantId:abc:accessToken", "abc", "accessToken", "refreshToken", ":", "" })
-  public void tokenExpirationMisconfigurationInvalidEntryTest(String config) {
+  @ValueSource(strings = { "tenantId:abc:accessToken", "abc", "accessToken", "refreshToken", ":" })
+  void tokenExpirationMisconfigurationInvalidEntryTest(String config) {
     testThrows(config, TokenExpiration.MISCONFIGURED_INVALID_ENTRY + config);
   }
 
