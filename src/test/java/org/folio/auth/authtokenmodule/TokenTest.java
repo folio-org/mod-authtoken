@@ -40,7 +40,7 @@ public class TokenTest {
 
   @Test
   public void accessTokenIsValidTest() throws JOSEException, ParseException {
-    var at = new AccessToken(tenant, username, userUUID);
+    var at = new AccessToken(tenant, username, userUUID, AccessToken.DEFAULT_EXPIRATION_SECONDS);
     String key = System.getProperty("jwt.signing.key");
     var tokenCreator = new TokenCreator(key);
     var encoded = at.encodeAsJWT(tokenCreator);
@@ -86,10 +86,12 @@ public class TokenTest {
   public void tokenIsEncryptedTest() throws TokenValidationException, JOSEException, ParseException {
     String key = System.getProperty("jwt.signing.key");
     var tokenCreator = new TokenCreator(key);
+    long defaultAtExpires = AccessToken.DEFAULT_EXPIRATION_SECONDS;
+    long defaultRtExpires = RefreshToken.DEFAULT_EXPIRATION_SECONDS;
     String unencryptedToken =
-      new AccessToken("test-tenant", "username-1", "userid-1").encodeAsJWT(tokenCreator);
+      new AccessToken("test-tenant", "username-1", "userid-1", defaultAtExpires).encodeAsJWT(tokenCreator);
     String encryptedToken =
-      new RefreshToken("test-tenant", "username-1", "userid-1", "http://localhost").encodeAsJWE(tokenCreator);
+      new RefreshToken("test-tenant", "username-1", "userid-1", "http://localhost", defaultRtExpires).encodeAsJWE(tokenCreator);
 
     assertThat(Token.isEncrypted(encryptedToken), is(true));
     assertThat(Token.isEncrypted(unencryptedToken), is(false));

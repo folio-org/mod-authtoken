@@ -17,7 +17,6 @@ import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.unit.TestContext;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
-import java.time.Instant;
 import java.util.ArrayList;
 
 import org.apache.logging.log4j.LogManager;
@@ -100,21 +99,23 @@ public class AuthTokenTest {
     String passPhrase = "CorrectBatteryHorseStaple";
     System.setProperty("jwt.signing.key", passPhrase);
     tokenCreator = new TokenCreator(passPhrase);
-    accessToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(tokenCreator);
+    accessToken = new AccessToken(tenant, "jones", userUUID,
+                                  AccessToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWT(tokenCreator);
     var extraPerms1 = new JsonArray().add("auth.signtoken");
     moduleToken = new ModuleToken(tenant, "jones", userUUID, "", extraPerms1).encodeAsJWT(tokenCreator);
     var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
     dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
-    refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1").encodeAsJWE(tokenCreator);
+    refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1",
+                                    RefreshToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWE(tokenCreator);
 
     // Create some bad tokens, including one with a bad signing key.
-    accessToken404 = new AccessToken(tenant, "jones", "404").encodeAsJWT(tokenCreator);
-    inactiveToken = new AccessToken(tenant, "jones", "inactive").encodeAsJWT(tokenCreator);
+    accessToken404 = new AccessToken(tenant, "jones", "404", 100L).encodeAsJWT(tokenCreator);
+    inactiveToken = new AccessToken(tenant, "jones", "inactive",100L).encodeAsJWT(tokenCreator);
     String badPassPhrase = "IncorrectBatteryHorseStaple";
     var badTokenCreator = new TokenCreator(badPassPhrase);
-    badAccessToken = new AccessToken(tenant, "jones", userUUID).encodeAsJWT(badTokenCreator);
-    badRefreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1").encodeAsJWE(badTokenCreator);
+    badAccessToken = new AccessToken(tenant, "jones", userUUID, 100L).encodeAsJWT(badTokenCreator);
+    badRefreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1", 100L).encodeAsJWE(badTokenCreator);
 
     payloadDummySigningReq = new JsonObject()
         .put("dummy", true)
@@ -498,8 +499,7 @@ public class AuthTokenTest {
 
   @Test
   public void testAccessTokenExpiration() throws JOSEException, ParseException {
-    var at = new AccessToken(tenant, "jones", userUUID);
-    at.getClaims().put("exp", 0L);
+    var at = new AccessToken(tenant, "jones", userUUID, -10L);
     given()
       .header("X-Okapi-Tenant", tenant)
       .header("X-Okapi-Token", at.encodeAsJWT(tokenCreator))
@@ -1451,7 +1451,7 @@ public class AuthTokenTest {
   @Test
   public void testStoreSaveRefreshToken(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
-    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
     ts.saveToken(rt)
         .compose(x -> ts.checkTokenNotRevoked(rt))
         .onComplete(context.asyncAssertSuccess());
@@ -1461,7 +1461,7 @@ public class AuthTokenTest {
   public void testStoreRefreshTokenNotFound(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
     // A RefreshToken which doesn't exist is treated as revoked.
-    var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
     ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
       assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
       assertThat(e.getMessage(), containsString("not exist"));
@@ -1472,9 +1472,7 @@ public class AuthTokenTest {
   @Test
   public void testStoreRefreshTokenExpired(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
-    var expiredToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    var now = Instant.now().getEpochSecond();
-    expiredToken.setExpiresAt(now - 10);
+    var expiredToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, -10L);
     ts.checkTokenNotRevoked(expiredToken).onComplete(context.asyncAssertFailure(e -> {
       assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
       assertThat(e.getMessage(), containsString("expired"));
@@ -1520,7 +1518,7 @@ public class AuthTokenTest {
   @Test
   public void testRefreshTokenRevoked(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
-    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
     ts.saveToken(rt)
         .compose(x -> ts.checkTokenNotRevoked(rt))
         .compose(x -> ts.revokeToken(rt))
@@ -1536,9 +1534,9 @@ public class AuthTokenTest {
   public void testStoreRefreshTokenSingleUse(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
     // Create and save some tokens.
-    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
+    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
+    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
+    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
     var s1 = ts.saveToken(rt1);
     var s2 = ts.saveToken(rt2);
     var s3 = ts.saveToken(rt3);
@@ -1569,16 +1567,11 @@ public class AuthTokenTest {
   @Test
   public void testStoreCleanupExpired(TestContext context) {
     // Create some tokens.
-    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    var rt4 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-    var rt5 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port);
-
-    // Set a few tokens' expires at time to simulate expiration.
-    var now = Instant.now().getEpochSecond();
-    rt2.setExpiresAt(now - 10); // Would have expired 10 seconds ago.
-    rt4.setExpiresAt(now - 20); // Would have expired 20 seconds ago.
+    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
+    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, -10L);
+    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
+    var rt4 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, -10L);
+    var rt5 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
 
     var ts = new RefreshTokenStore(vertx, tenant);
 

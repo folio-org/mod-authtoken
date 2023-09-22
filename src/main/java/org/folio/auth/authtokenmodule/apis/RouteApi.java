@@ -22,6 +22,7 @@ import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+import org.folio.auth.authtokenmodule.tokens.expiration.TokenExpiration;
 import org.folio.okapi.common.XOkapiHeaders;
 
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private UserService userService;
   private List<Route> routes;
   private Vertx vertx;
+  private TokenExpiration tokenExpiration;
 
   /**
    * Constructs the API.
@@ -67,9 +69,11 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     this.userService = userService;
     this.tokenCreator = tokenCreator;
 
+    tokenExpiration = new TokenExpiration();
     logger = LogManager.getLogger(RouteApi.class);
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
+
 
     // Set up the routes. Here next will call operation handler defined in
     // createRouter. The filter API is responsible for calling these routes, but we
@@ -253,8 +257,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       JsonObject responseObject) {
 
     String address = ctx.request().remoteAddress().host();
-    var rt = new RefreshToken(tenant, username, userId, address);
-    var at = new AccessToken(tenant, username, userId);
+    var rt = new RefreshToken(tenant, username, userId, address, tokenExpiration.getRefreshTokenExpiration(tenant));
+    var at = new AccessToken(tenant, username, userId, tokenExpiration.getAccessTokenExpiration(tenant));
 
     try {
       responseObject.put(Token.ACCESS_TOKEN, at.encodeAsJWT(tokenCreator));
@@ -359,7 +363,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       JsonObject requestJson = ctx.body().asJsonObject();
       String userId = requestJson.getString(USER_ID);
       String sub = requestJson.getString("sub");
-      String refreshToken = new RefreshToken(tenant, sub, userId, address).encodeAsJWE(tokenCreator);
+      long expires = tokenExpiration.getRefreshTokenExpiration(tenant);
+      String refreshToken = new RefreshToken(tenant, sub, userId, address, expires).encodeAsJWE(tokenCreator);
       JsonObject responseJson = new JsonObject().put(Token.REFRESH_TOKEN, refreshToken);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
