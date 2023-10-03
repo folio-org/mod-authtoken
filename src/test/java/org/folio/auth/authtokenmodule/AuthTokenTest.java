@@ -15,7 +15,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.unit.TestContext;
-import java.security.NoSuchAlgorithmException;
+
 import java.text.ParseException;
 import java.util.ArrayList;
 
@@ -27,11 +27,12 @@ import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
-import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+import org.folio.auth.authtokenmodule.tokens.legacy.EnhancedSecurityTenants;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -71,6 +72,7 @@ public class AuthTokenTest {
   private static String refreshToken;
   private static JsonObject payloadDummySigningReq;
   private static JsonObject payloadSigningRequest;
+  private static EnhancedSecurityTenants enhancedSecurityTenants;
 
   static int port;
   static int mockPort;
@@ -82,8 +84,11 @@ public class AuthTokenTest {
   public static PostgreSQLContainer<?> postgresSQLContainer = TokenStoreTestContainer.create();
 
   @BeforeClass
-  public static void setUpClass(TestContext context) throws NoSuchAlgorithmException,
-      JOSEException, ParseException {
+  public static void setUpClass(TestContext context) throws JOSEException, ParseException {
+    String enhancedSecurityTenantConfig = "estenant1, estenant2";
+    System.setProperty(EnhancedSecurityTenants.ENHANCED_SECURITY_TENANTS, enhancedSecurityTenantConfig);
+    enhancedSecurityTenants = new EnhancedSecurityTenants();
+
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort();
     freePort = NetworkUtils.nextFreePort();
@@ -663,7 +668,30 @@ public class AuthTokenTest {
           .statusCode(400);
     }
 
-    // Methods above this point can be removed when legacy tokens are depreciated.
+  @Test
+  public void testEnhancedSecurityMode_Legacy() throws ParseException, JOSEException {
+    assertThat(enhancedSecurityTenants.isEnhancedSecurityTenant("estenant1"), is(true));
+    assertThat(enhancedSecurityTenants.isEnhancedSecurityTenant("estenant2"), is(true));
+
+    var at = new AccessToken("estenant2", "jones", userUUID,
+      AccessToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWT(tokenCreator);
+
+    given()
+      .header("X-Okapi-Tenant", "estenant2")
+      .header("X-Okapi-Token", at)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+      .post("/token")
+      .then()
+      .statusCode(404);
+
+      System.clearProperty(EnhancedSecurityTenants.ENHANCED_SECURITY_TENANTS);
+  }
+
+
+  // Methods above this point can be removed when legacy tokens are depreciated.
 
     @Test
     public void testEmptyTokenWithNoTenant() {

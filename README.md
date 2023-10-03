@@ -45,9 +45,11 @@ mod-authtoken supports a number of command line options as system properties, se
 * `cache.permissions` - Boolean controlling the permissions cache. Defaults to `true`.
 * `allow.cross.tenant.requests` - Boolean to allow (in consortia setups) or deny cross tenant requests. Defaults to `false`.
 * `token.expiration.seconds` - Override defaults for token expiration in the form of `tenantId:<tenant id>,accessToken:<seconds>,refreshToken:<seconds>;accessToken:<seconds>,refreshToken:<seconds>`. To override defaults for a specific tenant provide a triplet. To override defaults provide a pair. Separate entries in the string with a `;` character. Neither tenant entries nor a default are required. If a default or a key is not provided, a default of 10 minutes is set by the module for the access token, and a default of one week is set by the module for the refresh token.
-
+* `enhnanced.security.tenants` - A comma separated list of tenant ids for which legacy tokens are not supported.
+*
 # Environment variables
-`TOKEN_EXPIRATION_SECONDS` - Identical to `token.expiration.seconds` as specified above. Provided as a convenience. System property takes precedence.
+* `TOKEN_EXPIRATION_SECONDS` - Identical to `token.expiration.seconds` as specified above. Provided as a convenience. System property takes precedence.
+* `ENHANCED_SECURITY_TENANTS` - Identical to `enhanced.security.tenanats`.
 
 # Custom Headers
 

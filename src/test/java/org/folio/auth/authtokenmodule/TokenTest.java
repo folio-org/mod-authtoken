@@ -9,7 +9,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
-import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
