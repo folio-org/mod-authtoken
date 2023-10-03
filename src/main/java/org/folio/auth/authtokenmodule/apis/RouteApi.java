@@ -15,13 +15,7 @@ import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.TokenCreator;
-import org.folio.auth.authtokenmodule.tokens.AccessToken;
-import org.folio.auth.authtokenmodule.tokens.DummyToken;
-import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
-import org.folio.auth.authtokenmodule.tokens.RefreshToken;
-import org.folio.auth.authtokenmodule.tokens.Token;
-import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
-import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+import org.folio.auth.authtokenmodule.tokens.*;
 import org.folio.auth.authtokenmodule.tokens.expiration.TokenExpiration;
 import org.folio.okapi.common.XOkapiHeaders;
 
@@ -178,11 +172,8 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       // X-Okapi-Tenant and X-Okapi-Url are already checked in FilterApi.
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      final String content = ctx.getBodyAsString();
-      JsonObject json;
-      JsonObject payload;
-      json = new JsonObject(content);
-      payload = json.getJsonObject("payload");
+      JsonObject json = ctx.body().asJsonObject();
+      JsonObject payload = json.getJsonObject("payload");
 
       // Both types of signing requests (dummy and access) have only this property in
       // common.
@@ -198,8 +189,11 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       if (isDummyTokenSigningRequest(payload)) {
         logger.debug("Signing request is for a dummy token");
 
-        var dt = new DummyToken(tenant, payload.getJsonArray("extra_permissions"), username);
-        responseObject.put("token", dt.encodeAsJWT(tokenCreator));
+        var dte = new DummyTokenExpiring(tenant,
+            payload.getJsonArray("extra_permissions"),
+            username,
+            tokenExpiration.getAccessTokenExpiration(tenant));
+        responseObject.put("token", dte.encodeAsJWT(tokenCreator));
         endJson(ctx, 201, responseObject.encode());
 
         return;

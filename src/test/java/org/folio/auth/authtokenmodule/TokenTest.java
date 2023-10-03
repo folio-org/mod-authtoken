@@ -1,19 +1,16 @@
 package org.folio.auth.authtokenmodule;
 
 import java.text.ParseException;
+
 import com.nimbusds.jose.JOSEException;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import org.folio.auth.authtokenmodule.tokens.AccessToken;
-import org.folio.auth.authtokenmodule.tokens.DummyToken;
-import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
-import org.folio.auth.authtokenmodule.tokens.RefreshToken;
-import org.folio.auth.authtokenmodule.tokens.Token;
-import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
-import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+import io.vertx.core.net.SocketAddress;
+import org.folio.auth.authtokenmodule.tokens.*;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.Assert;
 import org.junit.Before;
@@ -40,46 +37,47 @@ public class TokenTest {
 
   @Test
   public void accessTokenIsValidTest() throws JOSEException, ParseException {
-    var at = new AccessToken(tenant, username, userUUID, AccessToken.DEFAULT_EXPIRATION_SECONDS);
-    String key = System.getProperty("jwt.signing.key");
-    var tokenCreator = new TokenCreator(key);
-    var encoded = at.encodeAsJWT(tokenCreator);
-
-    MultiMap headers = Mockito.mock(MultiMap.class);
-    Mockito.when(headers.get(XOkapiHeaders.USER_ID)).thenReturn(userUUID);
-    Mockito.when(headers.get(XOkapiHeaders.TENANT)).thenReturn(tenant);
-    HttpServerRequest request = Mockito.mock(HttpServerRequest.class);
-    Mockito.when(request.headers()).thenReturn(headers);
-
-    var context = new TokenValidationContext(request, tokenCreator, encoded, userService);
-    Future<Token> result = Token.validate(context);
-
-    // Access token validation will never have async operations within their validation.
-    assertThat(result.succeeded(), is(true));
-    assertThat(result.result(), is(instanceOf(AccessToken.class)));
+    var at = new AccessToken(tenant, username, userUUID, 1);
+    var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
+    assertTokenIsValid(at.encodeAsJWT(tc), tc, AccessToken.class);
   }
 
   @Test
-  public void accessTokenIsInvalidTest() throws JOSEException, ParseException {
+  public void dummyExpiringTokenIsValidTest() throws JOSEException, ParseException {
+    var dte = new DummyTokenExpiring(tenant, new JsonArray(), "testuser", 1);
+    var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
+    assertTokenIsValid(dte.encodeAsJWT(tc), tc, DummyTokenExpiring.class);
+  }
+
+  @Test
+  public void accessTokenMissingTenantClaims() throws JOSEException, ParseException {
     String tokenMissingTenantClaim =
       "{\"iat\":1637696002,\"sub\":\"test-username\",\"user_id\":\"007d31d2-1441-4291-9bb8-d6e2c20e399a\",\"type\":\"access\"}";
     String key = System.getProperty("jwt.signing.key");
     var tokenCreator = new TokenCreator(key);
-    String source = tokenCreator.createJWTToken(tokenMissingTenantClaim);
+    String encoded = tokenCreator.createJWTToken(tokenMissingTenantClaim);
+    assertTokenIsInvalid(encoded, tokenCreator, 500);
+  }
 
-    MultiMap headers = Mockito.mock(MultiMap.class);
-    Mockito.when(headers.get(XOkapiHeaders.USER_ID)).thenReturn(userUUID);
-    Mockito.when(headers.get(XOkapiHeaders.TENANT)).thenReturn(tenant);
-    HttpServerRequest request = Mockito.mock(HttpServerRequest.class);
-    Mockito.when(request.headers()).thenReturn(headers);
+  @Test
+  public void accessTokenIsExpiredTest() throws JOSEException, ParseException {
+    var at = new AccessToken(tenant, username, userUUID, -1);
+    var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
+    assertTokenIsInvalid(at.encodeAsJWT(tc), tc,401);
+  }
 
-    var context = new TokenValidationContext(request, tokenCreator, source, userService);
-    Future<Token> result = Token.validate(context);
+  @Test
+  public void dummyTokenExpiringIsExpiredTest() throws JOSEException, ParseException {
+    var dte = new DummyTokenExpiring(tenant, new JsonArray(), "testuser", -1);
+    var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
+    assertTokenIsInvalid(dte.encodeAsJWT(tc), tc,401);
+  }
 
-    // Access tokens will never have async operations within their validation.
-    assertThat(result.failed(), is(true));
-    assertThat(result.cause(), is(instanceOf(TokenValidationException.class)));
-    assertThat(((TokenValidationException) result.cause()).getHttpResponseCode(), is(500));
+  @Test
+  public void refreshTokenExpiringIsExpiredTest() throws JOSEException, ParseException {
+    var rt = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1", -1);
+    var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
+    assertTokenIsInvalid(rt.encodeAsJWE(tc), tc,401);
   }
 
   @Test
@@ -130,5 +128,40 @@ public class TokenTest {
       .put("tenant", "lib");
     Throwable t = Assert.assertThrows(TokenValidationException.class, () -> Token.parse(".", claims));
     assertThat(t.getMessage(), is("Unable to parse token"));
+  }
+
+  private void assertTokenIsInvalid(String token, TokenCreator tokenCreator, int errorCode)  throws JOSEException, ParseException {
+    MultiMap headers = Mockito.mock(MultiMap.class);
+    Mockito.when(headers.get(XOkapiHeaders.USER_ID)).thenReturn(userUUID);
+    Mockito.when(headers.get(XOkapiHeaders.TENANT)).thenReturn(tenant);
+    HttpServerRequest request = Mockito.mock(HttpServerRequest.class);
+    Mockito.when(request.headers()).thenReturn(headers);
+    SocketAddress socketAddress = Mockito.mock(SocketAddress.class);
+    Mockito.when(request.remoteAddress()).thenReturn(socketAddress);
+    Mockito.when(request.remoteAddress().host()).thenReturn("127.0.0.1");
+
+    var context = new TokenValidationContext(request, tokenCreator, token, userService);
+    Future<Token> result = Token.validate(context);
+
+    assertThat(result.failed(), is(true));
+    assertThat(result.cause(), is(instanceOf(TokenValidationException.class)));
+    assertThat(((TokenValidationException) result.cause()).getHttpResponseCode(), is(errorCode));
+  }
+
+  private <T> void assertTokenIsValid(String token, TokenCreator tokenCreator, Class<T> clazz) {
+    MultiMap headers = Mockito.mock(MultiMap.class);
+    Mockito.when(headers.get(XOkapiHeaders.USER_ID)).thenReturn(userUUID);
+    Mockito.when(headers.get(XOkapiHeaders.TENANT)).thenReturn(tenant);
+    HttpServerRequest request = Mockito.mock(HttpServerRequest.class);
+    Mockito.when(request.headers()).thenReturn(headers);
+    SocketAddress socketAddress = Mockito.mock(SocketAddress.class);
+    Mockito.when(request.remoteAddress()).thenReturn(socketAddress);
+    Mockito.when(request.remoteAddress().host()).thenReturn("127.0.0.1");
+
+    var context = new TokenValidationContext(request, tokenCreator, token, userService);
+    Future<Token> result = Token.validate(context);
+
+    assertThat(result.succeeded(), is(true));
+    assertThat(result.result(), is(instanceOf(clazz)));
   }
 }
