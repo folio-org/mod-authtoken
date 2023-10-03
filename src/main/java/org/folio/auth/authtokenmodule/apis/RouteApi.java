@@ -15,7 +15,14 @@ import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.TokenCreator;
-import org.folio.auth.authtokenmodule.tokens.*;
+import org.folio.auth.authtokenmodule.tokens.AccessToken;
+import org.folio.auth.authtokenmodule.tokens.DummyToken;
+import org.folio.auth.authtokenmodule.tokens.DummyTokenExpiring;
+import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
+import org.folio.auth.authtokenmodule.tokens.RefreshToken;
+import org.folio.auth.authtokenmodule.tokens.Token;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.auth.authtokenmodule.tokens.expiration.TokenExpiration;
 import org.folio.okapi.common.XOkapiHeaders;
 
