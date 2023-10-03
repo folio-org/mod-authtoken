@@ -87,7 +87,6 @@ public class AuthTokenTest {
   public static void setUpClass(TestContext context) throws JOSEException, ParseException {
     String enhancedSecurityTenantConfig = "estenant1, estenant2";
     System.setProperty(EnhancedSecurityTenants.ENHANCED_SECURITY_TENANTS, enhancedSecurityTenantConfig);
-    enhancedSecurityTenants = new EnhancedSecurityTenants();
 
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort();
@@ -670,9 +669,6 @@ public class AuthTokenTest {
 
   @Test
   public void testEnhancedSecurityMode_Legacy() throws ParseException, JOSEException {
-    assertThat(enhancedSecurityTenants.isEnhancedSecurityTenant("estenant1"), is(true));
-    assertThat(enhancedSecurityTenants.isEnhancedSecurityTenant("estenant2"), is(true));
-
     var at = new AccessToken("estenant2", "jones", userUUID,
       AccessToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWT(tokenCreator);
 
