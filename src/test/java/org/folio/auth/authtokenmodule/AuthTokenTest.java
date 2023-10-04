@@ -686,7 +686,6 @@ public class AuthTokenTest {
       System.clearProperty(EnhancedSecurityTenants.ENHANCED_SECURITY_TENANTS);
   }
 
-
   // Methods above this point can be removed when legacy tokens are depreciated.
 
     @Test

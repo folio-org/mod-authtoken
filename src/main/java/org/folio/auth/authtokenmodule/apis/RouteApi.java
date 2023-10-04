@@ -327,7 +327,9 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
       // Check for enhanced security mode being enabled for the tenant. If so return 404.
       if (enhancedSecurityTenants.isEnhancedSecurityTenant(tenant)) {
-       endText(ctx, 404, new EnhancedSecurityTenantException());
+        var message = "Tenant is enhanced security tenant as specified in this modules environment or system " +
+          "property. Cannot issue non-expiring legacy token.";
+       endText(ctx, 404, new EnhancedSecurityTenantException(message));
       }
 
       JsonObject json = ctx.body().asJsonObject();
