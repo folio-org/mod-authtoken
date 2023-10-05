@@ -1638,8 +1638,9 @@ public class AuthTokenTest {
         .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/_/tenant") + "\"]")
         .get(location + "?wait=10000")
         .then()
-        .statusCode(200)
-        .body("complete", is(true));
+        .statusCode(200)  // getting job record succeeds
+        .body("complete", is(true))  // job is complete
+        .body("error", is(nullValue()));  // job has succeeded without error
   }
 
   private ArrayList<String> createListOfRefreshTokens() {
