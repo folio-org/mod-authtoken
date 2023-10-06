@@ -31,7 +31,7 @@ import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
-import org.folio.auth.authtokenmodule.tokens.legacy.EnhancedSecurityTenants;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyTokenTenants;
 import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
@@ -72,7 +72,7 @@ public class AuthTokenTest {
   private static String refreshToken;
   private static JsonObject payloadDummySigningReq;
   private static JsonObject payloadSigningRequest;
-  private static EnhancedSecurityTenants enhancedSecurityTenants;
+  private static LegacyTokenTenants legacyTokenTenants;
 
   static int port;
   static int mockPort;
@@ -85,8 +85,7 @@ public class AuthTokenTest {
 
   @BeforeClass
   public static void setUpClass(TestContext context) throws JOSEException, ParseException {
-    String enhancedSecurityTenantConfig = "estenant1, estenant2";
-    System.setProperty(EnhancedSecurityTenants.ENHANCED_SECURITY_TENANTS, enhancedSecurityTenantConfig);
+    System.setProperty(LegacyTokenTenants.LEGACY_TOKEN_TENANTS, tenant);
 
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort();
@@ -668,12 +667,12 @@ public class AuthTokenTest {
     }
 
   @Test
-  public void testEnhancedSecurityMode_Legacy() throws ParseException, JOSEException {
-    var at = new AccessToken("estenant2", "jones", userUUID,
+  public void legacyTokenTenants_Legacy() throws ParseException, JOSEException {
+    var at = new AccessToken("tenant2", "jones", userUUID,
       AccessToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWT(tokenCreator);
 
     given()
-      .header("X-Okapi-Tenant", "estenant2")
+      .header("X-Okapi-Tenant", "tenant2")
       .header("X-Okapi-Token", at)
       .header("X-Okapi-Url", "http://localhost:" + freePort)
       .header("Content-type", "application/json")
@@ -683,7 +682,7 @@ public class AuthTokenTest {
       .then()
       .statusCode(404);
 
-      System.clearProperty(EnhancedSecurityTenants.ENHANCED_SECURITY_TENANTS);
+      System.clearProperty(LegacyTokenTenants.LEGACY_TOKEN_TENANTS);
   }
 
   // Methods above this point can be removed when legacy tokens are depreciated.
