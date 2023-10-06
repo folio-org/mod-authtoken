@@ -234,6 +234,8 @@ public abstract class Token {
         return new ApiToken(sourceToken, claims);
       case DummyToken.TYPE:
         return new DummyToken(sourceToken, claims);
+      case DummyTokenExpiring.TYPE:
+        return new DummyTokenExpiring(sourceToken, claims);
       case ModuleToken.TYPE:
         return new ModuleToken(sourceToken, claims);
       default:
