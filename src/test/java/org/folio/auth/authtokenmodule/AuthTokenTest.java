@@ -24,7 +24,16 @@ import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.impl.ModulePermissionsSource;
 import org.folio.auth.authtokenmodule.storage.ApiTokenStore;
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
-import org.folio.auth.authtokenmodule.tokens.*;
+import org.folio.auth.authtokenmodule.tokens.AccessToken;
+import org.folio.auth.authtokenmodule.tokens.ApiToken;
+import org.folio.auth.authtokenmodule.tokens.DummyToken;
+import org.folio.auth.authtokenmodule.tokens.DummyTokenExpiring;
+import org.folio.auth.authtokenmodule.tokens.ModuleToken;
+import org.folio.auth.authtokenmodule.tokens.RefreshToken;
+import org.folio.auth.authtokenmodule.tokens.Token;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyTokenTenants;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -77,8 +86,9 @@ public class AuthTokenTest {
   public static PostgreSQLContainer<?> postgresSQLContainer = TokenStoreTestContainer.create();
 
   @BeforeClass
-  public static void setUpClass(TestContext context) throws NoSuchAlgorithmException,
-      JOSEException, ParseException {
+  public static void setUpClass(TestContext context) throws JOSEException, ParseException {
+    System.setProperty(LegacyTokenTenants.LEGACY_TOKEN_TENANTS, tenant);
+
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort();
     freePort = NetworkUtils.nextFreePort();
@@ -671,7 +681,26 @@ public class AuthTokenTest {
           .statusCode(400);
     }
 
-    // Methods above this point can be removed when legacy tokens are depreciated.
+  @Test
+  public void legacyTokenTenants_Legacy() throws ParseException, JOSEException {
+    var at = new AccessToken("tenant2", "jones", userUUID,
+      AccessToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWT(tokenCreator);
+
+    given()
+      .header("X-Okapi-Tenant", "tenant2")
+      .header("X-Okapi-Token", at)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+      .post("/token")
+      .then()
+      .statusCode(404);
+
+      System.clearProperty(LegacyTokenTenants.LEGACY_TOKEN_TENANTS);
+  }
+
+  // Methods above this point can be removed when legacy tokens are depreciated.
 
     @Test
     public void testEmptyTokenWithNoTenant() {

@@ -17,8 +17,10 @@ import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.TokenCreator;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyTokenTenantException;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyTokenTenants;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyTokenExpiring;
-import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
@@ -55,6 +57,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private List<Route> routes;
   private Vertx vertx;
   private TokenExpiration tokenExpiration;
+  private LegacyTokenTenants legacyTokenTenants;
 
   /**
    * Constructs the API.
@@ -71,6 +74,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     this.tokenCreator = tokenCreator;
 
     tokenExpiration = new TokenExpiration();
+    legacyTokenTenants = new LegacyTokenTenants();
     logger = LogManager.getLogger(RouteApi.class);
     int permLookupTimeout = Integer.parseInt(System.getProperty("perm.lookup.timeout", "10"));
     permissionsSource = new ModulePermissionsSource(vertx, permLookupTimeout);
@@ -321,6 +325,14 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     try {
       // X-Okapi-Tenant and X-Okapi-Url are already checked in FilterApi.
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
+
+      // Check for enhanced security mode being enabled for the tenant. If so return 404.
+      if (!legacyTokenTenants.isLegacyTokenTenant(tenant)) {
+        var message = "Tenant not a legacy token tenant as specified in this module's environment or system " +
+          "property. Cannot issue non-expiring legacy token.";
+       endText(ctx, 404, new LegacyTokenTenantException(message));
+      }
+
       JsonObject json = ctx.body().asJsonObject();
       JsonObject payload;
       payload = json.getJsonObject("payload");
