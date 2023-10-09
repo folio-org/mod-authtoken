@@ -9,18 +9,15 @@ public class LegacyTokenTenants {
   public static final String LEGACY_TOKEN_TENANTS_ENV = "LEGACY_TOKEN_TENANTS";
   public static final String ALL_TENANTS_LEGACY_CONFIG = "*";
 
+  private final List<String> tenants;
+  private boolean allTenantsLegacy;
+
   public boolean isLegacyTokenTenant(String tenantId) {
     if (this.allTenantsLegacy) {
       return true;
-    } else if (this.noTenantsLegacy) {
-      return false;
     }
     return tenants.contains(tenantId);
   }
-
-  private final List<String> tenants;
-  private boolean noTenantsLegacy;
-  private boolean allTenantsLegacy;
 
   public LegacyTokenTenants() {
     this.tenants = parseTenants();
@@ -34,7 +31,6 @@ public class LegacyTokenTenants {
     }
 
     if (prop.trim().isEmpty()) {
-      this.noTenantsLegacy = true;
       return Collections.emptyList();
     }
 

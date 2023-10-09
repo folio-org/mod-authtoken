@@ -328,7 +328,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
 
       // Check for enhanced security mode being enabled for the tenant. If so return 404.
       if (!legacyTokenTenants.isLegacyTokenTenant(tenant)) {
-        var message = "Tenant not a legacy token tenant as specified in this modules environment or system " +
+        var message = "Tenant not a legacy token tenant as specified in this module's environment or system " +
           "property. Cannot issue non-expiring legacy token.";
        endText(ctx, 404, new LegacyTokenTenantException(message));
       }
