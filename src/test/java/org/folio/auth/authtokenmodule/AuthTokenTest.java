@@ -15,7 +15,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.unit.TestContext;
-
+import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.util.ArrayList;
 
@@ -27,6 +27,7 @@ import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
+import org.folio.auth.authtokenmodule.tokens.DummyTokenExpiring;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
@@ -64,6 +65,8 @@ public class AuthTokenTest {
   private static String accessToken;
   private static String moduleToken;
   private static String dummyToken;
+
+  private static String dummyTokenExpiring;
   private static String badAccessToken;
   private static String accessToken404;
   private static String inactiveToken;
@@ -72,7 +75,6 @@ public class AuthTokenTest {
   private static String refreshToken;
   private static JsonObject payloadDummySigningReq;
   private static JsonObject payloadSigningRequest;
-  private static LegacyTokenTenants legacyTokenTenants;
 
   static int port;
   static int mockPort;
@@ -109,6 +111,7 @@ public class AuthTokenTest {
     var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
     dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
+    dummyTokenExpiring = new DummyTokenExpiring(tenant, new JsonArray(), "testuser", 100L).encodeAsJWT(tokenCreator);
     refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1",
                                     RefreshToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWE(tokenCreator);
 
@@ -449,6 +452,18 @@ public class AuthTokenTest {
   }
 
   @Test
+  public void testDummyTokenExpiringAccepted() {
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", dummyTokenExpiring)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("X-Okapi-User-Id", "1234567")
+      .get("/bar")
+      .then()
+      .statusCode(202);
+  }
+
+  @Test
   public void testAccessTokenUserIdNotFound() {
     given()
         .header("X-Okapi-Tenant", tenant)
@@ -761,7 +776,7 @@ public class AuthTokenTest {
             .statusCode(201)
             .contentType("application/json")
             .extract().path("token");
-        var td = (DummyToken)Token.parse(token, tokenCreator);
+        var td = (DummyTokenExpiring)Token.parse(token, tokenCreator);
         assertThat(td.getClaim("sub"), is(payloadDummySigningReq.getString("sub")));
       }
 
