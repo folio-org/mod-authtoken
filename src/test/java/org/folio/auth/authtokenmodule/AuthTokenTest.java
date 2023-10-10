@@ -46,13 +46,14 @@ import static io.restassured.RestAssured.*;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
-import static org.hamcrest.Matchers.hasKey;
-import static org.hamcrest.CoreMatchers.containsString;
 
 @RunWith(VertxUnitRunner.class)
 public class AuthTokenTest {
@@ -1675,8 +1676,9 @@ public class AuthTokenTest {
         .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/_/tenant") + "\"]")
         .get(location + "?wait=10000")
         .then()
-        .statusCode(200)
-        .body("complete", is(true));
+        .statusCode(200)  // getting job record succeeds
+        .body("complete", is(true))  // job is complete
+        .body("error", is(nullValue()));  // job has succeeded without error
   }
 
   private ArrayList<String> createListOfRefreshTokens() {
