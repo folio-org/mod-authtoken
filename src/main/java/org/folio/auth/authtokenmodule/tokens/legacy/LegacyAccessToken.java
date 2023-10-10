@@ -1,8 +1,11 @@
-package org.folio.auth.authtokenmodule.tokens;
+package org.folio.auth.authtokenmodule.tokens.legacy;
 
 import java.time.Instant;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
+import org.folio.auth.authtokenmodule.tokens.RefreshToken;
+import org.folio.auth.authtokenmodule.tokens.Token;
+import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 
 /**
  * Access tokens are obtained either when a user authenticates or when a valid

@@ -13,7 +13,7 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Returns a signed, non-expiring legacy access token.
+      description: Deprecated. Will be removed in a future release. Please use /token/sign instead. Returns a signed, non-expiring legacy access token.
       operationId: token-legacy
       requestBody:
         content:

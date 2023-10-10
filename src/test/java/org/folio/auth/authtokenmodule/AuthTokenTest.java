@@ -27,11 +27,13 @@ import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.ApiToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
-import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
+import org.folio.auth.authtokenmodule.tokens.DummyTokenExpiring;
 import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyTokenTenants;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -64,6 +66,8 @@ public class AuthTokenTest {
   private static String accessToken;
   private static String moduleToken;
   private static String dummyToken;
+
+  private static String dummyTokenExpiring;
   private static String badAccessToken;
   private static String accessToken404;
   private static String inactiveToken;
@@ -83,8 +87,9 @@ public class AuthTokenTest {
   public static PostgreSQLContainer<?> postgresSQLContainer = TokenStoreTestContainer.create();
 
   @BeforeClass
-  public static void setUpClass(TestContext context) throws NoSuchAlgorithmException,
-      JOSEException, ParseException {
+  public static void setUpClass(TestContext context) throws JOSEException, ParseException {
+    System.setProperty(LegacyTokenTenants.LEGACY_TOKEN_TENANTS, tenant);
+
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort();
     freePort = NetworkUtils.nextFreePort();
@@ -107,6 +112,7 @@ public class AuthTokenTest {
     var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
     dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
+    dummyTokenExpiring = new DummyTokenExpiring(tenant, new JsonArray(), "testuser", 100L).encodeAsJWT(tokenCreator);
     refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1",
                                     RefreshToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWE(tokenCreator);
 
@@ -447,6 +453,18 @@ public class AuthTokenTest {
   }
 
   @Test
+  public void testDummyTokenExpiringAccepted() {
+    given()
+      .header("X-Okapi-Tenant", tenant)
+      .header("X-Okapi-Token", dummyTokenExpiring)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("X-Okapi-User-Id", "1234567")
+      .get("/bar")
+      .then()
+      .statusCode(202);
+  }
+
+  @Test
   public void testAccessTokenUserIdNotFound() {
     given()
         .header("X-Okapi-Tenant", tenant)
@@ -664,7 +682,26 @@ public class AuthTokenTest {
           .statusCode(400);
     }
 
-    // Methods above this point can be removed when legacy tokens are depreciated.
+  @Test
+  public void legacyTokenTenants_Legacy() throws ParseException, JOSEException {
+    var at = new AccessToken("tenant2", "jones", userUUID,
+      AccessToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWT(tokenCreator);
+
+    given()
+      .header("X-Okapi-Tenant", "tenant2")
+      .header("X-Okapi-Token", at)
+      .header("X-Okapi-Url", "http://localhost:" + freePort)
+      .header("Content-type", "application/json")
+      .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token") + "\"]")
+      .body(new JsonObject().put("payload", payloadSigningRequest).encode())
+      .post("/token")
+      .then()
+      .statusCode(404);
+
+      System.clearProperty(LegacyTokenTenants.LEGACY_TOKEN_TENANTS);
+  }
+
+  // Methods above this point can be removed when legacy tokens are depreciated.
 
     @Test
     public void testEmptyTokenWithNoTenant() {
@@ -740,7 +777,7 @@ public class AuthTokenTest {
             .statusCode(201)
             .contentType("application/json")
             .extract().path("token");
-        var td = (DummyToken)Token.parse(token, tokenCreator);
+        var td = (DummyTokenExpiring)Token.parse(token, tokenCreator);
         assertThat(td.getClaim("sub"), is(payloadDummySigningReq.getString("sub")));
       }
 

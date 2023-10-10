@@ -10,6 +10,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.BadSignatureException;
 import org.folio.auth.authtokenmodule.TokenCreator;
+import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import java.text.ParseException;
 import java.time.Instant;
@@ -234,6 +235,8 @@ public abstract class Token {
         return new ApiToken(sourceToken, claims);
       case DummyToken.TYPE:
         return new DummyToken(sourceToken, claims);
+      case DummyTokenExpiring.TYPE:
+        return new DummyTokenExpiring(sourceToken, claims);
       case ModuleToken.TYPE:
         return new ModuleToken(sourceToken, claims);
       default:
