@@ -1,3 +1,21 @@
+## 2.14.0 2023-10-11
+
+Support for ECS, finalization of RTR
+
+* [MODAT-154](https://issues.folio.org/browse/MODAT-154) - Update dependencies for Poppy
+* [MODAT-153](https://issues.folio.org/browse/MODAT-153) - Check "error" in GET /_/tenant/<tenantid> in AuthTokenTest
+* [MODAT-152](https://issues.folio.org/browse/MODAT-152) - Create new token type DummyTokenExpiring
+* [MODAT-151](https://issues.folio.org/browse/MODAT-151) - Implement enhanced security mode
+* [MODAT-149](https://issues.folio.org/browse/MODAT-149) - Make RTR compatible with ECS
+* [Add running application in consortia mode locally without redeploying mod-authtoken](https://github.com/folio-org/mod-authtoken/pull/144)
+* [MODAT-148](https://issues.folio.org/browse/MODAT-148) - Allow cross tenant requests only when special system property variable presented
+* [MODAT-146](https://issues.folio.org/browse/MODAT-146) - Update to Java 17
+* [MODAT-145](https://issues.folio.org/browse/MODAT-145) - Use GitHub Workflows api-lint and api-schema-lint and api-doc
+* [MODAT-143](https://issues.folio.org/browse/MODAT-143) - Provide ability to cross tenant requests for consortia members
+* [Use free port in test](https://github.com/folio-org/mod-authtoken/pull/135)
+* [MODAT-133](https://issues.folio.org/browse/MODAT-133) - Finalize refresh token backend
+* [MODAT-65](https://issues.folio.org/browse/MODAT-65) - Configurable access/refresh token expiration
+
 ## 2.13.0 2023-02-17
 
  * [MODAT-142](https://issues.folio.org/browse/MODAT-142) Upgrade to vertx-lib 3.0.0, Vert.x 4.3.8
