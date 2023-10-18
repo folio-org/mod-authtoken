@@ -171,25 +171,31 @@ public class FilterApi extends Api implements RouterCreator {
 
       // Check and see if we have any module permissions defined.
       JsonArray extraPermissionsCandidate = token.getClaims().getJsonArray(EXTRA_PERMS);
+
       if (extraPermissionsCandidate == null) {
+        logger.debug("Extra perms is null; creating empty array");
         extraPermissionsCandidate = new JsonArray();
       }
+
+      logger.debug("Extra perms for user {}: {}", finalUserId, extraPermissionsCandidate.encode());
 
       // In some rare cases (redirect) Okapi can pass extra permissions directly too
       if (ctx.request().headers().contains(XOkapiHeaders.EXTRA_PERMISSIONS)) {
         String extraPermString = ctx.request().headers().get(XOkapiHeaders.EXTRA_PERMISSIONS);
-        logger.debug("Extra permissions from {}: {}", XOkapiHeaders.EXTRA_PERMISSIONS, extraPermString);
+        logger.debug("Extra permissions from X-Okapi-Extra-Permissions {}: {}", XOkapiHeaders.EXTRA_PERMISSIONS, extraPermString);
         for (String entry : extraPermString.split(",")) {
           extraPermissionsCandidate.add(entry);
         }
       }
+
+      logger.debug("Final extra perms for user {}: {}", finalUserId, extraPermissionsCandidate.encode());
 
       final JsonArray extraPermissions = extraPermissionsCandidate;
       permService.expandSystemPermissions(extraPermissions, tenant, okapiUrl, permissionsRequestToken,
         requestId).onSuccess(expandedPermissions -> {
         // Instead of storing tokens, let's store an array of objects that each
 
-        logger.debug("Handling module tokens");
+        logger.debug("Expanded permissions {}: {}", finalUserId, expandedPermissions.encode());
 
         JsonObject moduleTokens = new JsonObject();
         /* TODO get module permissions (if they exist) */
@@ -215,6 +221,8 @@ public class FilterApi extends Api implements RouterCreator {
         }
         // Add the original token back into the module tokens
         moduleTokens.put("_", authToken);
+
+        logger.debug("Module tokens for user {}: {}", finalUserId, moduleTokens.encode());
 
         /*
          * When the initial request comes in, as a filter, we require that the auth.signtoken
@@ -276,6 +284,8 @@ public class FilterApi extends Api implements RouterCreator {
             extraPermissions.forEach(it -> {
               if (!((String) it).startsWith(PermService.SYS_PERM_PREFIX)) {
                 extraPermsMinusSystemOnes.add(it);
+              } else {
+                logger.debug("Excluding perm for user {}: {}", finalUserId, it);
               }
             });
             return usePermissionsSource.getUserAndExpandedPermissions(finalUserId, tenant, okapiUrl,
@@ -315,6 +325,9 @@ public class FilterApi extends Api implements RouterCreator {
           mergePerms(permissions, res.result().getUserPermissions());
           mergePerms(permissions, res.result().getExpandedPermissions());
           mergePerms(permissions, expandedPermissions);
+
+          logger.debug("Final list of perms this user has {}: {}", finalUserId, permissions.encode());
+          logger.debug("Final list of perms this user needs {}: {}", finalUserId, permissionsRequired.encode());
 
           // Check that for all required permissions, we have them
           for (Object o : permissionsRequired) {
