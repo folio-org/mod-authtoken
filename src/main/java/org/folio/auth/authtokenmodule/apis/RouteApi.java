@@ -331,6 +331,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
         var message = "Tenant not a legacy token tenant as specified in this module's environment or system " +
           "property. Cannot issue non-expiring legacy token.";
        endText(ctx, 404, new LegacyTokenTenantException(message));
+       return;
       }
 
       JsonObject json = ctx.body().asJsonObject();
