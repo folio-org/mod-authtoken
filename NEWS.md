@@ -1,3 +1,8 @@
+## 2.14.1 2023-10-30
+
+[MODAT-156](https://issues.folio.org/browse/MODAT-156) - Response head already sent for legacy token tenant feature
+
+
 ## 2.14.0 2023-10-11
 
 Support for ECS, finalization of RTR
