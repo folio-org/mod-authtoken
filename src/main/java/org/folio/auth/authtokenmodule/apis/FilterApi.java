@@ -323,6 +323,8 @@ public class FilterApi extends Api implements RouterCreator {
               String msg;
               if (isDummyToken) {
                 msg = "Token missing, access requires permission: " + o;
+                endText(ctx, 400, msg);
+                return;
               } else {
                 msg = "Access for user '" + username + "' (" + finalUserId + ") requires permission: " + o;
               }
