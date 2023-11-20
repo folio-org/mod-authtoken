@@ -101,7 +101,7 @@
     },
     "env": [
       { "name": "JAVA_OPTIONS",
-        "value": "-XX:MaxRAMPercentage=66.0 -Dcache.permissions=true -Dallow.cross.tenant.requests=true"
+        "value": "-XX:MaxRAMPercentage=66.0 -Dcache.permissions=true"
       }
     ]
   }
