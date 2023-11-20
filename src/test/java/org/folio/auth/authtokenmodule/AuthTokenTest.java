@@ -299,7 +299,7 @@ public class AuthTokenTest {
         .header("X-Okapi-Permissions-Required", "[\"foo.req\"]")
         .get("/foo")
         .then()
-        .statusCode(403)
+        .statusCode(400)
         .body(containsString("Token missing"))
         .body(containsString("foo.req"))
         .header("X-Okapi-Module-Tokens", not(emptyString()));
