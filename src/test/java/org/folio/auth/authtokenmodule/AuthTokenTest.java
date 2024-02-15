@@ -1027,6 +1027,7 @@ public class AuthTokenTest {
           .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
           .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION))
           .body("$", hasKey(Token.REFRESH_TOKEN))
+          .body("$", hasKey(Token.TENANT_ID))
           .extract().body().path(Token.ACCESS_TOKEN);
 
       logger.info(String.format("Test with 'refreshed' token: %s", refreshedAccessToken));
@@ -1125,7 +1126,8 @@ public class AuthTokenTest {
         .statusCode(201)
         .contentType("application/json")
         .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
-        .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION));
+        .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION))
+        .body("$", hasKey(Token.TENANT_ID));
     }
 
     @Test
@@ -1143,7 +1145,8 @@ public class AuthTokenTest {
           .statusCode(201)
           .contentType("application/json")
           .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION))
-          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION));
+          .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
+          .body("$", hasKey(Token.TENANT_ID));
 
       String rt = response.extract().path(Token.REFRESH_TOKEN);
       String at = response.extract().path(Token.ACCESS_TOKEN);
@@ -1162,6 +1165,7 @@ public class AuthTokenTest {
           .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
           .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION))
           .body("$", hasKey(Token.REFRESH_TOKEN))
+          .body("$", hasKey(Token.TENANT_ID))
           .extract().body().path(Token.ACCESS_TOKEN);
 
       logger.info("POST same refresh token a second time to simulate token attack/leakage");
@@ -1196,6 +1200,7 @@ public class AuthTokenTest {
           .body("$", hasKey(Token.ACCESS_TOKEN_EXPIRATION))
           .body("$", hasKey(Token.REFRESH_TOKEN_EXPIRATION))
           .body("$", hasKey(Token.REFRESH_TOKEN))
+          .body("$", hasKey(Token.TENANT_ID))
           .extract().body().path(Token.ACCESS_TOKEN);
 
       logger.info("POST same refresh token a second time to simulate token attack/leakage");
