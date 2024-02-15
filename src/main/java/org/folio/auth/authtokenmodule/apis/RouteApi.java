@@ -270,6 +270,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       responseObject.put(Token.REFRESH_TOKEN, rt.encodeAsJWE(tokenCreator));
       responseObject.put(Token.ACCESS_TOKEN_EXPIRATION, at.getExpiresAtInIso8601Format());
       responseObject.put(Token.REFRESH_TOKEN_EXPIRATION, rt.getExpiresAtInIso8601Format());
+      responseObject.put(Token.TENANT_ID, tenant);
     } catch (JOSEException e) {
       endText(ctx, 500, "Unable to encode token", e);
     } catch (ParseException e) {

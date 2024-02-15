@@ -28,6 +28,7 @@ public abstract class Token {
   public static final String ACCESS_TOKEN = "accessToken";
   public static final String REFRESH_TOKEN_EXPIRATION = "refreshTokenExpiration";
   public static final String ACCESS_TOKEN_EXPIRATION = "accessTokenExpiration";
+  public static final String TENANT_ID = "tenantId";
 
   protected static final String UNDEFINED_USER_NAME = "UNDEFINED_USER__";
   protected static final String PERMISSIONS_USER_TENANTS_GET = "user-tenants.collection.get";
