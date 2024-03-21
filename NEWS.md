@@ -1,4 +1,4 @@
-## 2024-03-21 v2.15.0
+## v2.15.0 2024-03-21
 
 * [MODAT-164](https://folio-org.atlassian.net/browse/MODAT-164) Quesnelia deps: Vert.x 4.5.4, log4j 2.23.0
 * [MODAT-163](https://folio-org.atlassian.net/browse/MODAT-163) Add tenantId to RouteApi response
