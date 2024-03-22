@@ -1,14 +1,17 @@
-## v2.15.0 2024-03-21
+## v2.15.1 2024-03-22
 
 * [MODAT-164](https://folio-org.atlassian.net/browse/MODAT-164) Quesnelia deps: Vert.x 4.5.4, log4j 2.23.0
 * [MODAT-163](https://folio-org.atlassian.net/browse/MODAT-163) Add tenantId to RouteApi response
 * [MODAT-159](https://folio-org.atlassian.net/browse/MODAT-159) allow.cross.tenant.requests=false to disable consortia options
 * [MODAT-160](https://folio-org.atlassian.net/browse/MODAT-160) When a token isn't present in a request, return 400 rather than 403
 
+## v2.15.0 2024-03-21
+
+Deploy failure.
+
 ## 2.14.1 2023-10-30
 
 [MODAT-156](https://issues.folio.org/browse/MODAT-156) Response head already sent for legacy token tenant feature
-
 
 ## 2.14.0 2023-10-11
 
