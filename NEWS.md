@@ -1,25 +1,32 @@
+## v2.15.0 2024-03-21
+
+* [MODAT-164](https://folio-org.atlassian.net/browse/MODAT-164) Quesnelia deps: Vert.x 4.5.4, log4j 2.23.0
+* [MODAT-163](https://folio-org.atlassian.net/browse/MODAT-163) Add tenantId to RouteApi response
+* [MODAT-159](https://folio-org.atlassian.net/browse/MODAT-159) allow.cross.tenant.requests=false to disable consortia options
+* [MODAT-160](https://folio-org.atlassian.net/browse/MODAT-160) When a token isn't present in a request, return 400 rather than 403
+
 ## 2.14.1 2023-10-30
 
-[MODAT-156](https://issues.folio.org/browse/MODAT-156) - Response head already sent for legacy token tenant feature
+[MODAT-156](https://issues.folio.org/browse/MODAT-156) Response head already sent for legacy token tenant feature
 
 
 ## 2.14.0 2023-10-11
 
 Support for ECS, finalization of RTR
 
-* [MODAT-154](https://issues.folio.org/browse/MODAT-154) - Update dependencies for Poppy
-* [MODAT-153](https://issues.folio.org/browse/MODAT-153) - Check "error" in GET /_/tenant/<tenantid> in AuthTokenTest
-* [MODAT-152](https://issues.folio.org/browse/MODAT-152) - Create new token type DummyTokenExpiring
-* [MODAT-151](https://issues.folio.org/browse/MODAT-151) - Implement enhanced security mode
-* [MODAT-149](https://issues.folio.org/browse/MODAT-149) - Make RTR compatible with ECS
+* [MODAT-154](https://issues.folio.org/browse/MODAT-154) Update dependencies for Poppy
+* [MODAT-153](https://issues.folio.org/browse/MODAT-153) Check "error" in GET /_/tenant/<tenantid> in AuthTokenTest
+* [MODAT-152](https://issues.folio.org/browse/MODAT-152) Create new token type DummyTokenExpiring
+* [MODAT-151](https://issues.folio.org/browse/MODAT-151) Implement enhanced security mode
+* [MODAT-149](https://issues.folio.org/browse/MODAT-149) Make RTR compatible with ECS
 * [Add running application in consortia mode locally without redeploying mod-authtoken](https://github.com/folio-org/mod-authtoken/pull/144)
-* [MODAT-148](https://issues.folio.org/browse/MODAT-148) - Allow cross tenant requests only when special system property variable presented
-* [MODAT-146](https://issues.folio.org/browse/MODAT-146) - Update to Java 17
-* [MODAT-145](https://issues.folio.org/browse/MODAT-145) - Use GitHub Workflows api-lint and api-schema-lint and api-doc
-* [MODAT-143](https://issues.folio.org/browse/MODAT-143) - Provide ability to cross tenant requests for consortia members
+* [MODAT-148](https://issues.folio.org/browse/MODAT-148) Allow cross tenant requests only when special system property variable presented
+* [MODAT-146](https://issues.folio.org/browse/MODAT-146) Update to Java 17
+* [MODAT-145](https://issues.folio.org/browse/MODAT-145) Use GitHub Workflows api-lint and api-schema-lint and api-doc
+* [MODAT-143](https://issues.folio.org/browse/MODAT-143) Provide ability to cross tenant requests for consortia members
 * [Use free port in test](https://github.com/folio-org/mod-authtoken/pull/135)
-* [MODAT-133](https://issues.folio.org/browse/MODAT-133) - Finalize refresh token backend
-* [MODAT-65](https://issues.folio.org/browse/MODAT-65) - Configurable access/refresh token expiration
+* [MODAT-133](https://issues.folio.org/browse/MODAT-133) Finalize refresh token backend
+* [MODAT-65](https://issues.folio.org/browse/MODAT-65) Configurable access/refresh token expiration
 
 ## 2.13.0 2023-02-17
 
