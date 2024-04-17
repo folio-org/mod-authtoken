@@ -1,6 +1,6 @@
 # mod-authtoken
 
-Copyright (C) 2016-2023 The Open Library Foundation
+Copyright (C) 2016-2024 The Open Library Foundation
 
 This software is distributed under the terms of the Apache License,
 Version 2.0. See the file "[LICENSE](LICENSE)" for more information.
@@ -17,13 +17,14 @@ that privileged modules (such as Authentication) may make use of.
 
 ## System requirements
 
-* Java 11
+* Java 17
 
-* Apache Maven 3.3.x or higher
+* Apache Maven 3.8.x or higher
 
 ## Quick start
 
     mvn install
+    export DB_HOST=localhost DB_PORT=5432 DB_USERNAME=folio_admin DB_PASSWORD=folio_admin DB_DATABASE=okapi_modules
     java -jar target/mod-authtoken-far.jar
 
 # Interface
@@ -50,6 +51,13 @@ mod-authtoken supports a number of command line options as system properties, se
 # Environment variables
 * `TOKEN_EXPIRATION_SECONDS` - Identical to `token.expiration.seconds` as specified above. Provided as a convenience. System property takes precedence.
 * `LEGACY_TOKEN_TENANTS` - Identical to `legacy.token.tenanats`.
+* `DB_HOST` - Postgres hostname. Defaults to `localhost`.
+* `DB_PORT` - Postgres port. Default to `5432`.
+* `DB_USERNAME` - Postgres username. Defaults to `root`.
+* `DB_PASSWORD` - Postgres password. Defaults to empty string.
+* `DB_DATABASE` - Postgres database. Defaults to `db`.
+* `DB_MAXPOOLSIZE` - Maximum connections to Postgres. Defaults to 4.
+* `DB_SERVER_PEM` - Postgres server certificate, this enforces TLSv1.3. Optional.
 
 # Custom Headers
 
