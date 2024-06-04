@@ -50,6 +50,20 @@ public class TokenTest {
   }
 
   @Test
+  public void accessTokenUsernameWithUmlaut() throws JOSEException, ParseException {
+    var at = new AccessToken(tenant, "fooä", userUUID, 1);
+    var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
+    var jwt = at.encodeAsJWT(tc);
+    assertThat(Token.getClaims(jwt).getString("sub"), is("fooä"));
+    assertTokenIsValid(jwt, tc, AccessToken.class);
+  }
+
+  @Test
+  public void tokenClaimWithUmlaut() {
+    assertThat(Token.getClaims("x.eyJzdWIiOiJmb2_DpCJ9.x").getString("sub"), is("fooä"));
+  }
+
+  @Test
   public void dummyExpiringTokenIsValidTest() throws JOSEException, ParseException {
     var dte = new DummyTokenExpiring(tenant, new JsonArray(), "testuser", 1);
     var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
