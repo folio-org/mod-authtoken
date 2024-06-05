@@ -1,3 +1,8 @@
+## v2.15.2 2024-06-06
+
+* [MODAT-167](https://folio-org.atlassian.net/browse/MODAT-167) Vert.x 4.5.8 fixing Netty form POST OOM CVE-2024-29025
+* [MODAT-166](https://folio-org.atlassian.net/browse/MODAT-166) Illegal base64 character 5f when decoding token with username with umlaut
+
 ## v2.15.1 2024-03-22
 
 * [MODAT-164](https://folio-org.atlassian.net/browse/MODAT-164) Quesnelia deps: Vert.x 4.5.4, log4j 2.23.0
@@ -18,7 +23,7 @@ Deploy failure.
 Support for ECS, finalization of RTR
 
 * [MODAT-154](https://issues.folio.org/browse/MODAT-154) Update dependencies for Poppy
-* [MODAT-153](https://issues.folio.org/browse/MODAT-153) Check "error" in GET /_/tenant/<tenantid> in AuthTokenTest
+* [MODAT-153](https://issues.folio.org/browse/MODAT-153) Check "error" in GET /\_/tenant/\<tenantid\> in AuthTokenTest
 * [MODAT-152](https://issues.folio.org/browse/MODAT-152) Create new token type DummyTokenExpiring
 * [MODAT-151](https://issues.folio.org/browse/MODAT-151) Implement enhanced security mode
 * [MODAT-149](https://issues.folio.org/browse/MODAT-149) Make RTR compatible with ECS
