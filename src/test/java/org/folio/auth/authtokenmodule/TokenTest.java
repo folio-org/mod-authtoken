@@ -50,6 +50,20 @@ public class TokenTest {
   }
 
   @Test
+  public void accessTokenUsernameWithUmlaut() throws JOSEException, ParseException {
+    var at = new AccessToken(tenant, "fooä", userUUID, 1);
+    var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
+    var jwt = at.encodeAsJWT(tc);
+    assertThat(Token.getClaims(jwt).getString("sub"), is("fooä"));
+    assertTokenIsValid(jwt, tc, AccessToken.class);
+  }
+
+  @Test
+  public void tokenClaimWithUmlaut() {
+    assertThat(Token.getClaims("x.eyJzdWIiOiJmb2_DpCJ9.x").getString("sub"), is("fooä"));
+  }
+
+  @Test
   public void dummyExpiringTokenIsValidTest() throws JOSEException, ParseException {
     var dte = new DummyTokenExpiring(tenant, new JsonArray(), "testuser", 1);
     var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
@@ -138,7 +152,7 @@ public class TokenTest {
   }
 
   @Test
-  public void testAllowCrossTenantRequests() throws JOSEException, ParseException {
+  public void testAllowCrossTenantRequests() {
     var contextWithoutSystemProperty = new TokenValidationContext(null, null, null, userService);
     assertThat(contextWithoutSystemProperty.isAllowCrossTenantRequests(), is(false));
     System.setProperty("allow.cross.tenant.requests", "true");
@@ -146,7 +160,7 @@ public class TokenTest {
     assertThat(contextWithSystemProperty.isAllowCrossTenantRequests(), is(true));
   }
 
-  private void assertTokenIsInvalid(String token, TokenCreator tokenCreator, int errorCode)  throws JOSEException, ParseException {
+  private void assertTokenIsInvalid(String token, TokenCreator tokenCreator, int errorCode) {
     MultiMap headers = Mockito.mock(MultiMap.class);
     Mockito.when(headers.get(XOkapiHeaders.USER_ID)).thenReturn(userUUID);
     Mockito.when(headers.get(XOkapiHeaders.TENANT)).thenReturn(tenant);
