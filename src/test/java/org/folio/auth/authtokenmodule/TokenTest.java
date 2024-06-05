@@ -152,7 +152,7 @@ public class TokenTest {
   }
 
   @Test
-  public void testAllowCrossTenantRequests() throws JOSEException, ParseException {
+  public void testAllowCrossTenantRequests() {
     var contextWithoutSystemProperty = new TokenValidationContext(null, null, null, userService);
     assertThat(contextWithoutSystemProperty.isAllowCrossTenantRequests(), is(false));
     System.setProperty("allow.cross.tenant.requests", "true");
@@ -160,7 +160,7 @@ public class TokenTest {
     assertThat(contextWithSystemProperty.isAllowCrossTenantRequests(), is(true));
   }
 
-  private void assertTokenIsInvalid(String token, TokenCreator tokenCreator, int errorCode)  throws JOSEException, ParseException {
+  private void assertTokenIsInvalid(String token, TokenCreator tokenCreator, int errorCode) {
     MultiMap headers = Mockito.mock(MultiMap.class);
     Mockito.when(headers.get(XOkapiHeaders.USER_ID)).thenReturn(userUUID);
     Mockito.when(headers.get(XOkapiHeaders.TENANT)).thenReturn(tenant);
