@@ -14,6 +14,7 @@ import java.text.ParseException;
 import java.time.Instant;
 
 import static java.lang.Boolean.TRUE;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * An abstract class that all token types should extend, with one required method
@@ -143,7 +144,7 @@ public abstract class Token {
    */
   public static JsonObject getClaims(String jwt) {
     String encodedJson = jwt.split("\\.")[1];
-    String decodedJson = new String(Base64.getDecoder().decode(encodedJson));
+    String decodedJson = new String(Base64.getUrlDecoder().decode(encodedJson), UTF_8);
     return new JsonObject(decodedJson);
   }
 

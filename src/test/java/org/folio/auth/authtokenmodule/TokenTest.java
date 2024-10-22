@@ -3,7 +3,11 @@ package org.folio.auth.authtokenmodule;
 import java.text.ParseException;
 import com.nimbusds.jose.JOSEException;
 
+import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.net.SocketAddress;
+
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
 import org.folio.auth.authtokenmodule.tokens.LegacyAccessToken;
@@ -11,9 +15,11 @@ import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationContext;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
+import org.folio.okapi.common.XOkapiHeaders;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 import io.vertx.core.Future;
 
 import static org.hamcrest.CoreMatchers.is;
@@ -109,5 +115,34 @@ public class TokenTest {
       .put("tenant", "lib");
     Throwable t = Assert.assertThrows(TokenValidationException.class, () -> Token.parse(".", claims));
     assertThat(t.getMessage(), is("Unable to parse token"));
+  }
+
+  @Test
+  public void accessTokenUsernameWithUmlaut() throws JOSEException, ParseException {
+    var at = new AccessToken(tenant, "fooä", userUUID);
+    var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
+    var jwt = at.encodeAsJWT(tc);
+    assertThat(Token.getClaims(jwt).getString("sub"), is("fooä"));
+    assertTokenIsValid(jwt, tc, AccessToken.class);
+  }
+
+  private <T> void assertTokenIsValid(String token, TokenCreator tokenCreator, Class<T> clazz) {
+    MultiMap headers = Mockito.mock(MultiMap.class);
+    Mockito.when(headers.get(XOkapiHeaders.USER_ID)).thenReturn(userUUID);
+    Mockito.when(headers.get(XOkapiHeaders.TENANT)).thenReturn(tenant);
+    HttpServerRequest request = Mockito.mock(HttpServerRequest.class);
+    Mockito.when(request.headers()).thenReturn(headers);
+    SocketAddress socketAddress = Mockito.mock(SocketAddress.class);
+    Mockito.when(request.remoteAddress()).thenReturn(socketAddress);
+    Mockito.when(request.remoteAddress().host()).thenReturn("127.0.0.1");
+    var context = new TokenValidationContext(request, tokenCreator, token);
+    Future<Token> result = Token.validate(context);
+    assertThat(result.succeeded(), is(true));
+    assertThat(result.result(), is(instanceOf(clazz)));
+  }
+
+  @Test
+  public void tokenClaimWithUmlaut() {
+    assertThat(Token.getClaims("x.eyJzdWIiOiJmb2_DpCJ9.x").getString("sub"), is("fooä"));
   }
 }
