@@ -1,3 +1,7 @@
+## 2.14.2 2024-10-23
+
+* [MODAT-166](https://folio-org.atlassian.net/browse/MODAT-166) Illegal base64 character 5f when decoding token with username with umlaut
+
 ## 2.14.1 2023-10-30
 
 [MODAT-156](https://issues.folio.org/browse/MODAT-156) - Response head already sent for legacy token tenant feature
@@ -8,7 +12,7 @@
 Support for ECS, finalization of RTR
 
 * [MODAT-154](https://issues.folio.org/browse/MODAT-154) - Update dependencies for Poppy
-* [MODAT-153](https://issues.folio.org/browse/MODAT-153) - Check "error" in GET /_/tenant/<tenantid> in AuthTokenTest
+* [MODAT-153](https://issues.folio.org/browse/MODAT-153) - Check "error" in GET /\_/tenant/<tenantid> in AuthTokenTest
 * [MODAT-152](https://issues.folio.org/browse/MODAT-152) - Create new token type DummyTokenExpiring
 * [MODAT-151](https://issues.folio.org/browse/MODAT-151) - Implement enhanced security mode
 * [MODAT-149](https://issues.folio.org/browse/MODAT-149) - Make RTR compatible with ECS
