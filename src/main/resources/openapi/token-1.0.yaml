@@ -119,7 +119,7 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Invalidate a single token
+      description: Invalidate a single refresh token. An access token cannot be invalidated and remains valid until its expiration time; this is by design because the access token is stateless.
       operationId: token-invalidate
       requestBody:
         content:
@@ -139,7 +139,7 @@ paths:
       - $ref: headers/okapi-tenant-required.yaml
       - $ref: headers/okapi-url-required.yaml
     post:
-      description: Invalidate all tokens for a user
+      description: Invalidate all refresh tokens for a user. An access token cannot be invalidated and remains valid until its expiration time; this is by design because the access token is stateless.
       operationId: token-invalidate-all
       responses:
         "204":
