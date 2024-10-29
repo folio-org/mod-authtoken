@@ -4,33 +4,33 @@
   "provides": [
     {
       "id": "authtoken",
-      "version": "2.0",
+      "version": "2.1",
       "handlers": [
         {
           "methods": [ "POST" ],
           "pathPattern": "/token",
-          "permissionsRequired": [ "auth.signtoken" ]
+          "permissionsRequired": [ "auth.token.post" ]
         },
         {
           "methods": [ "POST" ],
           "pathPattern": "/refreshtoken",
-          "permissionsRequired": [ "auth.signrefreshtoken" ]
+          "permissionsRequired": [ "auth.refreshtoken.post" ]
         }
       ]
     },
     {
       "id": "authtoken2",
-      "version": "1.0",
+      "version": "1.1",
       "handlers": [
         {
           "methods": [ "POST" ],
           "pathPattern": "/token/sign",
-          "permissionsRequired": [ "auth.signtoken" ]
+          "permissionsRequired": [ "auth.token.sign.post" ]
         },
         {
           "methods": [ "POST" ],
           "pathPattern": "/token/refresh",
-          "permissionsRequired": [ "auth.signrefreshtoken" ]
+          "permissionsRequired": [ "auth.token.refresh.post" ]
         },
         {
           "methods": [ "POST" ],
@@ -72,14 +72,55 @@
   ],
   "permissionSets": [
     {
-      "permissionName": "auth.signtoken",
-      "displayName": "auth-token - sign token",
-      "description": "sign token"
+      "permissionName": "auth.token.post",
+      "displayName": "auth-token - sign token - legacy, deprecated",
+      "description": "sign token, legacy, deprecated"
     },
     {
-      "permissionName": "auth.signrefreshtoken",
+      "permissionName": "auth.refreshtoken.post",
+      "displayName": "auth-token - sign refresh token - legacy, deprecated",
+      "description": "sign refresh token, legacy, deprecated"
+    },
+    {
+      "permissionName": "auth.token.sign.post",
+      "displayName": "auth-token - sign expiring token",
+      "description": "sign expiring token"
+    },
+    {
+      "permissionName": "auth.token.refresh.post",
+      "displayName": "auth-token - use refresh token to sign a new expiring token",
+      "description": "sign expiring token using refresh token"
+    },
+    {
+      "permissionName": "auth.signtoken.all",
+      "displayName": "auth-token - sign token",
+      "description": "sign token",
+      "subPermissions" : [
+        "auth.token.post",
+        "auth.token.sign.post"
+      ],
+      "replaces": "auth.signtoken"
+    },
+    {
+      "permissionName": "auth.signrefreshtoken.all",
       "displayName": "auth-token - sign refresh token",
-      "description": "sign refresh token"
+      "description": "sign refresh token",
+      "subPermissions" : [
+        "auth.refreshtoken.post",
+        "auth.token.refresh.post"
+      ],
+      "replaces": "auth.signrefreshtoken"
+    },
+    {
+      "permissionName": "auth.sign-and-refresh-token.all",
+      "displayName": "auth-token - sign and refresh token",
+      "description": "sign and refresh token",
+      "subPermissions" : [
+        "auth.token.post",
+        "auth.token.sign.post",
+        "auth.refreshtoken.post",
+        "auth.token.refresh.post"
+      ]
     }
   ],
   "filters": [
