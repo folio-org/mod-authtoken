@@ -15,7 +15,6 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.unit.Async;
 import io.vertx.ext.unit.junit.VertxUnitRunner;
 import io.vertx.ext.unit.TestContext;
-import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.util.ArrayList;
 
@@ -35,6 +34,7 @@ import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
 import org.folio.auth.authtokenmodule.tokens.legacy.LegacyTokenTenants;
 import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.okapi.common.XOkapiHeaders;
+import org.folio.tlib.postgres.testing.TenantPgPoolContainer;
 import org.junit.runner.RunWith;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.junit.AfterClass;
@@ -84,7 +84,7 @@ public class AuthTokenTest {
   Async async;
 
   @ClassRule
-  public static PostgreSQLContainer<?> postgresSQLContainer = TokenStoreTestContainer.create();
+  public static PostgreSQLContainer<?> postgresSQLContainer = TenantPgPoolContainer.create();
 
   @BeforeClass
   public static void setUpClass(TestContext context) throws JOSEException, ParseException {
