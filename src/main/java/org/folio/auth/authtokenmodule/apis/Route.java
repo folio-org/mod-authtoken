@@ -32,12 +32,7 @@ public class Route {
    * @param requiredPermissions The permissions that are required for the route.
    * @param handler The handler for the route.
    */
-  public Route(String endpoint, String[] requiredPermissions, Handler<RoutingContext> handler) {
-    init(endpoint, new ArrayList<>(Arrays.asList(requiredPermissions)), handler);
-  }
-
-  private void init(String endpoint, List<String> requiredPermissions,
-    Handler<RoutingContext> handler) {
+  public Route(String endpoint, List<String> requiredPermissions, Handler<RoutingContext> handler) {
     this.endpoint = endpoint;
     this.requiredPermissions = requiredPermissions;
     this.handler = handler;
