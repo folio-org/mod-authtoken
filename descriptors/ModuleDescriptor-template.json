@@ -99,7 +99,9 @@
         "auth.token.post",
         "auth.token.sign.post"
       ],
-      "replaces": "auth.signtoken"
+      "replaces": [
+        "auth.signtoken"
+      ]
     },
     {
       "permissionName": "auth.signrefreshtoken.all",
@@ -109,7 +111,9 @@
         "auth.refreshtoken.post",
         "auth.token.refresh.post"
       ],
-      "replaces": "auth.signrefreshtoken"
+      "replaces": [
+        "auth.signrefreshtoken"
+      ]
     },
     {
       "permissionName": "auth.sign-and-refresh-token.all",
