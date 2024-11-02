@@ -64,6 +64,7 @@ public class AuthTokenTest {
   private static TokenCreator tokenCreator;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String accessToken;
+  private static String moduleTokenLegacy;
   private static String moduleToken;
   private static String dummyToken;
 
@@ -107,10 +108,12 @@ public class AuthTokenTest {
     tokenCreator = new TokenCreator(passPhrase);
     accessToken = new AccessToken(tenant, "jones", userUUID,
                                   AccessToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWT(tokenCreator);
-    var extraPerms1 = new JsonArray().add("auth.signtoken");
-    moduleToken = new ModuleToken(tenant, "jones", userUUID, "", extraPerms1).encodeAsJWT(tokenCreator);
-    var extraPerms2 = new JsonArray().add("auth.signtoken").add(PermsMock.SYS_PERM_SET).add("abc.def");
-    tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
+    moduleTokenLegacy = new ModuleToken(tenant, "jones", userUUID, "", new JsonArray().add("auth.token.post"))
+        .encodeAsJWT(tokenCreator);
+    moduleToken = new ModuleToken(tenant, "jones", userUUID, "", new JsonArray().add("auth.token.sign.post"))
+        .encodeAsJWT(tokenCreator);
+    var extraPerms = new JsonArray().add("auth.token.post").add(PermsMock.SYS_PERM_SET).add("abc.def");
+    tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms).encodeAsJWT(tokenCreator);
     dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
     dummyTokenExpiring = new DummyTokenExpiring(tenant, new JsonArray(), "testuser", 100L).encodeAsJWT(tokenCreator);
     refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1",
@@ -577,14 +580,14 @@ public class AuthTokenTest {
           .post("/token")
           .then()
           .statusCode(401)
-          .body(containsString("Missing required module-level permissions for endpoint '/token': auth.signtoken"));
+          .body(containsString("Missing required module-level permissions for endpoint '/token': auth.token.post"));
     }
 
     @Test
     public void testSigningRequestWithGoodTokenNoPayload_Legacy() {
       given()
           .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", moduleToken)
+          .header("X-Okapi-Token", moduleTokenLegacy)
           .header("X-Okapi-Url", "http://localhost:" + freePort)
           .header("Content-type", "application/json")
           .post("/token")
@@ -748,7 +751,7 @@ public class AuthTokenTest {
             .post("/token/sign")
             .then()
             .statusCode(401)
-            .body(containsString("Missing required module-level permissions for endpoint '/token/sign': auth.signtoken"));
+            .body(containsString("Missing required module-level permissions for endpoint '/token/sign': auth.token.sign.post"));
       }
 
       @Test

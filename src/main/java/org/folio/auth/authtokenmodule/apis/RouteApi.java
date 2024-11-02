@@ -47,8 +47,6 @@ import org.folio.tlib.TenantInitHooks;
  * @see FilterApi
  */
 public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
-  private static final String SIGN_TOKEN_PERMISSION = "auth.signtoken";
-  private static final String SIGN_REFRESH_TOKEN_PERMISSION = "auth.signrefreshtoken";
   private static final String USER_ID = "user_id";
 
   private PermissionsSource permissionsSource;
@@ -84,23 +82,20 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     // createRouter. The filter API is responsible for calling these routes, but we
     // define them here.
     routes = new ArrayList<>();
-    routes.add(new Route("/token/sign",
-        new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
-    routes.add(new Route("/token/refresh",
-        new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
-    routes.add(new Route("/token/invalidate-all",
-        new String[] { }, RoutingContext::next));
+    addRoute("/token/sign", List.of("auth.token.sign.post"));
+    addRoute("/token/refresh", List.of("auth.token.refresh.post"));
+    addRoute("/token/invalidate-all", List.of());
     // Must come after /invalidate-all because of startsWithMatching in Route.java.
-    routes.add(new Route("/token/invalidate",
-        new String[] { }, RoutingContext::next));
-    routes.add(new Route("/_/tenant",
-        new String[] {}, RoutingContext::next));
+    addRoute("/token/invalidate", List.of());
+    addRoute("/_/tenant", List.of());
     // The "legacy" routes.
-    routes.add(new Route("/refreshtoken",
-        new String[] { SIGN_REFRESH_TOKEN_PERMISSION }, RoutingContext::next));
+    addRoute("/refreshtoken", List.of("auth.refreshtoken.post"));
     // This must be last because of the startsWith matching in Route.java.
-    routes.add(new Route("/token",
-        new String[] { SIGN_TOKEN_PERMISSION }, RoutingContext::next));
+    addRoute("/token", List.of("auth.token.post"));
+  }
+
+  private void addRoute(String endpoint, List<String> requiredPermissions) {
+    routes.add(new Route(endpoint, requiredPermissions, RoutingContext::next));
   }
 
   @Override

@@ -221,12 +221,10 @@ public class FilterApi extends Api implements RouterCreator {
         moduleTokens.put("_", authToken);
 
         /*
-         * When the initial request comes in, as a filter, we require that the auth.signtoken
+         * When the initial request comes in, as a filter, we require that the auth.token.sign.post
          * permission exists in the module tokens. This means that even if a request has
          * the permission in its permissions list, it cannot request a token unless
-         * it has been granted at the module level. If it passes the filter successfully,
-         * a new permission, auth.signtoken.execute is attached to the outgoing request
-         * which the /token/.. handlers will check for when it processes the actual request
+         * it has been granted at the module level.
          */
         if (routeApi.tryHandleRoute(ctx, authToken, moduleTokens.encode(), expandedPermissions)) {
           logger.debug("Handled mod-authtoken route request");
