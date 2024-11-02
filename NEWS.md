@@ -1,3 +1,12 @@
+## v2.16.1 2024-11-02
+
+* [MODAT-168](https://folio-org.atlassian.net/browse/MODAT-168) auth.\* permissions rename, review and cleanup Module Descriptor for mod-authtoken
+
+## v2.16.0 2024-11-02
+
+* [MODAT-169](https://folio-org.atlassian.net/browse/MODAT-169) Upgrade dependencies: Vert.x 4.5.10, okapi-common 6.1.0, folio-vertx-lib 3.3.0, …
+* [MODAT-170](https://folio-org.atlassian.net/browse/MODAT-170) perms.permissions.get rename
+
 ## v2.15.2 2024-06-06
 
 * [MODAT-167](https://folio-org.atlassian.net/browse/MODAT-167) Vert.x 4.5.8 fixing Netty form POST OOM CVE-2024-29025
