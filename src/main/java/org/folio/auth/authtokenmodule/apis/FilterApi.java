@@ -44,7 +44,8 @@ public class FilterApi extends Api implements RouterCreator {
   private static final String MISSING_HEADER = "Missing header: ";
   private static final String EXTRA_PERMS = "extra_permissions";
   private static final String PERMISSIONS_USER_READ_BIT = "perms.users.get";
-  private static final String PERMISSIONS_PERMISSION_READ_BIT = "perms.permissions.get";
+  private static final String PERMISSIONS_PERMISSIONS_COL = "perms.permissions.collection.get";
+  private static final String PERMISSIONS_PERMISSIONS_ITEM = "perms.permissions.item.get";
   private static final String PERMISSIONS_USERS_ITEM_GET = "users.item.get";
 
   private PermissionsSource permissionsSource;
@@ -139,7 +140,10 @@ public class FilterApi extends Api implements RouterCreator {
     String permissionsRequestToken;
     String userRequestToken;
     try {
-      var rtPerms = new JsonArray().add(PERMISSIONS_PERMISSION_READ_BIT).add(PERMISSIONS_USER_READ_BIT);
+      var rtPerms = new JsonArray()
+          .add(PERMISSIONS_PERMISSIONS_COL)
+          .add(PERMISSIONS_PERMISSIONS_ITEM)
+          .add(PERMISSIONS_USER_READ_BIT);
       permissionsRequestToken = new DummyToken(tenant, rtPerms).encodeAsJWT(tokenCreator);
       var userRTPerms = new JsonArray().add(PERMISSIONS_USERS_ITEM_GET);
       userRequestToken = new DummyToken(tenant, userRTPerms).encodeAsJWT(tokenCreator);
