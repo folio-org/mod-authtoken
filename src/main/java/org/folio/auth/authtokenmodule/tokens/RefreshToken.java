@@ -126,7 +126,7 @@ public class RefreshToken extends Token {
   }
 
   private static String convertMillisToUTC(long timestampMillis) {
-    ZonedDateTime utcDateTime = Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.of("UTC"));
+    ZonedDateTime utcDateTime = Instant.ofEpochSecond(timestampMillis).atZone(ZoneId.of("UTC"));
     var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'");
     return utcDateTime.format(formatter);
   }
