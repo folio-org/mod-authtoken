@@ -3,10 +3,6 @@ package org.folio.auth.authtokenmodule.tokens;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.Future;
 
-import java.util.Calendar;
-import java.util.Date;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import io.vertx.core.json.JsonArray;
 
 /**
@@ -26,10 +22,8 @@ public class DummyToken extends Token {
    * @param remoteIpAddress The remote ip address of the user requiring the dummy
    * token.
    */
-  public DummyToken(String tenant, String remoteIpAddress) {
-    DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
-    Date now = Calendar.getInstance().getTime();
-    String username = Token.UNDEFINED_USER_NAME + remoteIpAddress + "__" + df.format(now);
+  public DummyToken(String tenant, String randomString) {
+    String username = Token.UNDEFINED_USER_NAME + randomString;
     claims = new JsonObject()
     .put("type", TYPE)
     .put("sub", username)
