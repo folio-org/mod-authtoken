@@ -33,7 +33,7 @@ For the purposes of this form, "store" includes the following:
 - [ ] Social security number
 - [ ] Email address
 - [ ] Web cookies
-- [ ] IP address
+- [x] IP address: stored in refresh token, and in dummy access token before login
 - [ ] Geolocation data
 - [ ] Financial information
 - [ ] Logic or algorithms used to build a user/profile
