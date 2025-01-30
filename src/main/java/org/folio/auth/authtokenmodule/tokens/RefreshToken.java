@@ -48,7 +48,7 @@ public class RefreshToken extends Token {
    * @param expirationSeconds The seconds after which this token will be considered expired.
    *
    */
-  public RefreshToken(String tenant, String username, String userId, String address, long expirationSeconds) {
+  public RefreshToken(String tenant, String username, String userId, long expirationSeconds) {
     long now = Instant.now().getEpochSecond();
     claims = new JsonObject()
     .put("type", TYPE)
@@ -57,7 +57,6 @@ public class RefreshToken extends Token {
     .put("sub", username)
     .put("user_id", userId)
     .put("tenant", tenant)
-    .put("address", address)
     .put("jti", UUID.randomUUID().toString())
     .put("prn", TYPE);
   }
@@ -75,9 +74,6 @@ public class RefreshToken extends Token {
 
   protected Future<Token> validateContext(TokenValidationContext context) {
     return validateCommon(context)
-      .map(context.getHttpServerRequest().remoteAddress().host())
-      .compose(address -> address.equals(claims.getString("address")) ? Future.succeededFuture()
-        : Future.failedFuture(new TokenValidationException("Issuing address does not match for refresh token", 401)))
       .compose(aRes -> tokenIsExpired() ?
         Future.failedFuture(new TokenValidationException("Attempt to refresh with expired refresh token", 401))
         : Future.succeededFuture())
