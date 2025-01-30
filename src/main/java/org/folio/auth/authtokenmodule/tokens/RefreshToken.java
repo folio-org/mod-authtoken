@@ -94,21 +94,19 @@ public class RefreshToken extends Token {
   protected Future<Token> validateContext(TokenValidationContext context) {
     try {
       validateCommon(context.getHttpServerRequest());
-    } catch (Exception cause) {
-      var msg = addLoggingDetails("Unexpected exception during token common validation");
-      var e = new TokenValidationException(msg, cause, 403);
+    } catch (Exception e) {
       return Future.failedFuture(e);
     }
 
     String address = context.getHttpServerRequest().remoteAddress().host();
     if (!address.equals(claims.getString("address"))) {
 
-      var e = new TokenValidationException(addLoggingDetails("Issuing address does not match for refresh token"), 401);
+      var e = new TokenValidationException(addTokenDetails("Issuing address does not match for refresh token"), 401);
       return Future.failedFuture(e);
     }
 
     if (tokenIsExpired()) {
-      var e = new TokenValidationException(addLoggingDetails("Attempt to refresh with expired refresh token"), 401);
+      var e = new TokenValidationException(addTokenDetails("Attempt to refresh with expired refresh token"), 401);
       return Future.failedFuture(e);
     }
 
@@ -116,8 +114,8 @@ public class RefreshToken extends Token {
     return refreshTokenStore.checkTokenNotRevoked(this).map(this);
   }
 
-  public String addLoggingDetails(String msg) {
-    return msg + ". " +
+  public String addTokenDetails(String msg) {
+    return msg + " - RefreshToken details: " +
       "tokenId: " + getId() + "; " +
       "userId: " + getUserId() + "; " +
       "tenantId: " + getTenant() + ";  " +

@@ -124,12 +124,12 @@ public class RefreshTokenStore extends TokenStore {
     // else. Note that the token is signed so it can't have reached this point unless it
     // hasn't been tampered with.
     if (tokenHasExpired(refreshToken)) {
-      var e = new TokenValidationException(refreshToken.addLoggingDetails("Token has expired. Considered revoked."), 401);
+      var e = new TokenValidationException(refreshToken.addTokenDetails("Token has expired. Considered revoked."), 401);
       return Future.failedFuture(e);
     }
 
     // Next check the token against the database.
-    log.info(refreshToken.addLoggingDetails("Checking token redeemed"));
+    log.info(refreshToken.addTokenDetails("Checking token redeemed"));
 
     // Attempt to update the token to be revoked. If this update succeeds, the token
     // will now be marked as revoked, and a single row will be returned. If no rows
@@ -145,7 +145,7 @@ public class RefreshTokenStore extends TokenStore {
         // was never redeemed. The update however has now made it revoked
         // in an atomic operation. We can return success.
         if (rows.rowCount() == 1) {
-          log.info(refreshToken.addLoggingDetails("Token has not yet been used, but is now revoked because it has been"));
+          log.info(refreshToken.addTokenDetails("Token has not yet been used, but is now revoked because it has been"));
           return Future.succeededFuture();
         }
 
@@ -154,13 +154,13 @@ public class RefreshTokenStore extends TokenStore {
         // either because it has been removed in cleaning up expired tokens or never existed in
         // the first place.
         String leakedMessage = "Refresh token is considered revoked. Revoking all tokens for user.";
-        log.info(refreshToken.addLoggingDetails(leakedMessage));
+        log.info(refreshToken.addTokenDetails(leakedMessage));
 
         return revokeAllTokensForUser(conn, userId)
           .compose(x -> {
              var msg = "Token leaked, does not exist or no longer exists." +
                  " All tokens for user are now revoked.";
-             var e = new TokenValidationException(refreshToken.addLoggingDetails(msg), 401);
+             var e = new TokenValidationException(refreshToken.addTokenDetails(msg), 401);
              return Future.failedFuture(e);
          });
       });

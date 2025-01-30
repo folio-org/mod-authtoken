@@ -231,6 +231,8 @@ public abstract class Token {
    * other exceptions as well.
    */
   protected void validateCommon(HttpServerRequest request) throws TokenValidationException {
+    String claimsTenant = "";
+    String claimsUserId = "";
     try {
       // Check that the token has a source.
       if (source == null) {
@@ -256,19 +258,20 @@ public abstract class Token {
 
       // Check that some items in the headers match what are in the token.
       String headerTenant = request.headers().get(XOkapiHeaders.TENANT);
-      if (!claims.getString("tenant").equals(headerTenant)) {
-        throw new TokenValidationException("Tenant mismatch: tenant in header does not equal tenant in token", 403);
-      }
       String headerUserId = request.headers().get(XOkapiHeaders.USER_ID);
-      String claimsUserId = claims.getString("user_id");
+      claimsTenant = claims.getString("tenant");
+      claimsUserId = claims.getString("user_id");
+      if (!claimsTenant.equals(headerTenant)) {
+        throw new TokenValidationException(addTenantAndUserid("Tenant mismatch: tenant in header does not equal tenant in token", claimsTenant, claimsUserId), 403);
+      }
       if (headerUserId != null && claimsUserId != null && !claimsUserId.equals(headerUserId)) {
-        throw new TokenValidationException("User id in header does not equal user id in token", 403);
+        throw new TokenValidationException(addTenantAndUserid("User id in header does not equal user id in token", claimsTenant, claimsUserId), 403);
       }
     } catch (TokenValidationException e) {
       throw e;
     } catch (Exception e) {
       logger.error(e.getMessage(), e);
-      throw new TokenValidationException("Unexpected token validation exception", e, 500);
+      throw new TokenValidationException(addTenantAndUserid("Unexpected token validation exception", claimsTenant, claimsUserId), e, 500);
     }
   }
 
@@ -276,5 +279,11 @@ public abstract class Token {
     Long nowTime = Instant.now().getEpochSecond();
     Long expiration = claims.getLong("exp");
     return nowTime > expiration;
+  }
+
+  protected String addTenantAndUserid(String msg, String tenant, String userId) {
+    return msg + " - Token details: " +
+      "userId: " + userId + "; " +
+      "tenantId: " + tenant;
   }
 }
