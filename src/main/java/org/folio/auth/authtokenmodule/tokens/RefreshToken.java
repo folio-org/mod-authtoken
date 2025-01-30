@@ -3,6 +3,9 @@ package org.folio.auth.authtokenmodule.tokens;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 import org.folio.auth.authtokenmodule.storage.RefreshTokenStore;
@@ -28,6 +31,22 @@ public class RefreshToken extends Token {
 
   public long getExpiresAt() {
     return claims.getLong("exp");
+  }
+
+  public long getIssuedAt() {
+    return claims.getLong("iat");
+  }
+
+  public String getUsername() {
+    return claims.getString("sub");
+  }
+
+  public String getIpAddress() {
+    return claims.getString("address");
+  }
+
+  public String getType() {
+    return claims.getString("type");
   }
 
   /**
@@ -75,22 +94,42 @@ public class RefreshToken extends Token {
   protected Future<Token> validateContext(TokenValidationContext context) {
     try {
       validateCommon(context.getHttpServerRequest());
-    } catch (Exception e) {
+    } catch (Exception cause) {
+      var msg = addLoggingDetails("Unexpected exception during token common validation");
+      var e = new TokenValidationException(msg, cause, 403);
       return Future.failedFuture(e);
     }
 
     String address = context.getHttpServerRequest().remoteAddress().host();
     if (!address.equals(claims.getString("address"))) {
-      var e = new TokenValidationException("Issuing address does not match for refresh token", 401);
+
+      var e = new TokenValidationException(addLoggingDetails("Issuing address does not match for refresh token"), 401);
       return Future.failedFuture(e);
     }
 
     if (tokenIsExpired()) {
-      var e = new TokenValidationException("Attempt to refresh with expired refresh token", 401);
+      var e = new TokenValidationException(addLoggingDetails("Attempt to refresh with expired refresh token"), 401);
       return Future.failedFuture(e);
     }
 
     var refreshTokenStore = (RefreshTokenStore)context.getTokenStore();
     return refreshTokenStore.checkTokenNotRevoked(this).map(this);
+  }
+
+  public String addLoggingDetails(String msg) {
+    return msg + ". " +
+      "tokenId: " + getId() + "; " +
+      "userId: " + getUserId() + "; " +
+      "tenantId: " + getTenant() + ";  " +
+      "username: " + getUsername() + "; " +
+      "ipAddress: " + getIpAddress() + "; " +
+      "expiresAt: " + convertMillisToUTC(getExpiresAt()) + "; " +
+      "issuedAtAt: " + convertMillisToUTC(getIssuedAt()) + "; ";
+  }
+
+  private static String convertMillisToUTC(long timestampMillis) {
+    ZonedDateTime utcDateTime = Instant.ofEpochMilli(timestampMillis).atZone(ZoneId.of("UTC"));
+    var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'");
+    return utcDateTime.format(formatter);
   }
 }
