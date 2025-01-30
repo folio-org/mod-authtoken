@@ -121,11 +121,11 @@ public class RefreshToken extends Token {
       "tenantId: " + getTenant() + ";  " +
       "username: " + getUsername() + "; " +
       "ipAddress: " + getIpAddress() + "; " +
-      "expiresAt: " + convertMillisToUTC(getExpiresAt()) + "; " +
-      "issuedAtAt: " + convertMillisToUTC(getIssuedAt()) + "; ";
+      "expiresAt: " + convertSeconds(getExpiresAt()) + "; " +
+      "issuedAtAt: " + convertSeconds(getIssuedAt()) + "; ";
   }
 
-  private static String convertMillisToUTC(long timestampMillis) {
+  private static String convertSeconds(long timestampMillis) {
     ZonedDateTime utcDateTime = Instant.ofEpochSecond(timestampMillis).atZone(ZoneId.of("UTC"));
     var formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'");
     return utcDateTime.format(formatter);
