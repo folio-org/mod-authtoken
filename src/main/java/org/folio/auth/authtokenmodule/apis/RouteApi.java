@@ -261,8 +261,7 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
       String userId,
       JsonObject responseObject) {
 
-    String address = ctx.request().remoteAddress().host();
-    var rt = new RefreshToken(tenant, username, userId, address, tokenExpiration.getRefreshTokenExpiration(tenant));
+    var rt = new RefreshToken(tenant, username, userId, tokenExpiration.getRefreshTokenExpiration(tenant));
     var at = new AccessToken(tenant, username, userId, tokenExpiration.getAccessTokenExpiration(tenant));
 
     try {
@@ -374,12 +373,11 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
   private void handleSignRefreshTokenLegacy(RoutingContext ctx) {
     try {
       String tenant = ctx.request().headers().get(XOkapiHeaders.TENANT);
-      String address = ctx.request().remoteAddress().host();
       JsonObject requestJson = ctx.body().asJsonObject();
       String userId = requestJson.getString(USER_ID);
       String sub = requestJson.getString("sub");
       long expires = tokenExpiration.getRefreshTokenExpiration(tenant);
-      String refreshToken = new RefreshToken(tenant, sub, userId, address, expires).encodeAsJWE(tokenCreator);
+      String refreshToken = new RefreshToken(tenant, sub, userId, expires).encodeAsJWE(tokenCreator);
       JsonObject responseJson = new JsonObject().put(Token.REFRESH_TOKEN, refreshToken);
       endJson(ctx, 201, responseJson.encode());
     } catch (Exception e) {
