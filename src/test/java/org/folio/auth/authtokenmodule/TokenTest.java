@@ -96,7 +96,7 @@ public class TokenTest {
 
   @Test
   public void refreshTokenExpiringIsExpiredTest() throws JOSEException, ParseException {
-    var rt = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1", -1);
+    var rt = new RefreshToken(tenant, "jones", userUUID, -1);
     var tc = new TokenCreator(System.getProperty("jwt.signing.key"));
     assertTokenIsInvalid(rt.encodeAsJWE(tc), tc,401);
   }
@@ -110,7 +110,7 @@ public class TokenTest {
     String unencryptedToken =
       new AccessToken("test-tenant", "username-1", "userid-1", defaultAtExpires).encodeAsJWT(tokenCreator);
     String encryptedToken =
-      new RefreshToken("test-tenant", "username-1", "userid-1", "http://localhost", defaultRtExpires).encodeAsJWE(tokenCreator);
+      new RefreshToken("test-tenant", "username-1", "userid-1", defaultRtExpires).encodeAsJWE(tokenCreator);
 
     assertThat(Token.isEncrypted(encryptedToken), is(true));
     assertThat(Token.isEncrypted(unencryptedToken), is(false));
