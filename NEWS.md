@@ -1,3 +1,8 @@
+## v2.16.2 2025-02-04
+
+* [MODAT-172](https://folio-org.atlassian.net/browse/MODAT-172) Issuing address does not match for refresh token after Okapi ip address change
+* [MODAT-173](https://folio-org.atlassian.net/browse/MODAT-173) Remove ip and timestamp, use random to make unique dummy access token
+
 ## v2.16.1 2024-11-02
 
 * [MODAT-168](https://folio-org.atlassian.net/browse/MODAT-168) auth.\* permissions rename, review and cleanup Module Descriptor for mod-authtoken
