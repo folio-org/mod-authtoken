@@ -9,7 +9,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.UUID;
 import org.apache.logging.log4j.LogManager;
 import org.folio.auth.authtokenmodule.MainVerticle;
 import org.folio.auth.authtokenmodule.PermService;
@@ -124,7 +124,7 @@ public class FilterApi extends Api implements RouterCreator {
       logger.debug("Generating dummy authtoken");
       try {
         candidateToken = new DummyToken(tenant,
-            ctx.request().remoteAddress().toString()).encodeAsJWT(tokenCreator);
+            UUID.randomUUID().toString()).encodeAsJWT(tokenCreator);
       } catch (Exception e) {
         endText(ctx, 500, "Error creating candidate token: ", e);
         return;
