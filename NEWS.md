@@ -1,3 +1,8 @@
+## v2.15.3 2025-02-04
+
+* [MODAT-172](https://folio-org.atlassian.net/browse/MODAT-172) Issuing address does not match for refresh token after Okapi ip address change
+* [MODAT-173](https://folio-org.atlassian.net/browse/MODAT-173) Remove ip and timestamp, use random to make unique dummy access token
+
 ## v2.15.2 2024-06-06
 
 * [MODAT-167](https://folio-org.atlassian.net/browse/MODAT-167) Vert.x 4.5.8 fixing Netty form POST OOM CVE-2024-29025

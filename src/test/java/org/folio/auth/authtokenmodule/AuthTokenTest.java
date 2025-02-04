@@ -113,7 +113,7 @@ public class AuthTokenTest {
     tokenSystemPermission = new ModuleToken(tenant, "jones", userUUID, "", extraPerms2).encodeAsJWT(tokenCreator);
     dummyToken = new DummyToken(tenant, new JsonArray()).encodeAsJWT(tokenCreator);
     dummyTokenExpiring = new DummyTokenExpiring(tenant, new JsonArray(), "testuser", 100L).encodeAsJWT(tokenCreator);
-    refreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1",
+    refreshToken = new RefreshToken(tenant, "jones", userUUID,
                                     RefreshToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWE(tokenCreator);
 
     // Create some bad tokens, including one with a bad signing key.
@@ -122,7 +122,7 @@ public class AuthTokenTest {
     String badPassPhrase = "IncorrectBatteryHorseStaple";
     var badTokenCreator = new TokenCreator(badPassPhrase);
     badAccessToken = new AccessToken(tenant, "jones", userUUID, 100L).encodeAsJWT(badTokenCreator);
-    badRefreshToken = new RefreshToken(tenant, "jones", userUUID, "127.0.0.1", 100L).encodeAsJWE(badTokenCreator);
+    badRefreshToken = new RefreshToken(tenant, "jones", userUUID, 100L).encodeAsJWE(badTokenCreator);
 
     payloadDummySigningReq = new JsonObject()
         .put("dummy", true)
@@ -803,7 +803,6 @@ public class AuthTokenTest {
         var rt = (RefreshToken)Token.parse(encryptedRT, tokenCreator);
         assertThat(rt.getClaim("sub"), is(payloadSigningRequest.getString("sub")));
         assertNotNull(rt.getClaim("exp"));
-        assertNotNull(rt.getClaim("address"));
         assertNotNull(rt.getClaim("user_id"));
       }
 
@@ -985,20 +984,6 @@ public class AuthTokenTest {
           .then()
           .statusCode(403).body(containsString("Invalid token"));
 
-      logger.info("POST refresh token with bad address");
-      String refreshTokenBadAddress = tokenCreator.createJWEToken(
-          new JsonObject(tokenContent).put("address", "foo").encode());
-      given()
-          .header("X-Okapi-Tenant", tenant)
-          .header("X-Okapi-Token", at)
-          .header("X-Okapi-Url", "http://localhost:" + freePort)
-          .header("Content-type", "application/json")
-          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
-          .body(new JsonObject().put("refreshToken", refreshTokenBadAddress).encode())
-          .post("/token/refresh")
-          .then()
-          .statusCode(401).body(containsString("Invalid token"));
-
       logger.info("POST refresh token with bad expiry");
       String refreshTokenBadExpiry = tokenCreator.createJWEToken(
           new JsonObject(tokenContent).put("exp", 0L).encode());
@@ -1039,6 +1024,27 @@ public class AuthTokenTest {
           .get("/bar")
           .then()
           .statusCode(202);
+    }
+
+    @Test
+    public void testRefreshTokenWithBadAddress() throws Exception {
+      logger.info("POST refresh token with bad address");
+      var response = getSignTokenResponse();
+      String rt = response.extract().path("refreshToken");
+      String at = response.extract().path("accessToken");
+      var tokenContent = tokenCreator.decodeJWEToken(rt);
+      String refreshTokenBadAddress = tokenCreator.createJWEToken(
+          new JsonObject(tokenContent).put("address", "foo").encode());
+      given()
+          .header("X-Okapi-Tenant", tenant)
+          .header("X-Okapi-Token", at)
+          .header("X-Okapi-Url", "http://localhost:" + freePort)
+          .header("Content-type", "application/json")
+          .header("X-Okapi-Permissions", "[\"" + getMagicPermission("/token/refresh") + "\"]")
+          .body(new JsonObject().put("refreshToken", refreshTokenBadAddress).encode())
+          .post("/token/refresh")
+          .then()
+          .statusCode(201);
     }
 
     @Test
@@ -1494,7 +1500,7 @@ public class AuthTokenTest {
   @Test
   public void testStoreSaveRefreshToken(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
-    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
+    var rt = new RefreshToken(tenant, "jones", userUUID, 100L);
     ts.saveToken(rt)
         .compose(x -> ts.checkTokenNotRevoked(rt))
         .onComplete(context.asyncAssertSuccess());
@@ -1504,7 +1510,7 @@ public class AuthTokenTest {
   public void testStoreRefreshTokenNotFound(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
     // A RefreshToken which doesn't exist is treated as revoked.
-    var unsavedToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
+    var unsavedToken = new RefreshToken(tenant, "jones", userUUID, 100L);
     ts.checkTokenNotRevoked(unsavedToken).onComplete(context.asyncAssertFailure(e -> {
       assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
       assertThat(e.getMessage(), containsString("not exist"));
@@ -1515,7 +1521,7 @@ public class AuthTokenTest {
   @Test
   public void testStoreRefreshTokenExpired(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
-    var expiredToken = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, -10L);
+    var expiredToken = new RefreshToken(tenant, "jones", userUUID, -10L);
     ts.checkTokenNotRevoked(expiredToken).onComplete(context.asyncAssertFailure(e -> {
       assertThat(((TokenValidationException)e).getHttpResponseCode(), is(401));
       assertThat(e.getMessage(), containsString("expired"));
@@ -1561,7 +1567,7 @@ public class AuthTokenTest {
   @Test
   public void testRefreshTokenRevoked(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
-    var rt = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
+    var rt = new RefreshToken(tenant, "jones", userUUID, 100L);
     ts.saveToken(rt)
         .compose(x -> ts.checkTokenNotRevoked(rt))
         .compose(x -> ts.revokeToken(rt))
@@ -1577,9 +1583,9 @@ public class AuthTokenTest {
   public void testStoreRefreshTokenSingleUse(TestContext context) {
     var ts = new RefreshTokenStore(vertx, tenant);
     // Create and save some tokens.
-    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
-    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
-    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
+    var rt1 = new RefreshToken(tenant, "jones", userUUID, 100L);
+    var rt2 = new RefreshToken(tenant, "jones", userUUID, 100L);
+    var rt3 = new RefreshToken(tenant, "jones", userUUID, 100L);
     var s1 = ts.saveToken(rt1);
     var s2 = ts.saveToken(rt2);
     var s3 = ts.saveToken(rt3);
@@ -1610,11 +1616,11 @@ public class AuthTokenTest {
   @Test
   public void testStoreCleanupExpired(TestContext context) {
     // Create some tokens.
-    var rt1 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
-    var rt2 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, -10L);
-    var rt3 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
-    var rt4 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, -10L);
-    var rt5 = new RefreshToken(tenant, "jones", userUUID, "http://localhost:" + port, 100L);
+    var rt1 = new RefreshToken(tenant, "jones", userUUID, 100L);
+    var rt2 = new RefreshToken(tenant, "jones", userUUID, -10L);
+    var rt3 = new RefreshToken(tenant, "jones", userUUID, 100L);
+    var rt4 = new RefreshToken(tenant, "jones", userUUID, -10L);
+    var rt5 = new RefreshToken(tenant, "jones", userUUID, 100L);
 
     var ts = new RefreshTokenStore(vertx, tenant);
 
