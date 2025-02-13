@@ -10,7 +10,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.folio.auth.authtokenmodule.BadSignatureException;
 import org.folio.auth.authtokenmodule.TokenCreator;
-import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import java.text.ParseException;
 import java.time.Instant;
@@ -221,14 +220,12 @@ public abstract class Token {
         claims.put("type", DummyToken.TYPE);
         return new DummyToken(sourceToken, claims);
       } else {
-        claims.put("type", LegacyAccessToken.TYPE);
-        return new LegacyAccessToken(sourceToken, claims);
+        claims.put("type", AccessToken.TYPE);
+        return new AccessToken(sourceToken, claims);
       }
     }
 
     switch (tokenType) {
-      case LegacyAccessToken.TYPE:
-        return new LegacyAccessToken(sourceToken, claims);
       case AccessToken.TYPE:
         return new AccessToken(sourceToken, claims);
       case RefreshToken.TYPE:

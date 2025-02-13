@@ -31,8 +31,6 @@ import org.folio.auth.authtokenmodule.tokens.ModuleToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.Token;
 import org.folio.auth.authtokenmodule.tokens.TokenValidationException;
-import org.folio.auth.authtokenmodule.tokens.legacy.LegacyTokenTenants;
-import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.okapi.common.XOkapiHeaders;
 import org.folio.tlib.postgres.testing.TenantPgPoolContainer;
 import org.junit.runner.RunWith;
@@ -44,7 +42,6 @@ import org.junit.Test;
 
 import static io.restassured.RestAssured.*;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -82,15 +79,12 @@ public class AuthTokenTest {
   static int mockPort;
   static int freePort;
   static Vertx vertx;
-  Async async;
 
   @ClassRule
   public static PostgreSQLContainer<?> postgresSQLContainer = TenantPgPoolContainer.create();
 
   @BeforeClass
   public static void setUpClass(TestContext context) throws JOSEException, ParseException {
-    System.setProperty(LegacyTokenTenants.LEGACY_TOKEN_TENANTS, tenant);
-
     port = NetworkUtils.nextFreePort();
     mockPort = NetworkUtils.nextFreePort();
     freePort = NetworkUtils.nextFreePort();

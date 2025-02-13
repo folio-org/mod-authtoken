@@ -46,11 +46,9 @@ mod-authtoken supports a number of command line options as system properties, se
 * `cache.permissions` - Boolean controlling the permissions cache. Defaults to `true`.
 * `allow.cross.tenant.requests` - Boolean to allow (in consortia setups) or deny cross tenant requests. Defaults to `false`.
 * `token.expiration.seconds` - Override defaults for token expiration in the form of `tenantId:<tenant id>,accessToken:<seconds>,refreshToken:<seconds>;accessToken:<seconds>,refreshToken:<seconds>`. To override defaults for a specific tenant provide a triplet. To override defaults provide a pair. Separate entries in the string with a `;` character. Neither tenant entries nor a default are required. If a default or a key is not provided, a default of 10 minutes is set by the module for the access token, and a default of one week is set by the module for the refresh token. Note that the invalidate APIs invalidate refresh tokens only. An access token cannot be invalidated and remains valid until its expiration time; this is by design because the access token is stateless.
-* `legacy.token.tenants` - A comma separated list of tenant ids for which legacy (non-expiring) tokens are supported. Provide `*` to enable legacy tokens for all tenants or, do not provide the property at all. To disable legacy tokens for all tenants provide the key with an empty value. This will change to the default behavior in a future release.
 
 # Environment variables
 * `TOKEN_EXPIRATION_SECONDS` - Identical to `token.expiration.seconds` as specified above. Provided as a convenience. System property takes precedence.
-* `LEGACY_TOKEN_TENANTS` - Identical to `legacy.token.tenanats`.
 * `DB_HOST` - Postgres hostname. Defaults to `localhost`.
 * `DB_PORT` - Postgres port. Default to `5432`.
 * `DB_USERNAME` - Postgres username. Defaults to `root`.

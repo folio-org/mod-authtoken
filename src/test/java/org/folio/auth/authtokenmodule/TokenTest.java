@@ -12,7 +12,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.net.SocketAddress;
 import org.folio.auth.authtokenmodule.tokens.AccessToken;
 import org.folio.auth.authtokenmodule.tokens.DummyToken;
-import org.folio.auth.authtokenmodule.tokens.legacy.LegacyAccessToken;
 import org.folio.auth.authtokenmodule.tokens.RefreshToken;
 import org.folio.auth.authtokenmodule.tokens.DummyTokenExpiring;
 import org.folio.auth.authtokenmodule.tokens.Token;
@@ -130,7 +129,7 @@ public class TokenTest {
     JsonObject claims = new JsonObject()
       .put("tenant", "lib");
     Token parse = Token.parse(".", claims);
-    assertThat(parse, is(instanceOf(LegacyAccessToken.class)));
+    assertThat(parse, is(instanceOf(AccessToken.class)));
   }
 
   @Test
