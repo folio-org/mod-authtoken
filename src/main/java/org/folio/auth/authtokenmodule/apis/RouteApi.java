@@ -88,10 +88,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     // Must come after /invalidate-all because of startsWithMatching in Route.java.
     addRoute("/token/invalidate", List.of());
     addRoute("/_/tenant", List.of());
-    // The "legacy" routes.
-    addRoute("/refreshtoken", List.of("auth.refreshtoken.post"));
-    // This must be last because of the startsWith matching in Route.java.
-    addRoute("/token", List.of("auth.token.post"));
   }
 
   private void addRoute(String endpoint, List<String> requiredPermissions) {
@@ -103,12 +99,6 @@ public class RouteApi extends Api implements RouterCreator, TenantInitHooks {
     // Bind the openapi yaml definition with the handler methods defined here.
     return RouterBuilder.create(vertx, "openapi/token-1.0.yaml")
         .map(routerBuilder -> {
-          routerBuilder
-              .operation("token-legacy")
-              .handler(this::handleSignLegacyToken);
-          routerBuilder
-              .operation("token-sign-legacy")
-              .handler(this::handleSignRefreshTokenLegacy);
           routerBuilder
               .operation("token-refresh")
               .handler(this::handleRefresh);
