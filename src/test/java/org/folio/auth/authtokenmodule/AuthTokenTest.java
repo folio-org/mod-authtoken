@@ -61,7 +61,6 @@ public class AuthTokenTest {
   private static TokenCreator tokenCreator;
   private static String userUUID = "007d31d2-1441-4291-9bb8-d6e2c20e399a";
   private static String accessToken;
-  private static String moduleTokenLegacy;
   private static String moduleToken;
   private static String dummyToken;
 
@@ -102,8 +101,6 @@ public class AuthTokenTest {
     tokenCreator = new TokenCreator(passPhrase);
     accessToken = new AccessToken(tenant, "jones", userUUID,
                                   AccessToken.DEFAULT_EXPIRATION_SECONDS).encodeAsJWT(tokenCreator);
-    moduleTokenLegacy = new ModuleToken(tenant, "jones", userUUID, "", new JsonArray().add("auth.token.post"))
-        .encodeAsJWT(tokenCreator);
     moduleToken = new ModuleToken(tenant, "jones", userUUID, "", new JsonArray().add("auth.token.sign.post"))
         .encodeAsJWT(tokenCreator);
     var extraPerms = new JsonArray().add("auth.token.post").add(PermsMock.SYS_PERM_SET).add("abc.def");
