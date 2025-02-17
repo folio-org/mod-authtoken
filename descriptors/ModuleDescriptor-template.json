@@ -3,22 +3,6 @@
   "name": "authtoken",
   "provides": [
     {
-      "id": "authtoken",
-      "version": "2.1",
-      "handlers": [
-        {
-          "methods": [ "POST" ],
-          "pathPattern": "/token",
-          "permissionsRequired": [ "auth.token.post" ]
-        },
-        {
-          "methods": [ "POST" ],
-          "pathPattern": "/refreshtoken",
-          "permissionsRequired": [ "auth.refreshtoken.post" ]
-        }
-      ]
-    },
-    {
       "id": "authtoken2",
       "version": "1.1",
       "handlers": [
