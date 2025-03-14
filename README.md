@@ -1,6 +1,6 @@
 # mod-authtoken
 
-Copyright (C) 2016-2024 The Open Library Foundation
+Copyright (C) 2016-2025 The Open Library Foundation
 
 This software is distributed under the terms of the Apache License,
 Version 2.0. See the file "[LICENSE](LICENSE)" for more information.
@@ -17,7 +17,7 @@ that privileged modules (such as Authentication) may make use of.
 
 ## System requirements
 
-* Java 17
+* Java 21
 
 * Apache Maven 3.8.x or higher
 
